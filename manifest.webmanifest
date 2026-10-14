@@ -1,11 +1,11 @@
 {
-  "name": "Oh ! Potentiel ContentsHelper",
-  "short_name": "ContentsHelper",
+  "name": "PostsOP",
+  "short_name": "PostsOP",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#F5F5F7",
-  "theme_color": "#F5F5F7",
+  "background_color": "#F6F4EF",
+  "theme_color": "#F6F4EF",
   "lang": "fr",
   "icons": [
     { "src": "icon-180.png", "sizes": "180x180", "type": "image/png" },

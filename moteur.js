@@ -16,13 +16,25 @@
   // Pour chaque fond : texte, mise en valeur, filet des citations, bandeau, surligneur, encadré, décor.
   // Interdits respectés par construction : jamais de texte vert ou blanc sur fond pâle,
   // ni blanc sur vert, ni vert sur blanc.
-  const FONDS = {
-    bleu: { nom: 'Bleu', fond: P.bleu, texte: P.blanc, accent: P.vert, filet: null, bande: { fond: P.vert, texte: P.bleu }, surligne: { fond: P.vert, texte: P.bleu }, carte: { fond: P.blanc, texte: P.bleu }, decor: P.vert },
-    blanc: { nom: 'Blanc', fond: P.blanc, texte: P.bleu, accent: P.bleu, filet: P.vert, bande: { fond: P.vert, texte: P.bleu }, surligne: { fond: P.vert, texte: P.bleu }, carte: { fond: P.bleu, texte: P.blanc }, decor: P.vert },
-    vert: { nom: 'Vert', fond: P.vert, texte: P.bleu, accent: P.bleu, filet: P.bleu, bande: { fond: P.bleu, texte: P.blanc }, surligne: { fond: P.blanc, texte: P.bleu }, carte: { fond: P.blanc, texte: P.bleu }, decor: P.bleu },
-    bleuPale: { nom: 'Bleu pâle', fond: P.bleuPale, texte: P.bleu, accent: P.bleu, filet: P.vert, bande: { fond: P.bleu, texte: P.blanc }, surligne: { fond: P.vert, texte: P.bleu }, carte: { fond: P.bleu, texte: P.blanc }, decor: P.vert },
-    vertPale: { nom: 'Vert pâle', fond: P.vertPale, texte: P.bleu, accent: P.bleu, filet: P.bleu, bande: { fond: P.bleu, texte: P.blanc }, surligne: { fond: P.vert, texte: P.bleu }, carte: { fond: P.bleu, texte: P.blanc }, decor: P.bleu },
+  function construireFonds(p) {
+    return {
+      bleu: { nom: 'Bleu', fond: p.bleu, texte: p.blanc, accent: p.vert, filet: null, bande: { fond: p.vert, texte: p.bleu }, surligne: { fond: p.vert, texte: p.bleu }, carte: { fond: p.blanc, texte: p.bleu }, decor: p.vert },
+      blanc: { nom: 'Blanc', fond: p.blanc, texte: p.bleu, accent: p.bleu, filet: p.vert, bande: { fond: p.vert, texte: p.bleu }, surligne: { fond: p.vert, texte: p.bleu }, carte: { fond: p.bleu, texte: p.blanc }, decor: p.vert },
+      vert: { nom: 'Vert', fond: p.vert, texte: p.bleu, accent: p.bleu, filet: p.bleu, bande: { fond: p.bleu, texte: p.blanc }, surligne: { fond: p.blanc, texte: p.bleu }, carte: { fond: p.blanc, texte: p.bleu }, decor: p.bleu },
+      bleuPale: { nom: 'Bleu pâle', fond: p.bleuPale, texte: p.bleu, accent: p.bleu, filet: p.vert, bande: { fond: p.bleu, texte: p.blanc }, surligne: { fond: p.vert, texte: p.bleu }, carte: { fond: p.bleu, texte: p.blanc }, decor: p.vert },
+      vertPale: { nom: 'Vert pâle', fond: p.vertPale, texte: p.bleu, accent: p.bleu, filet: p.bleu, bande: { fond: p.bleu, texte: p.blanc }, surligne: { fond: p.vert, texte: p.bleu }, carte: { fond: p.bleu, texte: p.blanc }, decor: p.bleu },
+    };
+  }
+  const FONDS = construireFonds(PALETTE);
+  const cacheFonds = new WeakMap();
+  const fondsDe = (palette) => {
+    if (!palette) return FONDS;
+    if (!cacheFonds.has(palette)) cacheFonds.set(palette, construireFonds({ ...PALETTE, ...palette }));
+    return cacheFonds.get(palette);
   };
+
+  // Charte par défaut : modifiable dans Configuration › Charte, et enregistrée dans projet.json.
+  const CHARTE_DEFAUT = { palette: { ...PALETTE }, tailleTitre: 114, tailleTexte: 39 };
 
   const FORMATS = {
     carre: { nom: 'Carré 1:1', l: 1080, h: 1080 },
@@ -55,6 +67,31 @@
     T5: { nom: 'Encadré', famille: 'Texte', aide: 'Les phrases-chocs dans un encadré.' },
     F1: { nom: 'Fin centrée', famille: 'Fin', aide: 'Le texte centré, les fleurs et le logo au centre.' },
   };
+
+  // Pour chaque gabarit : les natures de paragraphe qui ont un effet, et leur nom dans ce gabarit.
+  const NATURES_PAR_GABARIT = {
+    couverture: [['titre', 'Titre'], ['contrepoint', 'Contrepoint']],
+    V3: [['titre', 'Phrase d’introduction'], ['contrepoint', 'Grand mot, puis suite']],
+    T1: [['corps', 'Texte'], ['emphase', 'Phrase-choc'], ['citation', 'Citation']],
+    T2: [['emphase', 'Phrase en grand'], ['citation', 'Citation en grand']],
+    T3: [['corps', 'Texte'], ['emphase', 'Surlignée'], ['citation', 'Citation']],
+    T4: [['corps', 'Texte'], ['citation', 'Grande citation'], ['emphase', 'Phrase-choc']],
+    T5: [['corps', 'Texte'], ['emphase', 'Encadrée'], ['citation', 'Citation']],
+    F1: [['corps', 'Texte'], ['emphase', 'Phrase-choc'], ['citation', 'Citation']],
+  };
+  function naturesUtiles(gabarit) {
+    if (gabarit === 'V3') return NATURES_PAR_GABARIT.V3;
+    if (/^V/.test(gabarit)) return NATURES_PAR_GABARIT.couverture;
+    return NATURES_PAR_GABARIT[gabarit] || NATURES_PAR_GABARIT.T1;
+  }
+  // Nature affichée quand un paragraphe vient d'un autre gabarit (son texte et sa nature d'origine sont conservés).
+  function natureAffichee(gabarit, nature, position) {
+    const utiles = naturesUtiles(gabarit).map((n) => n[0]);
+    if (utiles.includes(nature)) return nature;
+    if (/^V/.test(gabarit)) return position === 0 ? 'titre' : 'contrepoint';
+    if (nature === 'titre' || nature === 'contrepoint') return utiles.includes('emphase') ? 'emphase' : utiles[0];
+    return utiles[0];
+  }
 
   const LIMITES_SLIDES = { instagram: 20, linkedin: 100 }; // à vérifier au développement : elles changent
 
@@ -174,23 +211,31 @@
     return 'T1';
   }
 
-  // Une ligne de texte courant à 39 px, interligne 1,25 : l'unité d'espacement entre paragraphes.
-  const LIGNE = 39 * 1.25;
 
   function specsTexte(blocs, fond, options = {}) {
+    const t = options.tailleTexte || 39;
+    const ligne = t * 1.25;
     return blocs.map((b) => {
       const n = b.style;
-      if (n === 'citation') return { texte: b.texte, role: 'light', taille: 39, interligne: 1.25, couleur: fond.accent, filet: fond.filet, espaceApres: LIGNE };
-      if (n === 'corps') return { texte: b.texte, role: 'light', taille: 39, interligne: 1.25, couleur: fond.texte, espaceApres: LIGNE };
+      if (n === 'citation') return { texte: b.texte, role: 'light', taille: t, interligne: 1.25, couleur: fond.accent, filet: fond.filet, espaceApres: ligne };
+      if (n === 'corps') return { texte: b.texte, role: 'light', taille: t, interligne: 1.25, couleur: fond.texte, espaceApres: ligne };
       // emphase, titre, contrepoint
-      if (options.surligne) return { texte: b.texte, role: 'bold', taille: options.tailleSurligne || 58, interligne: 1.4, couleur: fond.surligne.texte, surligne: fond.surligne.fond, espaceApres: LIGNE };
-      return { texte: b.texte, role: 'bold', taille: 39, interligne: 1.25, couleur: fond.texte, espaceApres: LIGNE };
+      if (options.surligne) return { texte: b.texte, role: 'bold', taille: options.tailleSurligne || t * 1.5, interligne: 1.4, couleur: fond.surligne.texte, surligne: fond.surligne.fond, espaceApres: ligne };
+      return { texte: b.texte, role: 'bold', taille: t, interligne: 1.25, couleur: fond.texte, espaceApres: ligne };
     });
   }
 
   function composer(slide, formatId, fondId, choisirPolice, contexte = {}) {
     const fmt = FORMATS[formatId];
-    const fond = FONDS[fondId] || FONDS.bleu;
+    const charte = contexte.charte || CHARTE_DEFAUT;
+    const fonds = fondsDe(charte.palette);
+    const fond = fonds[fondId] || fonds.bleu;
+    const kT = (charte.tailleTexte || 39) / 39; // échelle du texte courant
+    const kC = (charte.tailleTitre || 114) / 114; // échelle des couvertures
+    const T = (n) => Math.round(n * kT);
+    const C = (n) => Math.round(n * kC);
+    const LIGNE = T(39) * 1.25;
+    const optionsTexte = { tailleTexte: T(39) };
     const index = contexte.index || 0;
     const total = contexte.total || 1;
     const reglages = contexte.reglages || {};
@@ -229,34 +274,34 @@
 
     switch (gab) {
       case 'V1': {
-        elements = pileCentree(empiler(couverture(114, fond.texte, fond.accent, cp), zone, choisirPolice), haut, bas);
+        elements = pileCentree(empiler(couverture(C(114), fond.texte, fond.accent, cp), zone, choisirPolice), haut, bas);
         break;
       }
       case 'V2': {
         const bandeHaut = Math.round(H * 0.593);
         const bandeH = Math.round(H * 0.278);
-        const t = empiler(titre ? [{ texte: titre.texte, role: 'bold', taille: 104, interligne: 1.08, couleur: fond.texte }] : [], zone, choisirPolice);
+        const t = empiler(titre ? [{ texte: titre.texte, role: 'bold', taille: C(104), interligne: 1.08, couleur: fond.texte }] : [], zone, choisirPolice);
         elements.push(...pileHaut(t, haut + 40, bandeHaut - 30));
         elements.push({ type: 'rect', x: 0, y: bandeHaut, l: L, h: bandeH, couleur: fond.bande.fond });
         const zoneBande = { ...zone, largeur: L - 2 * MARGES.gauche };
-        const c = ajuster((taille) => suite.map((b) => ({ texte: b.texte, role: 'bold', taille, interligne: 1.08, couleur: fond.bande.texte })), zoneBande, bandeH - 60, choisirPolice, 92, 56);
+        const c = ajuster((taille) => suite.map((b) => ({ texte: b.texte, role: 'bold', taille, interligne: 1.08, couleur: fond.bande.texte })), zoneBande, bandeH - 60, choisirPolice, C(92), C(56));
         elements.push(...pileCentree(c, bandeHaut + 30, bandeHaut + bandeH - 30));
         break;
       }
       case 'V3': {
-        if (!suite.length) { elements = pileCentree(empiler(couverture(114, fond.texte, fond.accent, cp), zone, choisirPolice), haut, bas); break; }
+        if (!suite.length) { elements = pileCentree(empiler(couverture(C(114), fond.texte, fond.accent, cp), zone, choisirPolice), haut, bas); break; }
         const texteSuite = suite.map((b) => b.texte).join('\n');
         const coupe = texteSuite.includes('\n') ? texteSuite.indexOf('\n') : (texteSuite.indexOf(' ') > 0 ? texteSuite.indexOf(' ') : texteSuite.length);
         const grand = texteSuite.slice(0, coupe).trim();
         const reste = texteSuite.slice(coupe).replace(/\n/g, ' ').trim();
         const zoneLarge = { ...zone, largeur: L - 2 * MARGES.gauche };
         const police = choisirPolice('bold');
-        let tailleGrand = 230;
-        while (tailleGrand > 120 && police.mesurer(grand, tailleGrand) > zoneLarge.largeur) tailleGrand -= 10;
+        let tailleGrand = C(230);
+        while (tailleGrand > C(120) && police.mesurer(grand, tailleGrand) > zoneLarge.largeur) tailleGrand -= 10;
         const specs = [
-          ...(titre ? [{ texte: titre.texte.replace(/\n/g, ' '), role: 'light', taille: 52, interligne: 1.2, couleur: fond.texte, espaceApres: 36 }] : []),
+          ...(titre ? [{ texte: titre.texte.replace(/\n/g, ' '), role: 'light', taille: C(52), interligne: 1.2, couleur: fond.texte, espaceApres: 36 }] : []),
           { texte: grand, role: 'bold', taille: tailleGrand, interligne: 1, couleur: fond.accent, espaceApres: 36 },
-          ...(reste ? [{ texte: reste, role: 'bold', taille: 84, interligne: 1.1, couleur: fond.texte }] : []),
+          ...(reste ? [{ texte: reste, role: 'bold', taille: C(84), interligne: 1.1, couleur: fond.texte }] : []),
         ];
         elements = pileCentree(empiler(specs, zoneLarge, choisirPolice), haut + 30, bas - 30);
         break;
@@ -264,36 +309,36 @@
       case 'V4': {
         const coupe = Math.round(H * 0.556);
         const zoneLarge = { ...zone, largeur: L - 2 * MARGES.gauche };
-        const t = ajuster((taille) => (titre ? [{ texte: titre.texte, role: 'bold', taille, interligne: 1.08, couleur: fond.texte }] : []), zoneLarge, coupe - 56 - haut, choisirPolice, 96, 56);
+        const t = ajuster((taille) => (titre ? [{ texte: titre.texte, role: 'bold', taille, interligne: 1.08, couleur: fond.texte }] : []), zoneLarge, coupe - 56 - haut, choisirPolice, C(96), C(56));
         const yTitre = coupe - 56 - t.hauteur;
         if (yTitre < haut - 0.5) deborde = true;
         tropLarge = tropLarge || t.tropLarge;
         elements.push({ type: 'rect', x: 0, y: coupe, l: L, h: H - coupe, couleur: fond.bande.fond });
         elements.push(...decaler(t.elements, yTitre));
-        const c = ajuster((taille) => suite.map((b) => ({ texte: b.texte, role: 'bold', taille, interligne: 1.08, couleur: fond.bande.texte })), zoneLarge, bas - coupe - 56, choisirPolice, 96, 56);
+        const c = ajuster((taille) => suite.map((b) => ({ texte: b.texte, role: 'bold', taille, interligne: 1.08, couleur: fond.bande.texte })), zoneLarge, bas - coupe - 56, choisirPolice, C(96), C(56));
         elements.push(...pileHaut(c, coupe + 56, bas));
         couleurPied = fond.bande.texte;
         break;
       }
       case 'V5': {
-        elements = pileHaut(empiler(couverture(96, fond.texte, fond.accent, cp), zone, choisirPolice), haut + 10, H - 300);
+        elements = pileHaut(empiler(couverture(C(96), fond.texte, fond.accent, cp), zone, choisirPolice), haut + 10, H - 300);
         const l = Math.round(L * 0.52);
         const h = Math.round((l * 275) / 696);
         elements.push({ type: 'image', cle: 'fleurs', x: L - 60 - l, y: H - 70 - h, l, h, libelle: 'Fleurs', couleur: fond.texte });
         break;
       }
       case 'T2': {
-        const c = ajuster((taille) => blocs.map((b) => ({ texte: b.texte, role: 'bold', taille, interligne: 1.1, couleur: b.style === 'citation' ? fond.accent : fond.texte, espaceApres: taille * 0.4 })), zone, bas - haut, choisirPolice, 140, 52);
+        const c = ajuster((taille) => blocs.map((b) => ({ texte: b.texte, role: 'bold', taille, interligne: 1.1, couleur: b.style === 'citation' ? fond.accent : fond.texte, espaceApres: taille * 0.4 })), zone, bas - haut, choisirPolice, T(140), T(52));
         elements = pileCentree(c, haut, bas);
         break;
       }
       case 'T3': {
-        const pile = ajuster((taille) => specsTexte(blocs, fond, { surligne: true, tailleSurligne: taille }), zone, bas - haut, choisirPolice, 58, 42);
+        const pile = ajuster((taille) => specsTexte(blocs, fond, { ...optionsTexte, surligne: true, tailleSurligne: taille }), zone, bas - haut, choisirPolice, T(58), T(42));
         elements = pileHaut(pile, haut, bas);
         break;
       }
       case 'T4': {
-        if (!blocs.some((b) => b.style === 'citation')) { elements = pileHaut(empiler(specsTexte(blocs, fond), zone, choisirPolice), haut, bas); break; }
+        if (!blocs.some((b) => b.style === 'citation')) { elements = pileHaut(empiler(specsTexte(blocs, fond, optionsTexte), zone, choisirPolice), haut, bas); break; }
         const zoneLarge = { ...zone, largeur: L - MARGES.gauche - 120 };
         let premiere = true;
         const pile = ajuster((taille) => {
@@ -304,24 +349,24 @@
               premiere = false;
               return spec;
             }
-            return { texte: b.texte, role: b.style === 'corps' ? 'light' : 'bold', taille: 39, interligne: 1.25, couleur: fond.texte, largeur: zone.largeur, espaceApres: LIGNE };
+            return { texte: b.texte, role: b.style === 'corps' ? 'light' : 'bold', taille: T(39), interligne: 1.25, couleur: fond.texte, largeur: zone.largeur, espaceApres: LIGNE };
           });
-        }, zoneLarge, bas - haut, choisirPolice, 56, 40);
+        }, zoneLarge, bas - haut, choisirPolice, T(56), T(40));
         elements = pileHaut(pile, haut, bas);
         break;
       }
       case 'T5': {
         const zoneLarge = { ...zone, largeur: L - 2 * MARGES.gauche };
         const pile = ajuster((taille) => blocs.map((b) => {
-          if (b.style === 'corps' || b.style === 'citation') return { ...specsTexte([b], fond)[0], largeur: zone.largeur, espaceApres: 56 };
+          if (b.style === 'corps' || b.style === 'citation') return { ...specsTexte([b], fond, optionsTexte)[0], largeur: zone.largeur, espaceApres: 56 };
           return { texte: b.texte, role: 'bold', taille, interligne: 1.15, couleur: fond.carte.texte, carte: { fond: fond.carte.fond, marge: 56 }, espaceApres: 56 };
-        }), zoneLarge, bas - haut, choisirPolice, 76, 40);
+        }), zoneLarge, bas - haut, choisirPolice, T(76), T(40));
         elements = pileHaut(pile, haut, bas);
         break;
       }
       case 'F1': {
         const zoneCentre = { x: 140, largeur: L - 280, alignement: 'centre' };
-        const specs = blocs.map((b) => ({ texte: b.texte, role: b.style === 'corps' || b.style === 'citation' ? 'light' : 'bold', taille: 52, interligne: 1.3, couleur: b.style === 'citation' ? fond.accent : fond.texte, espaceApres: 40 }));
+        const specs = blocs.map((b) => ({ texte: b.texte, role: b.style === 'corps' || b.style === 'citation' ? 'light' : 'bold', taille: T(52), interligne: 1.3, couleur: b.style === 'citation' ? fond.accent : fond.texte, espaceApres: 40 }));
         const pile = empiler(specs, zoneCentre, choisirPolice);
         const y0 = Math.round(H * 0.213);
         elements.push(...pileHaut(pile, y0, H - 420));
@@ -332,7 +377,7 @@
         break;
       }
       default: { // T1
-        elements = pileHaut(empiler(specsTexte(blocs, fond), zone, choisirPolice), haut, bas);
+        elements = pileHaut(empiler(specsTexte(blocs, fond, optionsTexte), zone, choisirPolice), haut, bas);
       }
     }
 
@@ -460,7 +505,7 @@
   }
 
   // Découpage sans IA : on remplit chaque slide de paragraphes tant qu'ils tiennent.
-  function decouperMecaniquement(paragraphes, formatId, fondId, choisirPolice) {
+  function decouperMecaniquement(paragraphes, formatId, fondId, choisirPolice, contexte = {}) {
     const slides = [];
     if (!paragraphes.length) return slides;
     const [premier, ...suite] = paragraphes;
@@ -470,7 +515,7 @@
       const style = /^«/.test(p.trim()) ? 'citation' : 'corps';
       if (courante) {
         const essai = { ...courante, blocs: [...courante.blocs, { style, texte: p }] };
-        if (!composer(essai, formatId, fondId, choisirPolice).deborde) { courante = essai; continue; }
+        if (!composer(essai, formatId, fondId, choisirPolice, contexte).deborde) { courante = essai; continue; }
         slides.push(courante);
       }
       courante = { role: 'Texte', gabarit: 'T1', blocs: [{ style, texte: p }] };
@@ -479,7 +524,7 @@
     const derniere = slides[slides.length - 1];
     derniere.signature = true;
     const fin = { role: 'Texte', gabarit: 'T1', blocs: [], signature: true };
-    while (derniere.blocs.length > 1 && composer(derniere, formatId, fondId, choisirPolice).deborde) fin.blocs.unshift(derniere.blocs.pop());
+    while (derniere.blocs.length > 1 && composer(derniere, formatId, fondId, choisirPolice, contexte).deborde) fin.blocs.unshift(derniere.blocs.pop());
     if (fin.blocs.length) { derniere.signature = false; slides.push(fin); }
     return slides;
   }
@@ -515,7 +560,7 @@
   }
 
   const api = {
-    PALETTE, FONDS, FORMATS, MARGES, NATURES, GABARITS, LIMITES_SLIDES,
+    PALETTE, FONDS, CHARTE_DEFAUT, construireFonds, fondsDe, naturesUtiles, natureAffichee, FORMATS, MARGES, NATURES, GABARITS, LIMITES_SLIDES,
     policeExacte, policeSysteme, couperLignes, composer, dessiner, gabaritParDefaut,
     compterMots, passagesManquants, textesAjoutes, controler, decouperMecaniquement, proposerPresentation,
   };

@@ -1,0 +1,1183 @@
+/*
+ * PostsOP — application (phase 2 : le socle réel)
+ *
+ * Tout est enregistré sur l'appareil et synchronisé avec ton dépôt GitHub privé :
+ * articles, charte, réglages, polices, logo et fleurs.
+ * Réel : rendu, 11 gabarits, contrôles qualité, découpage sans IA, LanguageTool, annulation,
+ * synchronisation. À venir : import Word et export (phase 3), propositions de l'IA (phases 4 à 6),
+ * traduction (phase 7).
+ */
+(function (racine) {
+  'use strict';
+
+  const React = racine.React || require('react');
+  const M = racine.PostsOPMoteur || require('./moteur.js');
+  const S = racine.PostsOPSynchro || require('./synchro.js');
+  const { createElement: h, Fragment, Component, useState, useReducer, useEffect, useRef, useContext, createContext } = React;
+
+  const NB = '\u00A0';
+  const cls = (...noms) => noms.filter(Boolean).join(' ');
+  const maintenant = () => new Date().toISOString();
+  const nouvelId = () => 'a-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+  /* ================================================================== */
+  /* 1. Données de départ                                                */
+  /* ================================================================== */
+
+  const P = [
+    'Je crois que je vais démissionner. Pourtant, j’adore mon travail.',
+    'C’est ce que me confie Clara, 32 ans, lors de notre première séance.',
+    'Depuis quelques mois, son manager ne lui parle presque plus.',
+    'Pas de conflit ouvert, pas de reproches. Juste des mails de plus en plus froids, des réunions auxquelles elle n’est plus conviée et des décisions qu’elle découvre après tout le monde.',
+    `«${NB}Le pire, c’est que je ne sais même pas ce que j’ai fait de mal.${NB}»`,
+    'Nous travaillons sur les causes racines de son mal-être, son besoin de reconnaissance et de sécurité, puis sur quelques clés de communication pour oser aborder le sujet avec son manager.',
+    'Elle finit par lui demander un entretien.',
+    'Et là, surprise.',
+    'Son manager lui explique qu’il traverse une période personnelle difficile et qu’il pensait justement lui témoigner sa confiance en la laissant travailler en autonomie.',
+    `«${NB}Je croyais qu’il voulait se débarrasser de moi. Lui pensait me donner de l’espace. On vivait deux histoires complètement différentes${NB}!${NB}»`,
+    `Quelques semaines plus tard, Clara m’écrit${NB}:`,
+    `«${NB}J’ai retrouvé le plaisir de venir travailler. Et surtout, j’ai arrêté d’essayer de deviner ce que les autres pensent de moi.${NB}»`,
+    'Cette histoire me touche particulièrement. Parce qu’on parle beaucoup de communication au travail, mais finalement assez peu de tout ce qu’on imagine quand elle disparaît.',
+    'Le silence laisse rarement un vide. Notre cerveau s’empresse de le remplir, souvent avec nos propres peurs.',
+    'Et parfois, une conversation courageuse évite une démission que personne ne souhaitait.',
+  ];
+
+  const DESCRIPTIONS_VIDES = { instagram: { fr: '', en: '' }, linkedin: { fr: '', en: '' } };
+
+  // Article d'exemple : ton carrousel « Clara », créé à la première ouverture.
+  const EXEMPLE = {
+    id: 'exemple-clara', titre: 'Le silence au travail', statut: 'Brouillon', reseau: 'instagram', format: 'carre', fond: 'bleu',
+    modifie: '2026-10-11T12:00:00.000Z', texte: P, descriptions: DESCRIPTIONS_VIDES,
+    slides: [
+      { role: 'Couverture', gabarit: 'V1', blocs: [{ style: 'titre', texte: 'Je crois que\nje vais\ndémissionner.' }, { style: 'contrepoint', texte: 'Pourtant,\nj’adore mon\ntravail.' }] },
+      { role: 'Contexte', gabarit: 'T1', blocs: [{ style: 'corps', texte: P[1] }, { style: 'corps', texte: P[2] }, { style: 'corps', texte: P[3] }, { style: 'citation', texte: P[4] }] },
+      { role: 'Bascule', gabarit: 'T1', blocs: [{ style: 'corps', texte: P[5] }, { style: 'corps', texte: P[6] }, { style: 'emphase', texte: P[7] }] },
+      { role: 'Révélation', gabarit: 'T1', blocs: [{ style: 'corps', texte: P[8] }, { style: 'citation', texte: P[9] }] },
+      { role: 'Enseignement', gabarit: 'T1', blocs: [{ style: 'corps', texte: P[10] }, { style: 'citation', texte: P[11] }, { style: 'corps', texte: P[12] }, { style: 'emphase', texte: P[13] }] },
+      { role: 'Conclusion', gabarit: 'T1', blocs: [{ style: 'corps', texte: P[14] }], signature: true },
+    ],
+  };
+
+  const REGLAGES_DEFAUT = {
+    automatisation: 'hybride', rythme: 'equilibre', motsMax: 90, depassement: 'demander', intensite: 'minimale',
+    numero: false, glisser: false, logoPartout: false, longueurDescription: 'moyenne',
+    reseauDefaut: 'instagram', formatDefaut: 'carre', resolution: '2', pdfTexte: 'traces', ia: 'aucun',
+  };
+
+  const PROJET_DEFAUT = {
+    version: 1, nom: 'Oh ! Potentiel', charte: M.CHARTE_DEFAUT, reglages: REGLAGES_DEFAUT, ordre: [EXEMPLE.id], ressources: {},
+  };
+
+  const ETAPES = [
+    { id: 'texte', nom: 'Texte' },
+    { id: 'structure', nom: 'Structure' },
+    { id: 'design', nom: 'Design' },
+    { id: 'description', nom: 'Description' },
+    { id: 'export', nom: 'Export' },
+  ];
+
+  const AIDES = {
+    bibliotheque: { titre: 'Tes articles', textes: ['Chaque article devient un carrousel. Touche une carte pour l’ouvrir.', '« Modifier » permet de réordonner ou de supprimer des articles. Tout est enregistré automatiquement, et synchronisé avec tes autres appareils si la synchronisation est configurée.', '⌘Z (ou Ctrl+Z) annule ta dernière action, ⇧⌘Z (ou Ctrl+Y) la rétablit.'] },
+    configuration: { titre: 'La configuration', textes: ['Charte : tes couleurs et tes tailles de texte. Tout changement s’applique à tous tes carrousels.', 'Ressources : tes polices, ton logo et tes fleurs, importés une fois et retrouvés sur tous tes appareils.', 'Réglages : le comportement de l’outil. Synchronisation : la liaison avec ton dépôt GitHub privé.'] },
+    texte: { titre: 'Étape 1 · Texte', textes: ['Tu relis et corriges ton article avant de le mettre en slides.', 'La vérification LanguageTool surligne les fautes dans ton texte. Pour chacune, choisis la bonne correction parmi celles proposées, ou ignore-la.', 'Les suggestions de style arriveront avec l’IA : tu sélectionneras un passage directement dans ton texte.'] },
+    structure: { titre: 'Étape 2 · Structure', textes: ['La répartition de ton texte en slides. Sans IA, l’outil remplit chaque slide de paragraphes tant qu’ils tiennent.', 'Tu peux réordonner, fusionner, scinder, ajouter ou supprimer des slides. Rien de ton texte ne peut disparaître sans que l’outil te le signale.'] },
+    design: { titre: 'Étape 3 · Design', textes: ['L’apparence du carrousel, puis chaque slide. Ce que tu vois ici est exactement ce qui sera exporté.', 'Changer de gabarit ne modifie jamais ton texte. Les natures de paragraphe proposées dépendent du gabarit choisi.', 'Les flèches d’un paragraphe le déplacent dans sa slide, ou vers la slide précédente ou suivante.'] },
+    description: { titre: 'Étape 4 · Description', textes: ['Le texte qui accompagne le carrousel : légende Instagram et texte du post LinkedIn.', 'Pour l’instant tu l’écris toi-même ; l’IA pourra te proposer une version plus tard.'] },
+    export: { titre: 'Étape 5 · Export', textes: ['Les fichiers à publier : des images PNG pour Instagram, un PDF pour LinkedIn. L’export arrive en phase 3.', 'Tant qu’un point bloquant reste à régler, l’export attend. « Corriger » mène directement à l’endroit concerné.'] },
+  };
+
+  /* ================================================================== */
+  /* 2. État                                                             */
+  /* ================================================================== */
+
+  const ETAT_INITIAL = {
+    pret: false, ecran: 'bibliotheque', articleId: null, etape: 'texte', slide: 0, onglet: 'charte',
+    feuille: null, aide: false, message: null, edition: false,
+    articles: [], projet: PROJET_DEFAUT, apparence: 'auto',
+    polices: { light: null, bold: null }, images: { logo: null, fleurs: null },
+    synchro: { statut: 'non-configure', detail: '', derniere: null, attente: 0, conflits: [] },
+    historique: { passe: [], futur: [], groupe: null, quand: 0 },
+  };
+
+  const HISTORIQUE_MAX = 80;
+
+  // Enregistre l'état des articles avant une modification, pour pouvoir l'annuler.
+  // Les frappes successives dans un même champ sont regroupées en une seule étape.
+  function avecHistorique(etat, nouveauxArticles, groupe) {
+    const h0 = etat.historique;
+    const t = Date.now();
+    const regrouper = groupe && h0.groupe === groupe && t - h0.quand < 1500;
+    const passe = regrouper ? h0.passe : [...h0.passe, etat.articles].slice(-HISTORIQUE_MAX);
+    return { ...etat, articles: nouveauxArticles, historique: { passe, futur: [], groupe: groupe || null, quand: t } };
+  }
+
+  function normaliserProjet(p) {
+    const projet = p || {};
+    return {
+      ...PROJET_DEFAUT, ...projet,
+      charte: { ...M.CHARTE_DEFAUT, ...(projet.charte || {}), palette: { ...M.CHARTE_DEFAUT.palette, ...((projet.charte || {}).palette || {}) } },
+      reglages: { ...REGLAGES_DEFAUT, ...(projet.reglages || {}) },
+    };
+  }
+
+  const trierSelonOrdre = (articles, ordre) => [...articles].sort((a, b) => {
+    const ia = ordre.indexOf(a.id); const ib = ordre.indexOf(b.id);
+    if (ia === -1 && ib === -1) return String(b.modifie).localeCompare(String(a.modifie));
+    if (ia === -1) return -1;
+    if (ib === -1) return 1;
+    return ia - ib;
+  });
+
+  function reducteur(etat, action) {
+    switch (action.type) {
+      case 'charger': {
+        const projet = normaliserProjet(action.projet);
+        const articles = trierSelonOrdre(action.articles, projet.ordre || []);
+        const ouvert = articles.some((a) => a.id === etat.articleId);
+        return { ...etat, pret: true, articles, projet, ...(ouvert ? {} : { ecran: etat.ecran === 'atelier' ? 'bibliotheque' : etat.ecran, articleId: null }) };
+      }
+      case 'ecran': return { ...etat, ecran: action.ecran, feuille: null, message: null, aide: false, edition: false, ...(action.onglet ? { onglet: action.onglet } : {}) };
+      case 'ouvrir': return { ...etat, ecran: 'atelier', articleId: action.id, etape: 'texte', slide: 0, message: null, aide: false };
+      case 'etape': return { ...etat, etape: action.etape, message: null };
+      case 'aller': return { ...etat, etape: action.etape, slide: action.slide == null ? etat.slide : action.slide, message: null };
+      case 'slide': return { ...etat, slide: action.index };
+      case 'onglet': return { ...etat, onglet: action.onglet };
+      case 'feuille': return { ...etat, feuille: action.feuille };
+      case 'aide': return { ...etat, aide: action.ouverte == null ? !etat.aide : action.ouverte };
+      case 'message': return { ...etat, message: action.message };
+      case 'edition': return { ...etat, edition: !etat.edition };
+      case 'apparence': return { ...etat, apparence: action.valeur };
+      case 'polices': return { ...etat, polices: { ...etat.polices, ...action.polices } };
+      case 'images': return { ...etat, images: { ...etat.images, ...action.images } };
+      case 'synchro': return { ...etat, synchro: { ...etat.synchro, ...action.synchro } };
+      case 'projet': return { ...etat, projet: action.maj(etat.projet) };
+      case 'reglage': return { ...etat, projet: { ...etat.projet, reglages: { ...etat.projet.reglages, [action.cle]: action.valeur } } };
+      case 'article': {
+        const articles = etat.articles.map((a) => (a.id === action.id ? { ...action.maj(a), modifie: maintenant() } : a));
+        return avecHistorique(etat, articles, action.groupe);
+      }
+      case 'creer': {
+        const e = avecHistorique(etat, [action.article, ...etat.articles]);
+        return { ...e, projet: { ...e.projet, ordre: [action.article.id, ...(e.projet.ordre || [])] }, ecran: 'atelier', articleId: action.article.id, etape: 'structure', slide: 0, feuille: null };
+      }
+      case 'dupliquer': {
+        const source = etat.articles.find((a) => a.id === action.id);
+        const copie = { ...source, id: nouvelId(), titre: source.titre + ' (copie)', statut: 'Brouillon', modifie: maintenant() };
+        const articles = [...etat.articles];
+        articles.splice(etat.articles.indexOf(source) + 1, 0, copie);
+        const e = avecHistorique(etat, articles);
+        return { ...e, projet: { ...e.projet, ordre: articles.map((a) => a.id) } };
+      }
+      case 'supprimerArticle': {
+        const articles = etat.articles.filter((a) => a.id !== action.id);
+        const e = avecHistorique(etat, articles);
+        return { ...e, feuille: null, message: 'Article supprimé. ⌘Z (ou Ctrl+Z) pour l’annuler.', projet: { ...e.projet, ordre: articles.map((a) => a.id) } };
+      }
+      case 'deplacerArticle': {
+        const i = etat.articles.findIndex((a) => a.id === action.id);
+        const j = i + action.delta;
+        if (i < 0 || j < 0 || j >= etat.articles.length) return etat;
+        const articles = [...etat.articles];
+        [articles[i], articles[j]] = [articles[j], articles[i]];
+        const e = avecHistorique(etat, articles);
+        return { ...e, projet: { ...e.projet, ordre: articles.map((a) => a.id) } };
+      }
+      case 'annuler': {
+        const { passe, futur } = etat.historique;
+        if (!passe.length) return etat;
+        const articles = passe[passe.length - 1];
+        return { ...etat, articles, projet: { ...etat.projet, ordre: articles.map((a) => a.id) }, historique: { passe: passe.slice(0, -1), futur: [etat.articles, ...futur], groupe: null, quand: 0 } };
+      }
+      case 'retablir': {
+        const { passe, futur } = etat.historique;
+        if (!futur.length) return etat;
+        const articles = futur[0];
+        return { ...etat, articles, projet: { ...etat.projet, ordre: articles.map((a) => a.id) }, historique: { passe: [...passe, etat.articles], futur: futur.slice(1), groupe: null, quand: 0 } };
+      }
+      default: return etat;
+    }
+  }
+
+  const majSlide = (i, maj) => (a) => ({ ...a, slides: a.slides.map((s, k) => (k === i ? maj(s) : s)) });
+
+  const OP = {
+    deplacerSlide: (i, delta) => (a) => {
+      const j = i + delta;
+      if (j < 0 || j >= a.slides.length) return a;
+      const slides = [...a.slides];
+      [slides[i], slides[j]] = [slides[j], slides[i]];
+      return { ...a, slides };
+    },
+    fusionnerAvecSuivante: (i) => (a) => {
+      if (i >= a.slides.length - 1) return a;
+      const fusion = { ...a.slides[i], blocs: [...a.slides[i].blocs, ...a.slides[i + 1].blocs], signature: a.slides[i].signature || a.slides[i + 1].signature };
+      return { ...a, slides: [...a.slides.slice(0, i), fusion, ...a.slides.slice(i + 2)] };
+    },
+    scinder: (i, b) => (a) => {
+      const s = a.slides[i];
+      if (b <= 0 || b >= s.blocs.length) return a;
+      const premiere = { ...s, blocs: s.blocs.slice(0, b), signature: false };
+      const seconde = { role: 'Texte', gabarit: 'T1', blocs: s.blocs.slice(b), signature: s.signature };
+      return { ...a, slides: [...a.slides.slice(0, i), premiere, seconde, ...a.slides.slice(i + 1)] };
+    },
+    ajouterSlide: (i) => (a) => ({ ...a, slides: [...a.slides.slice(0, i + 1), { role: 'Texte', gabarit: 'T1', blocs: [{ style: 'corps', texte: '' }] }, ...a.slides.slice(i + 1)] }),
+    supprimerSlide: (i) => (a) => {
+      if (a.slides.length <= 1) return a;
+      const slides = a.slides.filter((_, k) => k !== i);
+      if (a.slides[i].signature) slides[slides.length - 1] = { ...slides[slides.length - 1], signature: true };
+      return { ...a, slides };
+    },
+    gabarit: (i, gabarit) => majSlide(i, (s) => ({ ...s, gabarit })),
+    modifierBloc: (i, b, champs) => majSlide(i, (s) => ({ ...s, blocs: s.blocs.map((bloc, n) => (n === b ? { ...bloc, ...champs } : bloc)) })),
+    ajouterBloc: (i) => majSlide(i, (s) => ({ ...s, blocs: [...s.blocs, { style: 'corps', texte: '' }] })),
+    supprimerBloc: (i, b) => majSlide(i, (s) => ({ ...s, blocs: s.blocs.filter((_, n) => n !== b) })),
+    deplacerBloc: (i, b, delta) => majSlide(i, (s) => {
+      const j = b + delta;
+      if (j < 0 || j >= s.blocs.length) return s;
+      const blocs = [...s.blocs];
+      [blocs[b], blocs[j]] = [blocs[j], blocs[b]];
+      return { ...s, blocs };
+    }),
+    // Envoie un paragraphe à la fin de la slide précédente, ou au début de la suivante.
+    blocVersSlide: (i, b, sens) => (a) => {
+      const j = i + sens;
+      if (j < 0 || j >= a.slides.length) return a;
+      const bloc = a.slides[i].blocs[b];
+      const slides = a.slides.map((s, k) => {
+        if (k === i) return { ...s, blocs: s.blocs.filter((_, n) => n !== b) };
+        if (k === j) return { ...s, blocs: sens < 0 ? [...s.blocs, bloc] : [bloc, ...s.blocs] };
+        return s;
+      });
+      return { ...a, slides };
+    },
+    champ: (cle, valeur) => (a) => ({ ...a, [cle]: valeur }),
+    texte: (paragraphes) => (a) => ({ ...a, texte: paragraphes }),
+    presentation: ({ fond, slides }) => (a) => ({ ...a, fond, slides }),
+    description: (reseau, texte) => (a) => ({ ...a, descriptions: { ...a.descriptions, [reseau]: { ...(a.descriptions || DESCRIPTIONS_VIDES)[reseau], fr: texte } } }),
+  };
+
+  /* ================================================================== */
+  /* 3. Lisibilité des couleurs                                          */
+  /* ================================================================== */
+
+  function luminance(hex) {
+    const v = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((x) => (x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+  }
+  function contraste(a, b) {
+    const [x, y] = [luminance(a), luminance(b)].sort((m, n) => n - m);
+    return (x + 0.05) / (y + 0.05);
+  }
+  function verifierLisibilite(palette) {
+    const fonds = M.construireFonds({ ...M.PALETTE, ...palette });
+    const lignes = [];
+    for (const [cle, f] of Object.entries(fonds)) {
+      lignes.push({ fond: f.nom, element: 'Texte', ratio: contraste(f.texte, f.fond) });
+      if (f.accent !== f.texte) lignes.push({ fond: f.nom, element: 'Mise en valeur', ratio: contraste(f.accent, f.fond) });
+      lignes.push({ fond: f.nom, element: 'Bandeau', ratio: contraste(f.bande.texte, f.bande.fond) });
+      lignes.push({ fond: f.nom, element: 'Encadré', ratio: contraste(f.carte.texte, f.carte.fond) });
+      lignes.push({ fond: f.nom, element: 'Surligneur', ratio: contraste(f.surligne.texte, f.surligne.fond) });
+      void cle;
+    }
+    return lignes;
+  }
+
+  /* ================================================================== */
+  /* 4. Composants de base                                               */
+  /* ================================================================== */
+
+  const Contexte = createContext({ choisirPolice: null, version: 0, images: {}, reglages: REGLAGES_DEFAUT, charte: M.CHARTE_DEFAUT });
+
+  function fabriquerChoix(polices) {
+    const systeme = {};
+    return (role) => {
+      if (polices[role]) return M.policeExacte(polices[role]);
+      if (!systeme[role]) systeme[role] = M.policeSysteme(role === 'bold' ? 700 : 300);
+      return systeme[role];
+    };
+  }
+
+  const TRACES = {
+    retour: 'M15 5l-7 7 7 7', plus: 'M12 5v14M5 12h14', gauche: 'M14 6l-6 6 6 6', droite: 'M10 6l6 6-6 6', haut: 'M6 14l6-6 6 6', bas: 'M6 10l6 6 6-6',
+    reglages: 'M12 8a4 4 0 100 8 4 4 0 000-8zM12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1',
+    soleil: 'M12 8a4 4 0 100 8 4 4 0 000-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
+    lune: 'M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z', auto: 'M12 3a9 9 0 100 18V3z M12 3a9 9 0 010 18',
+    baguette: 'M4 20l10-10M14 4v3M18.5 5.5l-2 2M20 10h-3M12 7l5 5', poubelle: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
+    oeil: 'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 100 6 3 3 0 000-6z',
+    annuler: 'M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3', retablir: 'M15 14l5-5-5-5M20 9H10a6 6 0 000 12h3',
+    nuage: 'M7 18h10a4 4 0 00.5-7.97A6 6 0 006.1 9.2 4.5 4.5 0 007 18z', ciseaux: 'M6 6a2 2 0 100 4 2 2 0 000-4zM6 14a2 2 0 100 4 2 2 0 000-4zM20 4L8.1 15.9M14.5 14.5L20 20M8.1 8.1L12 12',
+    fusion: 'M8 4v6a4 4 0 004 4h0a4 4 0 014 4v2M16 4v6a4 4 0 01-4 4',
+  };
+  const Icone = ({ nom, taille = 20 }) => h('svg', { className: 'icone', width: taille, height: taille, viewBox: '0 0 24 24', 'aria-hidden': 'true' },
+    h('path', { d: TRACES[nom], fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }));
+
+  function Bouton({ variante = 'secondaire', onClick, disabled, children, titre, etiquette }) {
+    return h('button', { className: 'bouton ' + variante, onClick, disabled, title: titre, 'aria-label': etiquette, type: 'button' }, children);
+  }
+
+  function Segmente({ options, valeur, onChange, etiquette, petit }) {
+    return h('div', { className: cls('segmente', petit && 'petit'), role: 'group', 'aria-label': etiquette },
+      options.map((o) => h('button', {
+        key: o.valeur, type: 'button', 'aria-pressed': o.valeur === valeur, 'aria-label': o.etiquette, title: o.etiquette, onClick: () => onChange(o.valeur),
+      }, o.icone ? h(Icone, { nom: o.icone, taille: 18 }) : o.libelle)));
+  }
+
+  const Pastille = ({ ton = 'neutre', children }) => h('span', { className: 'pastille ' + ton }, children);
+
+  function Info({ texte }) {
+    const [ouverte, setOuverte] = useState(false);
+    return h('span', { className: cls('info', ouverte && 'ouverte') },
+      h('button', { type: 'button', className: 'info-bouton', 'aria-label': 'Explication', onClick: () => setOuverte(!ouverte), onBlur: () => setOuverte(false) }, 'i'),
+      h('span', { className: 'bulle', role: 'tooltip' }, texte));
+  }
+
+  function Carte({ titre, sousTitre, info, children, actions, classe }) {
+    return h('section', { className: 'carte ' + (classe || '') },
+      (titre || actions) && h('div', { className: 'carte-tete' },
+        h('div', null, titre && h('h3', { className: 'gill' }, titre, info && h(Info, { texte: info })), sousTitre && h('p', { className: 'doux' }, sousTitre)),
+        actions && h('div', { className: 'carte-actions' }, actions)),
+      children);
+  }
+
+  function Ligne({ etiquette, aide, info, children }) {
+    return h('div', { className: 'ligne-reglage' },
+      h('div', { className: 'ligne-texte' }, h('div', { className: 'ligne-etiquette' }, etiquette, info && h(Info, { texte: info })), aide && h('div', { className: 'doux petit' }, aide)),
+      h('div', { className: 'ligne-controle' }, children));
+  }
+
+  function SlideCanvas({ slide, formatId, fondId, largeur, index = 0, total = 1, onClick, selectionnee, etiquette }) {
+    const ref = useRef(null);
+    const { choisirPolice, version, images, reglages, charte } = useContext(Contexte);
+    const fmt = M.FORMATS[formatId];
+    const hauteur = Math.round((largeur * fmt.h) / fmt.l);
+    useEffect(() => {
+      const canvas = ref.current;
+      if (!canvas || !choisirPolice) return;
+      const ratio = Math.min(racine.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(largeur * ratio);
+      canvas.height = Math.round(hauteur * ratio);
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(canvas.width / fmt.l, 0, 0, canvas.height / fmt.h, 0, 0);
+      M.dessiner(ctx, M.composer(slide, formatId, fondId, choisirPolice, { index, total, reglages, charte }), images);
+    }, [slide, formatId, fondId, largeur, hauteur, version, choisirPolice, images, reglages, charte, index, total]);
+    const proprietes = { ref, className: cls('slide', selectionnee && 'selectionnee'), style: { width: largeur + 'px', height: hauteur + 'px' } };
+    if (onClick) return h('button', { type: 'button', className: 'slide-bouton', onClick, 'aria-label': etiquette }, h('canvas', proprietes));
+    return h('canvas', { ...proprietes, role: 'img', 'aria-label': etiquette || 'Slide' });
+  }
+
+  function useLargeur(defaut) {
+    const ref = useRef(null);
+    const [largeur, setLargeur] = useState(defaut);
+    useEffect(() => {
+      if (!ref.current || typeof ResizeObserver === 'undefined') return undefined;
+      const observateur = new ResizeObserver(([entree]) => setLargeur(Math.floor(entree.contentRect.width)));
+      observateur.observe(ref.current);
+      return () => observateur.disconnect();
+    }, []);
+    return [ref, largeur];
+  }
+
+  const LIBELLES_SYNCHRO = {
+    'non-configure': ['Non synchronisé', 'neutre'], 'en-cours': ['Synchronisation…', 'info'], 'a-jour': ['À jour', 'ok'],
+    'hors-ligne': ['Hors ligne', 'attention'], erreur: ['Erreur de synchronisation', 'erreur'], conflit: ['Conflit résolu', 'attention'],
+  };
+
+  function Barre({ etat, dispatch, gauche, titre }) {
+    const [libelle, ton] = LIBELLES_SYNCHRO[etat.synchro.statut] || LIBELLES_SYNCHRO['non-configure'];
+    const h0 = etat.historique;
+    return h('header', { className: 'barre' },
+      h('div', { className: 'barre-gauche' }, gauche,
+        h(Bouton, { variante: 'icone', etiquette: 'Annuler (⌘Z)', titre: 'Annuler (⌘Z)', disabled: !h0.passe.length, onClick: () => dispatch({ type: 'annuler' }) }, h(Icone, { nom: 'annuler' })),
+        h(Bouton, { variante: 'icone', etiquette: 'Rétablir (⇧⌘Z)', titre: 'Rétablir (⇧⌘Z)', disabled: !h0.futur.length, onClick: () => dispatch({ type: 'retablir' }) }, h(Icone, { nom: 'retablir' }))),
+      h('div', { className: 'barre-titre gill' }, titre),
+      h('div', { className: 'barre-droite' },
+        h('button', { type: 'button', className: 'etat-synchro ' + ton, title: etat.synchro.detail || libelle, onClick: () => dispatch({ type: 'ecran', ecran: 'configuration', onglet: 'synchro' }) },
+          h(Icone, { nom: 'nuage', taille: 18 }), h('span', null, libelle + (etat.synchro.attente ? ` · ${etat.synchro.attente} en attente` : ''))),
+        h(Segmente, {
+          etiquette: 'Apparence', petit: true, valeur: etat.apparence, onChange: (v) => dispatch({ type: 'apparence', valeur: v }),
+          options: [{ valeur: 'clair', icone: 'soleil', etiquette: 'Mode clair' }, { valeur: 'sombre', icone: 'lune', etiquette: 'Mode sombre' }, { valeur: 'auto', icone: 'auto', etiquette: 'Automatique, comme l’appareil' }],
+        }),
+        h('button', { type: 'button', className: cls('bouton-aide', etat.aide && 'actif'), 'aria-label': 'Aide sur cet écran', 'aria-expanded': etat.aide, onClick: () => dispatch({ type: 'aide' }) }, 'i')));
+  }
+
+  function PanneauAide({ cle, dispatch }) {
+    const aide = AIDES[cle];
+    if (!aide) return null;
+    return h('div', { className: 'panneau-aide', role: 'dialog', 'aria-label': aide.titre },
+      h('h3', { className: 'gill' }, aide.titre), aide.textes.map((t, i) => h('p', { key: i }, t)),
+      h(Bouton, { onClick: () => dispatch({ type: 'aide', ouverte: false }) }, 'Compris'));
+  }
+
+  function Message({ etat, dispatch }) {
+    if (!etat.message) return null;
+    return h('div', { className: 'message', role: 'status' }, h('span', null, etat.message), h('button', { type: 'button', className: 'lien', onClick: () => dispatch({ type: 'message', message: null }) }, 'Fermer'));
+  }
+
+  function Feuille({ titre, onAnnuler, action, children }) {
+    return h('div', { className: 'voile', role: 'dialog', 'aria-modal': 'true', 'aria-label': titre },
+      h('div', { className: 'feuille' },
+        h('div', { className: 'feuille-tete' }, h(Bouton, { onClick: onAnnuler }, 'Annuler'), h('h2', { className: 'gill' }, titre), h('div', { className: 'feuille-action' }, action)),
+        h('div', { className: 'feuille-corps' }, children)));
+  }
+
+  function SelecteurFond({ valeur, onChange }) {
+    const { charte } = useContext(Contexte);
+    const fonds = M.fondsDe(charte.palette);
+    return h('div', { className: 'fonds', role: 'group', 'aria-label': 'Fond' },
+      Object.entries(fonds).map(([cle, f]) => h('button', { key: cle, type: 'button', className: cls('fond-choix', valeur === cle && 'actif'), 'aria-pressed': valeur === cle, title: f.nom, onClick: () => onChange(cle) },
+        h('span', { className: 'fond-echantillon', style: { background: f.fond } }), h('span', { className: 'fond-nom' }, f.nom))));
+  }
+
+  const dateCourte = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const ecart = Date.now() - d.getTime();
+    if (ecart < 60000) return 'à l’instant';
+    if (ecart < 3600000) return `il y a ${Math.round(ecart / 60000)} min`;
+    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  };
+
+  /* ================================================================== */
+  /* 5. Bibliothèque                                                     */
+  /* ================================================================== */
+
+  const TON_STATUT = { Brouillon: 'neutre', Prêt: 'ok', Exporté: 'info' };
+
+  function Bibliotheque({ etat, dispatch }) {
+    const aSupprimer = etat.feuille && etat.feuille.supprimer ? etat.articles.find((a) => a.id === etat.feuille.supprimer) : null;
+    return h(Fragment, null,
+      h(Barre, { etat, dispatch, titre: '', gauche: h('span', { className: 'marque gill' }, 'PostsOP') }),
+      etat.aide && h(PanneauAide, { cle: 'bibliotheque', dispatch }),
+      h(Message, { etat, dispatch }),
+      h('main', { className: 'contenu' },
+        h('div', { className: 'tete-page' },
+          h('h1', { className: 'gill' }, 'Articles'),
+          h('div', { className: 'actions-ligne' },
+            h(Bouton, { variante: 'icone', etiquette: 'Configuration', titre: 'Configuration', onClick: () => dispatch({ type: 'ecran', ecran: 'configuration' }) }, h(Icone, { nom: 'reglages' })),
+            etat.articles.length > 0 && h(Bouton, { variante: etat.edition ? 'principal' : 'secondaire', onClick: () => dispatch({ type: 'edition' }) }, etat.edition ? 'Terminé' : 'Modifier'),
+            h(Bouton, { variante: 'principal', onClick: () => dispatch({ type: 'feuille', feuille: 'nouvel' }) }, h(Icone, { nom: 'plus' }), 'Nouvel article'))),
+        etat.edition && h('p', { className: 'note' }, 'Réordonne tes articles avec les flèches, ou supprime-les. Touche « Terminé » quand c’est fini.'),
+        !etat.articles.length && h('div', { className: 'vide' }, h('p', { className: 'gill' }, 'Aucun article pour l’instant.'), h(Bouton, { variante: 'principal', onClick: () => dispatch({ type: 'feuille', feuille: 'nouvel' }) }, h(Icone, { nom: 'plus' }), 'Créer ton premier article')),
+        h('div', { className: 'grille-articles' },
+          etat.articles.map((a, i) => h('article', { key: a.id, className: cls('carte-article', etat.edition && 'en-edition') },
+            h('button', { type: 'button', className: 'carte-article-ouvrir', disabled: etat.edition, onClick: () => dispatch({ type: 'ouvrir', id: a.id }), 'aria-label': 'Ouvrir ' + a.titre },
+              h('div', { className: 'vignette' }, a.slides[0] && h(SlideCanvas, { slide: a.slides[0], formatId: a.format, fondId: a.fond, largeur: 210, total: a.slides.length, etiquette: 'Couverture de ' + a.titre })),
+              h('span', { className: 'carte-article-texte' },
+                h('span', { className: 'carte-article-titre gill' }, a.titre),
+                h('span', { className: 'doux petit bloc' }, `${a.slides.length} slides · ${M.FORMATS[a.format].nom} · ${a.reseau === 'instagram' ? 'Instagram' : 'LinkedIn'}`),
+                h('span', { className: 'carte-article-pied' }, h(Pastille, { ton: TON_STATUT[a.statut] }, a.statut), h('span', { className: 'doux petit' }, dateCourte(a.modifie))))),
+            etat.edition
+              ? h('div', { className: 'barre-edition' },
+                h(Bouton, { variante: 'icone', etiquette: 'Avancer', disabled: i === 0, onClick: () => dispatch({ type: 'deplacerArticle', id: a.id, delta: -1 }) }, h(Icone, { nom: 'gauche' })),
+                h(Bouton, { variante: 'icone', etiquette: 'Reculer', disabled: i === etat.articles.length - 1, onClick: () => dispatch({ type: 'deplacerArticle', id: a.id, delta: 1 }) }, h(Icone, { nom: 'droite' })),
+                h(Bouton, { variante: 'danger', onClick: () => dispatch({ type: 'feuille', feuille: { supprimer: a.id } }) }, h(Icone, { nom: 'poubelle', taille: 18 }), 'Supprimer'))
+              : h('div', { className: 'barre-edition' }, h(Bouton, { variante: 'lien', onClick: () => dispatch({ type: 'dupliquer', id: a.id }) }, 'Dupliquer')))))),
+      etat.feuille === 'nouvel' && h(FeuilleNouvelArticle, { etat, dispatch }),
+      aSupprimer && h(Feuille, {
+        titre: 'Supprimer cet article ?', onAnnuler: () => dispatch({ type: 'feuille', feuille: null }),
+        action: h(Bouton, { variante: 'danger plein', onClick: () => dispatch({ type: 'supprimerArticle', id: aSupprimer.id }) }, 'Supprimer'),
+      }, h('p', null, `« ${aSupprimer.titre} » et son carrousel seront supprimés sur tous tes appareils. Tu pourras l’annuler juste après avec ⌘Z, et GitHub en garde une copie dans son historique.`)));
+  }
+
+  function FeuilleNouvelArticle({ etat, dispatch }) {
+    const r = etat.projet.reglages;
+    const [texte, setTexte] = useState('');
+    const [reseau, setReseau] = useState(r.reseauDefaut);
+    const [format, setFormat] = useState(r.formatDefaut);
+    const [fond, setFond] = useState('bleu');
+    const { choisirPolice, charte, reglages } = useContext(Contexte);
+    const paragraphes = texte.split(/\n\s*\n|\n/).map((p) => p.trim()).filter(Boolean);
+    function creer() {
+      const premier = paragraphes[0] || 'Nouvel article';
+      const slides = M.decouperMecaniquement(paragraphes, format, fond, choisirPolice, { charte, reglages });
+      dispatch({
+        type: 'creer',
+        article: { id: nouvelId(), titre: premier.length > 48 ? premier.slice(0, 48) + '…' : premier, statut: 'Brouillon', reseau, format, fond, modifie: maintenant(), texte: paragraphes, slides, descriptions: DESCRIPTIONS_VIDES },
+      });
+    }
+    return h(Feuille, { titre: 'Nouvel article', onAnnuler: () => dispatch({ type: 'feuille', feuille: null }), action: h(Bouton, { variante: 'principal', disabled: !paragraphes.length, onClick: creer }, 'Créer') },
+      h('label', { className: 'etiquette', htmlFor: 'texte-nouvel' }, 'Texte de l’article'),
+      h('textarea', { id: 'texte-nouvel', className: 'zone-texte', rows: 9, value: texte, placeholder: 'Colle ici le texte de ton article Word.', onChange: (e) => setTexte(e.target.value) }),
+      h('p', { className: 'doux petit' }, paragraphes.length ? `${paragraphes.length} paragraphe(s) · ${M.compterMots(texte)} mots. Le découpage en slides se fera sans IA, paragraphe par paragraphe.` : 'L’import direct d’un fichier Word arrivera en phase 3.'),
+      h(Ligne, { etiquette: 'Réseau', aide: 'Fixe le format d’export : images pour Instagram, PDF pour LinkedIn.' }, h(Segmente, { valeur: reseau, onChange: setReseau, options: [{ valeur: 'instagram', libelle: 'Instagram' }, { valeur: 'linkedin', libelle: 'LinkedIn' }] })),
+      h(Ligne, { etiquette: 'Format', aide: '1:1 comme tes carrousels actuels, 4:5 pour plus de place.' }, h(Segmente, { valeur: format, onChange: setFormat, options: [{ valeur: 'carre', libelle: '1:1' }, { valeur: 'portrait', libelle: '4:5' }] })),
+      h(Ligne, { etiquette: 'Fond', aide: 'Il pourra changer ensuite.' }, h(SelecteurFond, { valeur: fond, onChange: setFond })));
+  }
+
+  /* ================================================================== */
+  /* 6. Atelier                                                          */
+  /* ================================================================== */
+
+  function Atelier({ etat, dispatch }) {
+    const article = etat.articles.find((a) => a.id === etat.articleId);
+    if (!article) return h(Bibliotheque, { etat, dispatch });
+    const majA = (maj, groupe) => dispatch({ type: 'article', id: article.id, maj, groupe });
+    const vues = { texte: EtapeTexte, structure: EtapeStructure, design: EtapeDesign, description: EtapeDescription, export: EtapeExport };
+    const index = ETAPES.findIndex((e) => e.id === etat.etape);
+    return h(Fragment, null,
+      h(Barre, { etat, dispatch, titre: article.titre, gauche: h(Bouton, { variante: 'retour', onClick: () => dispatch({ type: 'ecran', ecran: 'bibliotheque' }) }, h(Icone, { nom: 'retour' }), 'Articles') }),
+      h('nav', { className: 'etapes', 'aria-label': 'Étapes' },
+        ETAPES.map((e, i) => h('button', {
+          key: e.id, type: 'button', className: cls('etape', e.id === etat.etape && 'active', i < index && 'faite'), 'aria-current': e.id === etat.etape ? 'step' : undefined, onClick: () => dispatch({ type: 'etape', etape: e.id }),
+        }, h('span', { className: 'etape-num' }, i + 1), e.nom))),
+      etat.aide && h(PanneauAide, { cle: etat.etape, dispatch }),
+      h(Message, { etat, dispatch }),
+      h('main', { className: 'contenu atelier' }, h(vues[etat.etape], { etat, dispatch, article, majA })),
+      h('footer', { className: 'pied-etapes' },
+        h(Bouton, { disabled: index === 0, onClick: () => dispatch({ type: 'etape', etape: ETAPES[index - 1].id }) }, 'Étape précédente'),
+        index < ETAPES.length - 1
+          ? h(Bouton, { variante: 'principal', onClick: () => dispatch({ type: 'etape', etape: ETAPES[index + 1].id }) }, 'Continuer : ' + ETAPES[index + 1].nom)
+          : h(Bouton, { variante: 'principal', onClick: () => dispatch({ type: 'ecran', ecran: 'bibliotheque' }) }, 'Terminer')));
+  }
+
+  /* ---------- Étape 1 : Texte ---------- */
+
+  // Zone de texte qui surligne les fautes directement dans ton texte.
+  // Le texte est affiché deux fois, exactement superposé : derrière, avec les surlignages ; devant, modifiable.
+  function EditeurTexte({ valeur, onChange, marques, active, zoneRef }) {
+    const fond = useRef(null);
+    const ajuster = () => {
+      const el = zoneRef.current;
+      if (!el) return;
+      el.style.height = 'auto';
+      el.style.height = el.scrollHeight + 'px';
+    };
+    useEffect(ajuster, [valeur]);
+    const morceaux = [];
+    let curseur = 0;
+    [...marques].sort((a, b) => a.debut - b.debut).forEach((m, i) => {
+      if (m.debut < curseur) return;
+      morceaux.push(valeur.slice(curseur, m.debut));
+      morceaux.push(h('mark', { key: i, className: cls(active === m.debut && 'active') }, valeur.slice(m.debut, m.fin)));
+      curseur = m.fin;
+    });
+    morceaux.push(valeur.slice(curseur) + '\n');
+    return h('div', { className: 'editeur' },
+      h('div', { className: 'editeur-fond', ref: fond, 'aria-hidden': 'true' }, morceaux),
+      h('textarea', { ref: zoneRef, className: 'editeur-zone', value: valeur, spellCheck: true, lang: 'fr', 'aria-label': 'Texte de l’article', onChange: (e) => onChange(e.target.value) }));
+  }
+
+  function extraitAvecMarque(texte, debut, longueur) {
+    const avant = texte.slice(Math.max(0, debut - 40), debut);
+    const fin = debut + longueur;
+    return [(debut > 40 ? '…' : '') + avant, texte.slice(debut, fin), texte.slice(fin, fin + 40) + (fin + 40 < texte.length ? '…' : '')];
+  }
+
+  function EtapeTexte({ article, majA }) {
+    const zone = useRef(null);
+    const [verification, setVerification] = useState({ etat: 'repos', erreurs: [], detail: '' });
+    const [active, setActive] = useState(null);
+    const texteComplet = article.texte.join('\n\n');
+
+    function montrer(e) {
+      setActive(e.offset);
+      const el = zone.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(e.offset, e.offset + e.length);
+      const ligne = texteComplet.slice(0, e.offset).split('\n').length;
+      const haut = el.getBoundingClientRect().top + racine.scrollY + (ligne - 4) * 27;
+      racine.scrollTo({ top: Math.max(0, haut - 140), behavior: 'smooth' });
+    }
+
+    async function verifier() {
+      setVerification({ etat: 'encours', erreurs: [], detail: '' });
+      try {
+        const reponse = await fetch('https://api.languagetool.org/v2/check', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ text: texteComplet, language: 'fr' }) });
+        if (!reponse.ok) throw new Error('réponse ' + reponse.status);
+        const donnees = await reponse.json();
+        setVerification({ etat: 'fait', erreurs: donnees.matches.filter((m) => m.replacements.length), detail: '' });
+      } catch (erreur) {
+        setVerification({ etat: 'erreur', erreurs: [], detail: erreur.message });
+      }
+    }
+    function corriger(erreur, remplacement) {
+      const nouveau = texteComplet.slice(0, erreur.offset) + remplacement + texteComplet.slice(erreur.offset + erreur.length);
+      const ecart = remplacement.length - erreur.length;
+      majA(OP.texte(nouveau.split('\n\n')));
+      setVerification((v) => ({ ...v, erreurs: v.erreurs.filter((e) => e !== erreur).map((e) => (e.offset > erreur.offset ? { ...e, offset: e.offset + ecart } : e)) }));
+    }
+    const ignorer = (erreur) => setVerification((v) => ({ ...v, erreurs: v.erreurs.filter((e) => e !== erreur) }));
+    // Si le texte change à la main, les positions des fautes ne sont plus fiables : on les efface.
+    const modifierTexte = (valeur) => { majA(OP.texte(valeur.split('\n\n')), 'texte'); if (verification.erreurs.length) setVerification({ etat: 'repos', erreurs: [], detail: '' }); };
+
+    return h('div', { className: 'deux-colonnes' },
+      h('div', { className: 'colonne-principale' },
+        h(Carte, { titre: 'Texte de l’article', sousTitre: `${article.texte.length} paragraphes · ${M.compterMots(texteComplet)} mots. Une ligne vide sépare deux paragraphes.` },
+          h(EditeurTexte, { valeur: texteComplet, onChange: modifierTexte, marques: verification.erreurs.map((e) => ({ debut: e.offset, fin: e.offset + e.length })), active, zoneRef: zone }))),
+      h('aside', { className: 'panneau' },
+        h(Carte, { titre: 'Orthographe et grammaire', info: 'Vérification par LanguageTool, un service gratuit. Rien n’est corrigé sans ton accord.', sousTitre: 'Les fautes sont surlignées dans ton texte.', actions: h(Bouton, { variante: 'principal', onClick: verifier, disabled: verification.etat === 'encours' }, verification.etat === 'encours' ? 'Vérification…' : 'Vérifier') },
+          verification.etat === 'erreur' && h('p', { className: 'erreur petit' }, 'Vérification impossible : ' + verification.detail),
+          verification.etat === 'fait' && !verification.erreurs.length && h('p', { className: 'ok petit' }, 'Aucune faute détectée.'),
+          verification.erreurs.map((e, i) => {
+            const [avant, fautif, apres] = extraitAvecMarque(texteComplet, e.offset, e.length);
+            return h('div', { key: e.offset + '-' + i, className: cls('correction', active === e.offset && 'active') },
+              h('p', { className: 'extrait-correction' }, avant, h('mark', null, fautif), apres),
+              h('div', { className: 'doux petit' }, e.message),
+              h('div', { className: 'propositions-correction' }, h('span', { className: 'petit' }, 'Remplacer par :'),
+                e.replacements.slice(0, 4).map((r, k) => h(Bouton, { key: k, variante: k === 0 ? 'principal petit' : 'petit', onClick: () => corriger(e, r.value) }, r.value || '(supprimer)'))),
+              h('div', { className: 'actions-ligne' },
+                h(Bouton, { variante: 'petit', onClick: () => montrer(e) }, h(Icone, { nom: 'oeil', taille: 16 }), 'Montrer dans le texte'),
+                h(Bouton, { variante: 'lien', onClick: () => ignorer(e) }, 'Ignorer')));
+          }),
+          h('p', { className: 'mention' }, 'Correction fournie par ', h('a', { href: 'https://languagetool.org', target: '_blank', rel: 'noopener' }, 'LanguageTool'), '.')),
+        h(Carte, { titre: 'Typographie', info: 'Ces règles ne changent jamais tes mots.', sousTitre: 'Règles françaises : espaces insécables avant : ; ! ?, guillemets « », apostrophes typographiques. Leur application automatique arrive en phase 3.' }),
+        h(Carte, { titre: 'Suggestions de style', sousTitre: 'Elles arriveront avec l’IA. Tu sélectionneras un passage directement dans ton texte, et un petit menu te proposera : clarifier, raccourcir, restructurer, rendre plus percutant.' })));
+  }
+
+  /* ---------- Étape 2 : Structure ---------- */
+
+  function EtapeStructure({ etat, dispatch, article, majA }) {
+    const { choisirPolice, charte, reglages } = useContext(Contexte);
+    const limite = M.LIMITES_SLIDES[article.reseau];
+    const n = article.slides.length;
+    return h('div', { className: 'deux-colonnes' },
+      h('div', { className: 'colonne-principale' },
+        h('div', { className: 'resume-volume' }, h('strong', null, `${n} slides`), ` · limite ${article.reseau === 'instagram' ? 'Instagram' : 'LinkedIn'} : ${limite} · ${M.compterMots(article.texte.join(' '))} mots`),
+        h('ol', { className: 'liste-slides' },
+          article.slides.map((s, i) => h('li', { key: i, className: 'ligne-slide' },
+            h('button', { type: 'button', className: cls('item-slide', i === etat.slide && 'actif'), onClick: () => dispatch({ type: 'aller', etape: 'design', slide: i }), 'aria-label': `Ouvrir la slide ${i + 1} dans Design` },
+              h(SlideCanvas, { slide: s, formatId: article.format, fondId: article.fond, largeur: 104, index: i, total: n }),
+              h('span', { className: 'item-slide-texte' },
+                h('span', { className: 'item-slide-tete' }, h('span', { className: 'num' }, i + 1), h(Pastille, null, M.GABARITS[M.gabaritParDefaut(s, i)].nom), h('span', { className: 'doux petit' }, s.blocs.reduce((m, b) => m + M.compterMots(b.texte), 0) + ' mots')),
+                h('span', { className: 'extrait' }, s.blocs.map((b) => b.texte.replace(/\n/g, ' ')).join(' ') || 'Slide vide'))),
+            h('div', { className: 'outils-slide' },
+              h(Bouton, { variante: 'icone petit', etiquette: 'Monter la slide', disabled: i === 0, onClick: () => majA(OP.deplacerSlide(i, -1)) }, h(Icone, { nom: 'haut', taille: 18 })),
+              h(Bouton, { variante: 'icone petit', etiquette: 'Descendre la slide', disabled: i === n - 1, onClick: () => majA(OP.deplacerSlide(i, 1)) }, h(Icone, { nom: 'bas', taille: 18 })),
+              h(Bouton, { variante: 'icone petit', etiquette: 'Fusionner avec la slide suivante', titre: 'Fusionner avec la suivante', disabled: i === n - 1, onClick: () => majA(OP.fusionnerAvecSuivante(i)) }, h(Icone, { nom: 'fusion', taille: 18 })),
+              h(Bouton, { variante: 'icone petit', etiquette: 'Ajouter une slide après celle-ci', titre: 'Ajouter une slide après', onClick: () => majA(OP.ajouterSlide(i)) }, h(Icone, { nom: 'plus', taille: 18 })),
+              h(Bouton, { variante: 'icone petit danger', etiquette: 'Supprimer la slide', titre: 'Supprimer la slide', disabled: n <= 1, onClick: () => majA(OP.supprimerSlide(i)) }, h(Icone, { nom: 'poubelle', taille: 18 }))))))),
+      h('aside', { className: 'panneau' },
+        h(Carte, { titre: 'Découpage', info: 'Sans IA, l’outil remplit chaque slide de paragraphes tant qu’ils tiennent dans les marges.' },
+          h('p', { className: 'petit' }, 'Redécouper repart de ton texte et remplace les slides actuelles. Tu peux l’annuler avec ⌘Z.'),
+          h(Bouton, { variante: 'principal large', onClick: () => majA(OP.champ('slides', M.decouperMecaniquement(article.texte, article.format, article.fond, choisirPolice, { charte, reglages }))) }, 'Redécouper le texte'),
+          h('p', { className: 'doux petit' }, 'Pour scinder une slide à un paragraphe précis, utilise les ciseaux du paragraphe dans l’étape Design.')),
+        h(Carte, { titre: 'Propositions de l’IA', sousTitre: 'Accroches de couverture, mises en valeur justifiées et fins de slide arriveront avec l’IA. Tu les accepteras, modifieras ou refuseras une à une.' })));
+  }
+
+  /* ---------- Étape 3 : Design ---------- */
+
+  const FAMILLES = [['Couverture', ['V1', 'V2', 'V3', 'V4', 'V5']], ['Texte', ['T1', 'T2', 'T3', 'T4', 'T5']], ['Fin', ['F1']]];
+
+  function EtapeDesign({ etat, dispatch, article, majA }) {
+    const { choisirPolice, reglages, charte } = useContext(Contexte);
+    const [refApercu, largeurDispo] = useLargeur(480);
+    const total = article.slides.length;
+    const i = Math.min(etat.slide, total - 1);
+    const slide = article.slides[i];
+    const compositions = article.slides.map((s, k) => M.composer(s, article.format, article.fond, choisirPolice, { index: k, total, reglages, charte }));
+    const alertes = M.controler(article, compositions, reglages);
+    const exacte = compositions.every((c) => c.exacte);
+    const largeurApercu = Math.max(220, Math.min(largeurDispo, article.format === 'portrait' ? 460 : 560));
+    const gabaritActuel = M.gabaritParDefaut(slide, i);
+    const natures = M.naturesUtiles(gabaritActuel);
+
+    function proposer() {
+      const autres = etat.articles.filter((a) => a.id !== article.id);
+      const convient = (s, k, fond) => !M.composer(s, article.format, fond, choisirPolice, { index: k, total, reglages, charte }).deborde;
+      const proposition = M.proposerPresentation(article, autres, reglages.rythme, Math.random, convient);
+      majA(OP.presentation(proposition));
+      dispatch({ type: 'message', message: `Nouvelle présentation : fond ${M.fondsDe(charte.palette)[proposition.fond].nom.toLowerCase()}, couverture « ${M.GABARITS[proposition.slides[0].gabarit].nom} ». Ton texte n’a pas changé. ⌘Z pour revenir à la précédente.` });
+    }
+
+    return h('div', { className: 'deux-colonnes design' },
+      h('div', { className: 'colonne-principale' },
+        h('div', { className: 'zone-apercu', ref: refApercu }, h(SlideCanvas, { slide, formatId: article.format, fondId: article.fond, largeur: largeurApercu, index: i, total, etiquette: 'Aperçu de la slide ' + (i + 1) })),
+        !exacte && h('p', { className: 'doux petit centre' }, 'Rendu approché avec la police de l’appareil. Importe tes fichiers Gill Sans dans Configuration › Ressources pour un rendu exact.'),
+        h('div', { className: 'bande-miniatures', role: 'list' },
+          article.slides.map((s, k) => h('div', { key: k, className: 'miniature', role: 'listitem' },
+            h(SlideCanvas, { slide: s, formatId: article.format, fondId: article.fond, largeur: 92, index: k, total, selectionnee: k === i, onClick: () => dispatch({ type: 'slide', index: k }), etiquette: 'Afficher la slide ' + (k + 1) }),
+            h('div', { className: cls('miniature-pied', compositions[k].deborde && 'erreur') }, (compositions[k].deborde ? '⚠︎ ' : '') + (k + 1)))))),
+      h('aside', { className: 'panneau' },
+        h(Carte, { titre: 'Carrousel', info: 'Ces choix s’appliquent à toutes les slides de cet article.' },
+          h(Ligne, { etiquette: 'Fond', aide: 'Change-le d’un article à l’autre pour varier ta grille.' }),
+          h(SelecteurFond, { valeur: article.fond, onChange: (v) => majA(OP.champ('fond', v)) }),
+          h(Ligne, { etiquette: 'Format', aide: '4:5 donne plus de place sur Instagram.' }, h(Segmente, { valeur: article.format, onChange: (v) => majA(OP.champ('format', v)), options: [{ valeur: 'carre', libelle: '1:1' }, { valeur: 'portrait', libelle: '4:5' }] })),
+          h(Ligne, { etiquette: 'Réseau', aide: 'Fixe le type de fichier exporté.' }, h(Segmente, { valeur: article.reseau, onChange: (v) => majA(OP.champ('reseau', v)), options: [{ valeur: 'instagram', libelle: 'Instagram' }, { valeur: 'linkedin', libelle: 'LinkedIn' }] })),
+          h(Bouton, { variante: 'principal large', onClick: proposer }, h(Icone, { nom: 'baguette', taille: 18 }), 'Proposer une autre présentation'),
+          h('p', { className: 'doux petit' }, 'Un fond et des gabarits différents de tes derniers articles, toujours dans ta charte. Ton texte ne change pas.')),
+        h(Carte, {
+          titre: 'Slide ' + (i + 1),
+          actions: h('div', { className: 'actions-ligne' },
+            h(Bouton, { variante: 'icone', etiquette: 'Déplacer la slide vers la gauche', disabled: i === 0, onClick: () => { majA(OP.deplacerSlide(i, -1)); dispatch({ type: 'slide', index: i - 1 }); } }, h(Icone, { nom: 'gauche' })),
+            h(Bouton, { variante: 'icone', etiquette: 'Déplacer la slide vers la droite', disabled: i === total - 1, onClick: () => { majA(OP.deplacerSlide(i, 1)); dispatch({ type: 'slide', index: i + 1 }); } }, h(Icone, { nom: 'droite' }))),
+        },
+        h('div', { className: 'ligne-etiquette' }, 'Gabarit', h(Info, { texte: 'La composition de la slide. En changer ne modifie jamais ton texte : essaie-les librement.' })),
+        h('p', { className: 'doux petit' }, M.GABARITS[gabaritActuel].aide),
+        FAMILLES.map(([famille, codes]) => h('div', { key: famille, className: 'famille-gabarits' },
+          h('div', { className: 'surtitre' }, famille),
+          h('div', { className: 'grille-gabarits' }, codes.map((code) => h('button', {
+            key: code, type: 'button', className: cls('gabarit-choix', gabaritActuel === code && 'actif'), 'aria-pressed': gabaritActuel === code, onClick: () => majA(OP.gabarit(i, code)), title: M.GABARITS[code].aide,
+          }, h(SlideCanvas, { slide: { ...slide, gabarit: code }, formatId: article.format, fondId: article.fond, largeur: 64, index: i, total }), h('span', null, M.GABARITS[code].nom)))))),
+        h('div', { className: 'ligne-etiquette blocs-titre' }, 'Paragraphes', h(Info, { texte: 'Seules les natures utiles au gabarit choisi sont proposées. Les flèches haut et bas réordonnent ; les flèches gauche et droite envoient le paragraphe sur la slide voisine ; les ciseaux coupent la slide juste avant ce paragraphe.' })),
+        slide.blocs.map((b, n) => h('div', { key: n, className: 'bloc-edition' },
+          h('div', { className: 'bloc-outils' },
+            h('select', { className: 'choix', value: M.natureAffichee(gabaritActuel, b.style, n), 'aria-label': 'Nature du paragraphe ' + (n + 1), onChange: (e) => majA(OP.modifierBloc(i, n, { style: e.target.value })) },
+              natures.map(([cle, nom]) => h('option', { key: cle, value: cle }, nom))),
+            h(Bouton, { variante: 'icone petit', etiquette: 'Monter le paragraphe', disabled: n === 0, onClick: () => majA(OP.deplacerBloc(i, n, -1)) }, h(Icone, { nom: 'haut', taille: 18 })),
+            h(Bouton, { variante: 'icone petit', etiquette: 'Descendre le paragraphe', disabled: n === slide.blocs.length - 1, onClick: () => majA(OP.deplacerBloc(i, n, 1)) }, h(Icone, { nom: 'bas', taille: 18 })),
+            h(Bouton, { variante: 'icone petit', etiquette: 'Envoyer sur la slide précédente', disabled: i === 0, onClick: () => majA(OP.blocVersSlide(i, n, -1)) }, h(Icone, { nom: 'gauche', taille: 18 })),
+            h(Bouton, { variante: 'icone petit', etiquette: 'Envoyer sur la slide suivante', disabled: i === total - 1, onClick: () => majA(OP.blocVersSlide(i, n, 1)) }, h(Icone, { nom: 'droite', taille: 18 })),
+            h(Bouton, { variante: 'icone petit', etiquette: 'Couper la slide avant ce paragraphe', disabled: n === 0, onClick: () => majA(OP.scinder(i, n)) }, h(Icone, { nom: 'ciseaux', taille: 18 })),
+            h(Bouton, { variante: 'icone petit danger', etiquette: 'Supprimer le paragraphe', onClick: () => majA(OP.supprimerBloc(i, n)) }, h(Icone, { nom: 'poubelle', taille: 18 }))),
+          h('textarea', { className: 'zone-texte', rows: 3, value: b.texte, 'aria-label': 'Texte du paragraphe ' + (n + 1), onChange: (e) => majA(OP.modifierBloc(i, n, { texte: e.target.value }), `bloc-${i}-${n}`) }))),
+        h(Bouton, { variante: 'ajouter', onClick: () => majA(OP.ajouterBloc(i)) }, h(Icone, { nom: 'plus', taille: 18 }), 'Ajouter un paragraphe')),
+        h(Carte, { titre: 'Contrôle qualité', info: 'Marges, densité, limite du réseau, et présence de tout le texte de l’article.', sousTitre: alertes.length ? `${alertes.length} point(s) à regarder` : 'Tout est en ordre.' },
+          alertes.length
+            ? h('ul', { className: 'liste-alertes' }, alertes.map((a, k) => h('li', { key: k, className: a.niveau }, h('span', null, a.message), a.slide !== null && h(Bouton, { variante: 'petit', onClick: () => dispatch({ type: 'slide', index: a.slide }) }, 'Voir la slide ' + (a.slide + 1)))))
+            : h('p', { className: 'ok petit' }, 'Marges, densité, limite du réseau et intégrité du texte : OK.'))));
+  }
+
+  /* ---------- Étapes 4 et 5 ---------- */
+
+  const LIMITES_DESCRIPTION = { instagram: 2200, linkedin: 3000 }; // indicatives, à vérifier
+
+  function EtapeDescription({ dispatch, article, majA }) {
+    const descriptions = article.descriptions || DESCRIPTIONS_VIDES;
+    return h('div', { className: 'colonne-unique' },
+      ['instagram', 'linkedin'].map((reseau) => {
+        const texte = descriptions[reseau].fr || '';
+        return h(Carte, {
+          key: reseau, titre: reseau === 'instagram' ? 'Légende Instagram' : 'Texte du post LinkedIn',
+          info: reseau === 'instagram' ? 'Seules les premières lignes s’affichent avant « plus » : la première phrase compte le plus.' : 'Il s’affiche au-dessus du document : il donne envie de l’ouvrir.',
+          actions: h(Bouton, { variante: 'petit', disabled: !texte, onClick: () => { if (navigator.clipboard) navigator.clipboard.writeText(texte).catch(() => {}); dispatch({ type: 'message', message: 'Description copiée.' }); } }, 'Copier'),
+        },
+        h('textarea', { className: 'zone-texte', rows: 9, value: texte, placeholder: 'Écris ici le texte qui accompagnera ton carrousel. L’IA pourra te proposer une version plus tard.', onChange: (e) => majA(OP.description(reseau, e.target.value), 'description-' + reseau), 'aria-label': 'Description ' + reseau }),
+        h('div', { className: 'doux petit droite' }, `${texte.length} / ${LIMITES_DESCRIPTION[reseau]} caractères (limite indicative)`));
+      }));
+  }
+
+  function EtapeExport({ etat, dispatch, article }) {
+    const { choisirPolice, reglages, charte } = useContext(Contexte);
+    const total = article.slides.length;
+    const compositions = article.slides.map((s, k) => M.composer(s, article.format, article.fond, choisirPolice, { index: k, total, reglages, charte }));
+    const bloquants = M.controler(article, compositions, reglages).filter((a) => a.niveau === 'bloquant');
+    const fichier = article.reseau === 'linkedin' ? 'Un PDF de ' + total + ' pages' : total + ' images PNG';
+    void etat;
+    return h('div', { className: 'colonne-unique' },
+      h(Carte, {
+        titre: 'Exporter', sousTitre: `${fichier} · ${M.FORMATS[article.format].nom} · fond ${M.fondsDe(charte.palette)[article.fond].nom.toLowerCase()}`,
+        actions: h(Bouton, { variante: 'principal', disabled: bloquants.length > 0, onClick: () => dispatch({ type: 'message', message: 'L’export arrive en phase 3, la prochaine étape. Le banc d’essai l’a déjà validé sur ton iPad.' }) }, 'Exporter'),
+      },
+      bloquants.length
+        ? h(Fragment, null, h('p', { className: 'erreur' }, `Export en attente : ${bloquants.length} point(s) à régler.`),
+          h('ul', { className: 'liste-alertes' }, bloquants.map((a, k) => h('li', { key: k, className: 'bloquant' }, h('span', null, (a.slide !== null ? `Slide ${a.slide + 1} · ` : '') + a.message), h(Bouton, { variante: 'principal petit', onClick: () => dispatch({ type: 'aller', etape: a.cible, slide: a.slide }) }, 'Corriger')))))
+        : h('p', { className: 'ok' }, 'Prêt à exporter.')),
+      h('div', { className: 'grille-export' }, article.slides.map((s, k) => h('div', { key: k, className: 'export-item' },
+        h(SlideCanvas, { slide: s, formatId: article.format, fondId: article.fond, largeur: 180, index: k, total, etiquette: 'Slide ' + (k + 1) }), h('div', { className: 'doux petit centre' }, k + 1)))));
+  }
+
+  /* ================================================================== */
+  /* 7. Configuration                                                    */
+  /* ================================================================== */
+
+  function Configuration({ etat, dispatch, actions }) {
+    const onglets = { charte: OngletCharte, ressources: OngletRessources, reglages: OngletReglages, synchro: OngletSynchro };
+    return h(Fragment, null,
+      h(Barre, { etat, dispatch, titre: 'Configuration', gauche: h(Bouton, { variante: 'retour', onClick: () => dispatch({ type: 'ecran', ecran: 'bibliotheque' }) }, h(Icone, { nom: 'retour' }), 'Articles') }),
+      h('nav', { className: 'onglets' }, h(Segmente, { etiquette: 'Onglets', valeur: etat.onglet, onChange: (o) => dispatch({ type: 'onglet', onglet: o }), options: [{ valeur: 'charte', libelle: 'Charte' }, { valeur: 'ressources', libelle: 'Ressources' }, { valeur: 'reglages', libelle: 'Réglages' }, { valeur: 'synchro', libelle: 'Synchronisation' }] })),
+      etat.aide && h(PanneauAide, { cle: 'configuration', dispatch }),
+      h(Message, { etat, dispatch }),
+      h('main', { className: 'contenu colonne-unique' }, h(onglets[etat.onglet] || OngletCharte, { etat, dispatch, actions })));
+  }
+
+  const EXEMPLE_COUVERTURE = { role: 'Couverture', blocs: [{ style: 'titre', texte: 'Le silence\nlaisse rarement' }, { style: 'contrepoint', texte: 'un vide.' }] };
+  const EXEMPLE_TEXTE = { role: 'Texte', blocs: [{ style: 'corps', texte: 'Depuis quelques mois, son manager ne lui parle presque plus.' }, { style: 'emphase', texte: 'Et là, surprise.' }, { style: 'citation', texte: `«${NB}Le pire, c’est que je ne sais même pas ce que j’ai fait de mal.${NB}»` }], signature: true };
+  const COULEURS = [['bleu', 'Bleu Oh ! Potentiel', 'Fonds et texte'], ['vert', 'Vert Oh ! Potentiel', 'Mises en valeur, fleurs, bandeaux'], ['blanc', 'Blanc', 'Fonds et texte'], ['bleuPale', 'Bleu pâle', 'Fonds uniquement'], ['vertPale', 'Vert pâle', 'Fonds uniquement']];
+
+  function OngletCharte({ etat, dispatch }) {
+    const charte = etat.projet.charte;
+    const majCharte = (champs) => dispatch({ type: 'projet', maj: (p) => ({ ...p, charte: { ...p.charte, ...champs } }) });
+    const majCouleur = (cle, valeur) => { if (/^#[0-9a-f]{6}$/i.test(valeur)) majCharte({ palette: { ...charte.palette, [cle]: valeur.toUpperCase() } }); };
+    const lisibilite = verifierLisibilite(charte.palette);
+    const faibles = lisibilite.filter((l) => l.ratio < 4.5);
+    return h(Fragment, null,
+      h(Carte, { titre: 'Couleurs', info: 'Elles s’appliquent à tous tes carrousels, sur tous tes appareils.', actions: h(Bouton, { variante: 'petit', onClick: () => majCharte({ palette: { ...M.PALETTE } }) }, 'Rétablir les couleurs d’origine') },
+        h('div', { className: 'nuancier' }, COULEURS.map(([cle, nom, usage]) => h('div', { key: cle, className: 'pastille-couleur' },
+          h('label', { className: 'echantillon', style: { background: charte.palette[cle] } }, h('input', { type: 'color', value: charte.palette[cle], 'aria-label': 'Couleur ' + nom, onChange: (e) => majCouleur(cle, e.target.value) })),
+          h('div', null, h('div', { className: 'petit' }, h('strong', null, nom)),
+            h('input', { className: 'code-couleur', defaultValue: charte.palette[cle], key: charte.palette[cle], 'aria-label': 'Code de la couleur ' + nom, onBlur: (e) => majCouleur(cle, e.target.value.trim()) }),
+            h('div', { className: 'doux petit' }, usage))))),
+        faibles.length
+          ? h('div', { className: 'liste-alertes' }, h('li', { className: 'avertissement' }, h('span', null, `Lisibilité insuffisante : ${faibles.map((l) => `${l.element.toLowerCase()} sur fond ${l.fond.toLowerCase()} (${l.ratio.toFixed(1)})`).join(', ')}. Il faut au moins 4,5.`)))
+          : h('p', { className: 'ok petit' }, 'Toutes les associations de couleurs sont lisibles (contraste d’au moins 4,5).')),
+      h(Carte, { titre: 'Tailles de texte', info: 'Les autres tailles (bandeaux, grandes citations, encadrés…) suivent ces deux valeurs.' },
+        h(Ligne, { etiquette: `Titre de couverture : ${charte.tailleTitre} px`, aide: 'Valeur d’origine : 114 px.' }, h('input', { type: 'range', min: 90, max: 130, value: charte.tailleTitre, onChange: (e) => majCharte({ tailleTitre: Number(e.target.value) }), 'aria-label': 'Taille du titre' })),
+        h(Ligne, { etiquette: `Texte courant : ${charte.tailleTexte} px`, aide: 'Valeur d’origine : 39 px. En dessous de 34 px, la lecture sur téléphone devient difficile.' }, h('input', { type: 'range', min: 32, max: 46, value: charte.tailleTexte, onChange: (e) => majCharte({ tailleTexte: Number(e.target.value) }), 'aria-label': 'Taille du texte courant' })),
+        h(Bouton, { variante: 'petit', onClick: () => majCharte({ tailleTitre: 114, tailleTexte: 39 }) }, 'Rétablir les tailles d’origine')),
+      h(Carte, { titre: 'Planche de validation', info: 'Le même contenu sur chacun des cinq fonds, avec ta charte actuelle.' },
+        h('div', { className: 'planche' }, Object.entries(M.fondsDe(charte.palette)).map(([f, fond]) => h('figure', { key: f, className: 'galerie-item' },
+          h(SlideCanvas, { slide: { ...EXEMPLE_COUVERTURE, gabarit: 'V1' }, formatId: 'carre', fondId: f, largeur: 150 }),
+          h(SlideCanvas, { slide: { ...EXEMPLE_TEXTE, gabarit: 'T1' }, formatId: 'carre', fondId: f, largeur: 150 }),
+          h('figcaption', null, h('strong', null, fond.nom)))))),
+      h(Carte, { titre: 'Gabarits', info: 'Les 11 mises en page validées.' },
+        FAMILLES.map(([famille, codes]) => h('div', { key: famille, className: 'famille-gabarits' }, h('div', { className: 'surtitre' }, famille),
+          h('div', { className: 'galerie' }, codes.map((code) => h('figure', { key: code, className: 'galerie-item' },
+            h(SlideCanvas, { slide: { ...(famille === 'Couverture' ? EXEMPLE_COUVERTURE : EXEMPLE_TEXTE), gabarit: code }, formatId: 'carre', fondId: famille === 'Texte' ? 'blanc' : 'bleu', largeur: 150 }),
+            h('figcaption', null, h('strong', null, M.GABARITS[code].nom), h('span', { className: 'doux' }, M.GABARITS[code].aide)))))))),
+      h(Carte, { titre: 'Règles', info: 'Le contrat que l’outil fait respecter automatiquement.' },
+        h('div', { className: 'regles' },
+          h('div', null, h('h4', null, 'Obligatoire'), h('ul', { className: 'liste-simple' }, h('li', null, 'Marge gauche de 81 px, texte aligné à gauche'), h('li', null, 'Un seul fond par carrousel'), h('li', null, 'Logo officiel sur la dernière slide'))),
+          h('div', null, h('h4', null, 'Autorisé'), h('ul', { className: 'liste-simple' }, h('li', null, 'Cinq fonds, dont deux nuances pâles'), h('li', null, 'Format 1:1 ou 4:5'), h('li', null, 'Dernière slide centrée'), h('li', null, 'Logo sur chaque slide (réglage)'))),
+          h('div', null, h('h4', null, 'Interdit'), h('ul', { className: 'liste-simple' }, h('li', null, 'Texte vert sur fond blanc ou pâle'), h('li', null, 'Texte blanc sur fond vert ou pâle'), h('li', null, 'Associations de couleurs peu lisibles'))))));
+  }
+
+  function OngletRessources({ etat, actions }) {
+    const [etatImport, setEtatImport] = useState('');
+    const r = etat.projet.ressources || {};
+    const importer = async (cle, fichier) => {
+      if (!fichier) return;
+      try { setEtatImport(await actions.importerRessource(cle, fichier)); } catch (erreur) { setEtatImport(`${fichier.name} : ${erreur.message}`); }
+    };
+    const statut = (present, nom, absent) => (present ? h(Pastille, { ton: 'ok' }, nom || 'Importé') : h(Pastille, { ton: 'attention' }, absent));
+    const champ = (etiquette, cle, accepte) => h('label', { className: 'bouton secondaire petit fichier' }, etiquette, h('input', { type: 'file', accept: accepte, onChange: (e) => importer(cle, e.target.files[0]) }));
+    return h(Fragment, null,
+      h('p', { className: 'note' }, 'Importe chaque fichier une seule fois : la synchronisation le retrouve sur tes autres appareils. Il reste dans ton dépôt privé, jamais sur le site public.'),
+      h(Carte, { titre: 'Polices', info: 'Leur licence Monotype interdit de les diffuser : elles ne vont que dans ton dépôt privé.' },
+        h(Ligne, { etiquette: 'Gill Sans MT Light', aide: 'Texte courant et citations.' }, statut(etat.polices.light, r.light && r.light.nom, 'Rendu approché'), champ('Importer', 'light')),
+        h(Ligne, { etiquette: 'Gill Sans MT Bold', aide: 'Titres et phrases-chocs.' }, statut(etat.polices.bold, r.bold && r.bold.nom, 'Rendu approché'), champ('Importer', 'bold'))),
+      h(Carte, { titre: 'Logo et motifs', info: 'Utilise des PNG à fond transparent : ils s’affichent sur tous les fonds.' },
+        h(Ligne, { etiquette: 'Logo officiel sans fond', aide: 'En attendant, un cadre en pointillés marque sa place.' }, statut(etat.images.logo, r.logo && r.logo.nom, 'Manquant'), champ('Importer', 'logo', 'image/png,image/svg+xml')),
+        h(Ligne, { etiquette: 'Fleurs', aide: 'Utilisées par les gabarits « Fleurs » et « Fin centrée ».' }, statut(etat.images.fleurs, r.fleurs && r.fleurs.nom, 'À importer'), champ('Importer', 'fleurs', 'image/png,image/svg+xml'))),
+      etatImport && h('p', { className: 'note' }, etatImport));
+  }
+
+  function OngletReglages({ etat, dispatch }) {
+    const r = etat.projet.reglages;
+    const regler = (cle) => (valeur) => dispatch({ type: 'reglage', cle, valeur });
+    const interrupteur = (cle, etiquette) => h('label', { className: 'interrupteur' }, h('input', { type: 'checkbox', checked: !!r[cle], onChange: (e) => regler(cle)(e.target.checked), 'aria-label': etiquette }), h('span', null));
+    return h(Fragment, null,
+      h('p', { className: 'note' }, 'Tes réglages sont enregistrés et synchronisés, sauf l’apparence, propre à chaque appareil.'),
+      h(Carte, { titre: 'Apparence de cet appareil' },
+        h(Ligne, { etiquette: 'Mode', aide: 'Automatique suit le réglage clair ou sombre de l’appareil.' }, h(Segmente, { valeur: etat.apparence, onChange: (v) => dispatch({ type: 'apparence', valeur: v }), options: [{ valeur: 'clair', libelle: 'Clair' }, { valeur: 'sombre', libelle: 'Sombre' }, { valeur: 'auto', libelle: 'Automatique' }] }))),
+      h(Carte, { titre: 'Mise en page' },
+        h(Ligne, { etiquette: 'Rythme visuel', aide: 'Utilisé par « Proposer une autre présentation ». Régulier : le même gabarit de texte partout. Contrasté : plus de variété.' }, h(Segmente, { valeur: r.rythme, onChange: regler('rythme'), options: [{ valeur: 'regulier', libelle: 'Régulier' }, { valeur: 'equilibre', libelle: 'Équilibré' }, { valeur: 'contraste', libelle: 'Contrasté' }] })),
+        h(Ligne, { etiquette: 'Mots maximum par slide', aide: `Au-delà, une alerte s’affiche dans Design. Tes carrousels actuels montent à 90 mots. Réglage : ${r.motsMax}.` }, h('input', { type: 'range', min: 30, max: 120, step: 5, value: r.motsMax, onChange: (e) => regler('motsMax')(Number(e.target.value)), 'aria-label': 'Mots maximum par slide' })),
+        h(Ligne, { etiquette: 'Logo sur chaque slide', aide: 'Un petit logo en bas à droite de toutes les slides. La dernière garde son logo de fin.' }, interrupteur('logoPartout', 'Logo sur chaque slide')),
+        h(Ligne, { etiquette: 'Numéro de slide', aide: 'Affiche « 2 / 6 » en bas à gauche.' }, interrupteur('numero', 'Numéro de slide')),
+        h(Ligne, { etiquette: 'Indicateur « glisser »', aide: 'Une petite flèche à droite invite à passer à la slide suivante.' }, interrupteur('glisser', 'Indicateur glisser'))),
+      h(Carte, { titre: 'Par défaut pour un nouvel article' },
+        h(Ligne, { etiquette: 'Réseau', aide: 'Présélectionné à la création.' }, h(Segmente, { valeur: r.reseauDefaut, onChange: regler('reseauDefaut'), options: [{ valeur: 'instagram', libelle: 'Instagram' }, { valeur: 'linkedin', libelle: 'LinkedIn' }] })),
+        h(Ligne, { etiquette: 'Format', aide: 'Présélectionné à la création.' }, h(Segmente, { valeur: r.formatDefaut, onChange: regler('formatDefaut'), options: [{ valeur: 'carre', libelle: '1:1' }, { valeur: 'portrait', libelle: '4:5' }] }))),
+      h(Carte, { titre: 'Export', sousTitre: 'Utilisés à partir de la phase 3.' },
+        h(Ligne, { etiquette: 'Résolution des PNG', aide: '×2 : images deux fois plus grandes, plus nettes à l’archive.' }, h(Segmente, { valeur: r.resolution, onChange: regler('resolution'), options: [{ valeur: '1', libelle: '×1' }, { valeur: '2', libelle: '×2' }] })),
+        h(Ligne, { etiquette: 'Texte du PDF', aide: 'Tracés : identiques à l’aperçu, sans contrainte de licence.' }, h(Segmente, { valeur: r.pdfTexte, onChange: regler('pdfTexte'), options: [{ valeur: 'traces', libelle: 'Tracés' }, { valeur: 'selectionnable', libelle: 'Sélectionnable' }] }))));
+  }
+
+  function OngletSynchro({ etat, actions }) {
+    const config = actions.lireConfig() || {};
+    const [proprietaire, setProprietaire] = useState(config.proprietaire || '');
+    const [depot, setDepot] = useState(config.depot || 'postsop-donnees');
+    const [cle, setCle] = useState('');
+    const [test, setTest] = useState({ etat: 'repos', message: '' });
+    const s = etat.synchro;
+    const [libelle, ton] = LIBELLES_SYNCHRO[s.statut] || LIBELLES_SYNCHRO['non-configure'];
+    async function enregistrer() {
+      setTest({ etat: 'encours', message: 'Test de la connexion…' });
+      try { setTest({ etat: 'ok', message: await actions.configurerSynchro({ proprietaire: proprietaire.trim(), depot: depot.trim(), cle: cle.trim() || config.cle }) }); setCle(''); } catch (erreur) { setTest({ etat: 'erreur', message: erreur.message }); }
+    }
+    return h(Fragment, null,
+      h(Carte, { titre: 'État', actions: h(Bouton, { variante: 'principal', disabled: !config.cle || s.statut === 'en-cours', onClick: () => actions.synchroniser(true) }, 'Synchroniser maintenant') },
+        h('p', null, h(Pastille, { ton }, libelle), ' ', s.derniere ? `Dernière synchronisation : ${new Date(s.derniere).toLocaleString('fr-FR')}.` : ''),
+        s.attente > 0 && h('p', { className: 'petit' }, `${s.attente} changement(s) enregistré(s) sur cet appareil, en attente d’envoi.`),
+        s.detail && h('p', { className: s.statut === 'erreur' ? 'erreur petit' : 'doux petit' }, s.detail),
+        s.conflits && s.conflits.length > 0 && h('ul', { className: 'liste-alertes' }, s.conflits.map((c, i) => h('li', { key: i, className: 'avertissement' }, h('span', null, c.copie ? `« ${c.titre} » avait été modifié sur deux appareils : la version de cet appareil est gardée à part, sous le titre « … (conflit) ».` : `${c.titre} : ${c.raison || 'modifié sur deux appareils, la version la plus récente de GitHub a été gardée.'}`))))),
+      h(Carte, { titre: 'Connexion à ton dépôt privé', info: 'Ces informations restent sur cet appareil. À saisir une fois sur chacun de tes appareils.' },
+        h(Ligne, { etiquette: 'Pseudo GitHub' }, h('input', { className: 'champ-texte', value: proprietaire, autoCapitalize: 'off', autoCorrect: 'off', spellCheck: false, onChange: (e) => setProprietaire(e.target.value), 'aria-label': 'Pseudo GitHub' })),
+        h(Ligne, { etiquette: 'Nom du dépôt de données' }, h('input', { className: 'champ-texte', value: depot, autoCapitalize: 'off', autoCorrect: 'off', spellCheck: false, onChange: (e) => setDepot(e.target.value), 'aria-label': 'Nom du dépôt' })),
+        h(Ligne, { etiquette: 'Clé d’accès', aide: config.cle ? 'Une clé est déjà enregistrée sur cet appareil. Laisse vide pour la garder.' : 'Commence par « github_pat_ ».' }, h('input', { className: 'champ-texte', type: 'password', value: cle, autoComplete: 'off', onChange: (e) => setCle(e.target.value), 'aria-label': 'Clé d’accès' })),
+        h('div', { className: 'actions-ligne' },
+          h(Bouton, { variante: 'principal', disabled: !proprietaire || !depot || !(cle || config.cle) || test.etat === 'encours', onClick: enregistrer }, 'Tester et enregistrer'),
+          config.cle && h(Bouton, { variante: 'lien', onClick: () => { actions.oublierSynchro(); setTest({ etat: 'repos', message: 'Clé oubliée sur cet appareil.' }); } }, 'Oublier la clé sur cet appareil')),
+        test.message && h('p', { className: test.etat === 'erreur' ? 'erreur' : test.etat === 'ok' ? 'ok' : 'doux' }, test.message)),
+      h(Carte, { titre: 'Mise en place, une seule fois', sousTitre: 'Une dizaine de minutes. Les intitulés de GitHub peuvent légèrement varier.' },
+        h('ol', { className: 'guide' },
+          h('li', null, 'Sur github.com, touche « + » en haut, puis « New repository ». Nom : ', h('strong', null, 'postsop-donnees'), '. Choisis ', h('strong', null, 'Private'), ', puis « Create repository ».'),
+          h('li', null, 'Ouvre ton profil (ta photo, en haut à droite), puis Settings, puis, tout en bas, Developer settings.'),
+          h('li', null, 'Personal access tokens, puis Fine-grained tokens, puis « Generate new token ». Nom : PostsOP. Choisis la durée la plus longue proposée.'),
+          h('li', null, 'Dans « Repository access », choisis « Only select repositories », puis postsop-donnees.'),
+          h('li', null, 'Dans « Permissions », trouve « Contents » et choisis « Read and write ».'),
+          h('li', null, 'Touche « Generate token », copie la clé (elle ne s’affiche qu’une fois) et colle-la ci-dessus.')),
+        h('p', { className: 'doux petit' }, 'Ne colle jamais cette clé dans une conversation ni dans ton dépôt public. Si elle fuit, supprime-la sur GitHub et crées-en une autre.')));
+  }
+
+  /* ================================================================== */
+  /* 8. Application                                                      */
+  /* ================================================================== */
+
+  function useModeSysteme() {
+    const requete = () => (racine.matchMedia ? racine.matchMedia('(prefers-color-scheme: dark)') : null);
+    const [sombre, setSombre] = useState(() => !!(requete() && requete().matches));
+    useEffect(() => {
+      const r = requete();
+      if (!r) return undefined;
+      const changer = () => setSombre(r.matches);
+      if (r.addEventListener) r.addEventListener('change', changer); else if (r.addListener) r.addListener(changer);
+      return () => { if (r.removeEventListener) r.removeEventListener('change', changer); else if (r.removeListener) r.removeListener(changer); };
+    }, []);
+    return sombre;
+  }
+
+  const CLE_CONFIG = 'postsop-github';
+  const lireConfig = () => { try { return JSON.parse(racine.localStorage.getItem(CLE_CONFIG)) || null; } catch (e) { return null; } };
+  const lireApparence = () => { try { return racine.localStorage.getItem('postsop-apparence') || 'auto'; } catch (e) { return 'auto'; } };
+
+  const CHEMINS_RESSOURCES = { light: 'ressources/police-light', bold: 'ressources/police-bold', logo: 'ressources/logo', fleurs: 'ressources/fleurs' };
+
+  function chargerImage(blob) {
+    return new Promise((resoudre, rejeter) => {
+      const image = new Image();
+      image.onload = () => resoudre(image);
+      image.onerror = () => rejeter(new Error('image illisible (utilise un PNG ou un SVG)'));
+      image.src = URL.createObjectURL(blob);
+    });
+  }
+  const versTampon = (octets) => octets.buffer.slice(octets.byteOffset, octets.byteOffset + octets.byteLength);
+
+  // Récupère les polices et images importées dans la maquette ou le banc d'essai, une seule fois.
+  async function lireAncienneBase(nom, magasin, cle) {
+    if (typeof indexedDB === 'undefined') return undefined;
+    return new Promise((resoudre) => {
+      const r = indexedDB.open(nom);
+      r.onerror = () => resoudre(undefined);
+      r.onsuccess = () => {
+        const base = r.result;
+        if (!base.objectStoreNames.contains(magasin)) { base.close(); resoudre(undefined); return; }
+        const g = base.transaction(magasin).objectStore(magasin).get(cle);
+        g.onsuccess = () => { resoudre(g.result); base.close(); };
+        g.onerror = () => { resoudre(undefined); base.close(); };
+      };
+    });
+  }
+
+  function App({ etatInitial }) {
+    const [etat, dispatch] = useReducer(reducteur, etatInitial || { ...ETAT_INITIAL, apparence: lireApparence() });
+    const systemeSombre = useModeSysteme();
+    const [contexte, setContexte] = useState(() => ({ choisirPolice: fabriquerChoix(etat.polices), version: 0, images: etat.images, reglages: etat.projet.reglages, charte: etat.projet.charte }));
+    const etatRef = useRef(etat);
+    etatRef.current = etat;
+    const depotRef = useRef(null);
+    const enregistre = useRef({ articles: new Map(), projet: null });
+    const ecritures = useRef(Promise.resolve());
+    const synchroEnCours = useRef(false);
+    const minuterie = useRef(null);
+
+    useEffect(() => {
+      setContexte((c) => ({ choisirPolice: fabriquerChoix(etat.polices), version: c.version + 1, images: etat.images, reglages: etat.projet.reglages, charte: etat.projet.charte }));
+    }, [etat.polices.light, etat.polices.bold, etat.images.logo, etat.images.fleurs, etat.projet.reglages, etat.projet.charte]);
+
+    useEffect(() => { try { racine.localStorage.setItem('postsop-apparence', etat.apparence); } catch (e) { /* indisponible */ } }, [etat.apparence]);
+
+    /* ---------- Enregistrement local ---------- */
+
+    function retenirCommeEnregistre(donnees) {
+      enregistre.current = { articles: new Map(donnees.articles.map((a) => [a.id, JSON.stringify(a)])), projet: JSON.stringify(normaliserProjet(donnees.projet)) };
+    }
+    function persister() {
+      const depot = depotRef.current;
+      const e = etatRef.current;
+      if (!depot || !e.pret) return ecritures.current;
+      const travaux = [];
+      const vus = new Set();
+      for (const a of e.articles) {
+        vus.add(a.id);
+        const json = JSON.stringify(a);
+        if (enregistre.current.articles.get(a.id) !== json) { enregistre.current.articles.set(a.id, json); travaux.push(() => depot.ecrireJSON(`articles/${a.id}.json`, a)); }
+      }
+      for (const id of [...enregistre.current.articles.keys()]) if (!vus.has(id)) { enregistre.current.articles.delete(id); travaux.push(() => depot.supprimer(`articles/${id}.json`)); }
+      const pj = JSON.stringify(e.projet);
+      if (pj !== enregistre.current.projet) { enregistre.current.projet = pj; travaux.push(() => depot.ecrireJSON('projet.json', e.projet)); }
+      if (travaux.length) {
+        ecritures.current = ecritures.current.then(async () => { for (const t of travaux) await t(); })
+          .catch((erreur) => dispatch({ type: 'message', message: 'Enregistrement impossible sur cet appareil : ' + erreur.message }));
+        planifierSynchro(4000);
+      }
+      return ecritures.current;
+    }
+    useEffect(() => {
+      if (!etat.pret) return undefined;
+      const id = setTimeout(persister, 400);
+      return () => clearTimeout(id);
+    }, [etat.articles, etat.projet, etat.pret]);
+
+    /* ---------- Ressources ---------- */
+
+    async function appliquerRessources(donnees) {
+      const r = donnees.ressources;
+      const infos = (donnees.projet && donnees.projet.ressources) || {};
+      for (const role of ['light', 'bold']) {
+        const octets = r[CHEMINS_RESSOURCES[role]];
+        if (octets && typeof opentype !== 'undefined') {
+          try { dispatch({ type: 'polices', polices: { [role]: opentype.parse(versTampon(octets)) } }); } catch (e) { /* police illisible : rendu approché */ }
+        }
+      }
+      for (const cle of ['logo', 'fleurs']) {
+        const octets = r[CHEMINS_RESSOURCES[cle]];
+        if (octets) {
+          try { dispatch({ type: 'images', images: { [cle]: await chargerImage(new Blob([octets], { type: (infos[cle] && infos[cle].type) || 'image/png' })) } }); } catch (e) { /* image illisible */ }
+        }
+      }
+    }
+
+    async function recharger() {
+      await persister();
+      const donnees = await depotRef.current.lireTout();
+      retenirCommeEnregistre(donnees);
+      dispatch({ type: 'charger', articles: donnees.articles, projet: donnees.projet });
+      await appliquerRessources(donnees);
+    }
+
+    /* ---------- Synchronisation ---------- */
+
+    async function synchroniser() {
+      const depot = depotRef.current;
+      if (!depot) return;
+      if (!depot.estConfigure()) { dispatch({ type: 'synchro', synchro: { statut: 'non-configure', attente: await depot.changementsEnAttente() } }); return; }
+      if (racine.navigator && racine.navigator.onLine === false) { dispatch({ type: 'synchro', synchro: { statut: 'hors-ligne', attente: await depot.changementsEnAttente() } }); return; }
+      if (synchroEnCours.current) return;
+      synchroEnCours.current = true;
+      dispatch({ type: 'synchro', synchro: { statut: 'en-cours', detail: '' } });
+      try {
+        await persister();
+        const rapport = await depot.synchroniser();
+        if (rapport.recus || rapport.supprimes || rapport.conflits.length) await recharger();
+        dispatch({ type: 'synchro', synchro: { statut: rapport.conflits.length ? 'conflit' : 'a-jour', derniere: maintenant(), attente: await depot.changementsEnAttente(), conflits: rapport.conflits, detail: '' } });
+        if (rapport.conflits.length) dispatch({ type: 'message', message: 'Un article avait été modifié sur deux appareils : les deux versions sont gardées. Détails dans Configuration › Synchronisation.' });
+      } catch (erreur) {
+        dispatch({ type: 'synchro', synchro: { statut: erreur.code === 'reseau' ? 'hors-ligne' : 'erreur', detail: erreur.message, attente: await depot.changementsEnAttente() } });
+      } finally {
+        synchroEnCours.current = false;
+      }
+    }
+    function planifierSynchro(delai) {
+      clearTimeout(minuterie.current);
+      minuterie.current = setTimeout(synchroniser, delai);
+    }
+
+    const actions = {
+      lireConfig,
+      synchroniser,
+      async configurerSynchro(config) {
+        const client = S.creerClientGitHub(config);
+        const infos = await client.tester();
+        if (!infos.prive) throw new Error('Ce dépôt est public : tes articles et tes polices seraient visibles par tous. Passe-le en privé dans ses réglages GitHub, puis réessaie.');
+        if (!infos.ecriture) throw new Error('La clé ne permet pas d’écrire dans ce dépôt : vérifie la permission « Contents : Read and write ».');
+        racine.localStorage.setItem(CLE_CONFIG, JSON.stringify(config));
+        depotRef.current.configurer(client);
+        if (await depotRef.current.distantContientDesArticles()) await depotRef.current.oublierNonSynchronises();
+        await synchroniser();
+        await recharger();
+        const donnees = await depotRef.current.lireTout();
+        if (!donnees.projet) await depotRef.current.ecrireJSON('projet.json', etatRef.current.projet);
+        return `Connecté à ${infos.nom}, dépôt privé. Synchronisation activée sur cet appareil.`;
+      },
+      oublierSynchro() {
+        racine.localStorage.removeItem(CLE_CONFIG);
+        depotRef.current.configurer(null);
+        dispatch({ type: 'synchro', synchro: { statut: 'non-configure', detail: '' } });
+      },
+      async importerRessource(cle, fichier) {
+        const octets = new Uint8Array(await fichier.arrayBuffer());
+        if (cle === 'light' || cle === 'bold') {
+          if (typeof opentype === 'undefined') throw new Error('lecteur de polices indisponible (connexion ?)');
+          let police;
+          try { police = opentype.parse(versTampon(octets)); } catch (e) { throw new Error('fichier illisible : utilise un .ttf ou un .otf'); }
+          dispatch({ type: 'polices', polices: { [cle]: police } });
+        } else {
+          dispatch({ type: 'images', images: { [cle]: await chargerImage(new Blob([octets], { type: fichier.type || 'image/png' })) } });
+        }
+        await depotRef.current.ecrireBinaire(CHEMINS_RESSOURCES[cle], octets);
+        dispatch({ type: 'projet', maj: (p) => ({ ...p, ressources: { ...(p.ressources || {}), [cle]: { nom: fichier.name, type: fichier.type || '' } } }) });
+        planifierSynchro(1500);
+        return `${fichier.name} importé${depotRef.current.estConfigure() ? ' : il sera envoyé sur tes autres appareils.' : '.'}`;
+      },
+    };
+
+    /* ---------- Démarrage ---------- */
+
+    useEffect(() => {
+      if (etatInitial) return undefined;
+      let actif = true;
+      (async () => {
+        const magasin = typeof indexedDB !== 'undefined' ? S.creerMagasinIndexedDB() : S.creerMagasinMemoire();
+        const config = lireConfig();
+        const depot = S.creerDepot({ magasin, client: config ? S.creerClientGitHub(config) : null });
+        depotRef.current = depot;
+        let donnees = await depot.lireTout();
+        if (!donnees.projet) {
+          // Première ouverture sur cet appareil : charte d'origine et article d'exemple, sans créer de faux conflit.
+          await depot.ecrireJSON('projet.json', PROJET_DEFAUT, { initial: true });
+          if (!donnees.articles.length) await depot.ecrireJSON(`articles/${EXEMPLE.id}.json`, EXEMPLE, { initial: true });
+          donnees = await depot.lireTout();
+        }
+        // Reprise des polices et images importées dans la maquette ou le banc d'essai.
+        const infos = { ...(donnees.projet.ressources || {}) };
+        let repris = false;
+        for (const [cle, ancienne] of [['light', 'police-light'], ['bold', 'police-bold'], ['logo', 'image-logo'], ['fleurs', 'image-fleurs']]) {
+          if (donnees.ressources[CHEMINS_RESSOURCES[cle]]) continue;
+          const trouvee = (await lireAncienneBase('postsop', 'ressources', ancienne)) || (cle === 'light' || cle === 'bold' ? await lireAncienneBase('contentshelper-phase0', 'kv', ancienne) : undefined);
+          if (!trouvee) continue;
+          const octets = trouvee.octets ? new Uint8Array(trouvee.octets) : new Uint8Array(await trouvee.blob.arrayBuffer());
+          await depot.ecrireBinaire(CHEMINS_RESSOURCES[cle], octets);
+          infos[cle] = { nom: trouvee.nom, type: trouvee.blob ? trouvee.blob.type : '' };
+          repris = true;
+        }
+        if (repris) { await depot.ecrireJSON('projet.json', { ...donnees.projet, ressources: infos }); donnees = await depot.lireTout(); }
+        if (!actif) return;
+        retenirCommeEnregistre(donnees);
+        dispatch({ type: 'charger', articles: donnees.articles, projet: donnees.projet });
+        await appliquerRessources(donnees);
+        synchroniser();
+      })().catch((erreur) => dispatch({ type: 'message', message: 'Ouverture impossible : ' + erreur.message }));
+
+      const enLigne = () => planifierSynchro(500);
+      const visible = () => { if (document.visibilityState === 'visible') planifierSynchro(500); };
+      const intervalle = setInterval(() => synchroniser(), 120000);
+      racine.addEventListener('online', enLigne);
+      document.addEventListener('visibilitychange', visible);
+      return () => { actif = false; clearInterval(intervalle); racine.removeEventListener('online', enLigne); document.removeEventListener('visibilitychange', visible); };
+    }, []);
+
+    /* ---------- Raccourcis : ⌘Z / Ctrl+Z, ⇧⌘Z / Ctrl+Y ---------- */
+
+    useEffect(() => {
+      if (typeof document === 'undefined') return undefined;
+      const touche = (e) => {
+        const mod = e.metaKey || e.ctrlKey;
+        if (!mod) return;
+        const k = e.key.toLowerCase();
+        if (k === 'z' && !e.shiftKey) { e.preventDefault(); dispatch({ type: 'annuler' }); }
+        else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); dispatch({ type: 'retablir' }); }
+      };
+      document.addEventListener('keydown', touche);
+      return () => document.removeEventListener('keydown', touche);
+    }, []);
+
+    const mode = etat.apparence === 'auto' ? (systemeSombre ? 'sombre' : 'clair') : etat.apparence;
+    const ecrans = { bibliotheque: Bibliotheque, atelier: Atelier, configuration: Configuration };
+    return h(Contexte.Provider, { value: contexte },
+      h('div', { className: 'app theme-' + mode },
+        etat.pret ? h(ecrans[etat.ecran], { etat, dispatch, actions }) : h('div', { className: 'chargement gill' }, 'Chargement de tes articles…')));
+  }
+
+  // Si une erreur imprévue survient, on l'affiche au lieu d'une page blanche.
+  class Filet extends Component {
+    constructor(props) { super(props); this.state = { erreur: null }; }
+    static getDerivedStateFromError(erreur) { return { erreur }; }
+    render() {
+      if (!this.state.erreur) return this.props.children;
+      return h('div', { className: 'erreur-globale' }, h('h1', null, 'Une erreur est survenue'), h('p', null, String(this.state.erreur && this.state.erreur.message)),
+        h('p', null, 'Tes données sont enregistrées sur cet appareil. Recharge la page ; si l’erreur revient, envoie-moi une capture.'), h('button', { type: 'button', onClick: () => racine.location.reload() }, 'Recharger'));
+    }
+  }
+
+  const api = { App, Filet, reducteur, OP, normaliserProjet, ETAT_INITIAL, PROJET_DEFAUT, EXEMPLE, REGLAGES_DEFAUT, verifierLisibilite, contraste, extraitAvecMarque, fabriquerChoix };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else {
+    racine.addEventListener('DOMContentLoaded', () => {
+      const conteneur = document.getElementById('racine');
+      if (!racine.React || !racine.ReactDOM) { conteneur.textContent = 'Impossible de charger React : vérifie ta connexion Internet, puis recharge la page.'; return; }
+      racine.ReactDOM.createRoot(conteneur).render(h(Filet, null, h(App)));
+    });
+  }
+})(typeof window !== 'undefined' ? window : globalThis);

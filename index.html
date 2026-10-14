@@ -6,125 +6,20 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="ContentsHelper">
+  <meta name="apple-mobile-web-app-title" content="PostsOP">
+  <meta name="color-scheme" content="light dark">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icon-180.png">
-  <link rel="stylesheet" href="style.css">
-  <title>ContentsHelper · Phase 0</title>
+  <link rel="stylesheet" href="postsop.css">
+  <title>PostsOP</title>
 </head>
 <body>
-  <header>
-    <p class="surtitre">Oh ! Potentiel ContentsHelper</p>
-    <h1>Banc d’essai · Phase 0</h1>
-    <p class="intro">Fais les cinq étapes dans l’ordre, puis copie le rapport en bas de page et colle-le dans la conversation avec Claude.</p>
-    <p class="statut" id="st-bibliotheques"></p>
-  </header>
-
-  <main>
-    <section class="carte">
-      <h2>1. Polices</h2>
-      <p>Importe les fichiers de police de tes carrousels, au format .ttf ou .otf. Ils restent sur cet iPad.</p>
-      <label class="champ">
-        <span>Texte courant (Light)</span>
-        <input type="file" id="fichier-light">
-      </label>
-      <label class="champ">
-        <span>Mise en avant (Bold)</span>
-        <input type="file" id="fichier-bold">
-      </label>
-      <button class="secondaire" id="btn-lato">Pas de fichier ? Charger Lato (gratuite) depuis Internet</button>
-      <p class="statut" id="st-polices"></p>
-    </section>
-
-    <section class="carte">
-      <h2>2. Rendu</h2>
-      <div class="reglages">
-        <div class="reglage">
-          <span>Slide</span>
-          <div class="segments" data-groupe="slide">
-            <button data-valeur="couverture" aria-pressed="true">Couverture</button>
-            <button data-valeur="texte" aria-pressed="false">Texte</button>
-          </div>
-        </div>
-        <div class="reglage">
-          <span>Format</span>
-          <div class="segments" data-groupe="format">
-            <button data-valeur="carre" aria-pressed="true">Carré 1:1</button>
-            <button data-valeur="portrait" aria-pressed="false">Portrait 4:5</button>
-          </div>
-        </div>
-        <div class="reglage">
-          <span>Bleu</span>
-          <div class="segments" data-groupe="bleu">
-            <button data-valeur="mesure" aria-pressed="true">Tes fichiers #293D56</button>
-            <button data-valeur="fourni" aria-pressed="false">RVB 0/56/70</button>
-          </div>
-        </div>
-        <div class="reglage">
-          <span>Vert</span>
-          <div class="segments" data-groupe="vert">
-            <button data-valeur="texte" aria-pressed="true">Carrousels #D5E22A</button>
-            <button data-valeur="logo" aria-pressed="false">Logo #C9D420</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="cadre-apercu">
-        <canvas id="apercu" width="1080" height="1080" aria-label="Aperçu de la slide"></canvas>
-      </div>
-      <p class="infos" id="infos-rendu"></p>
-
-      <div class="actions">
-        <button id="btn-identite">Vérifier aperçu = export</button>
-        <button id="btn-png">Préparer le PNG</button>
-        <button id="btn-png2">Préparer le PNG ×2</button>
-        <button id="btn-pdf">Préparer le PDF</button>
-      </div>
-      <button class="principal" id="btn-partager" hidden>Partager ou enregistrer</button>
-      <p class="statut" id="st-rendu"></p>
-      <p class="statut" id="st-png"></p>
-      <p class="statut" id="st-pdf"></p>
-      <p class="statut" id="st-partage"></p>
-    </section>
-
-    <section class="carte">
-      <h2>3. Services gratuits</h2>
-      <p>Correction orthographique :</p>
-      <button id="btn-languagetool">Tester LanguageTool</button>
-      <p class="statut" id="st-languagetool"></p>
-      <p class="mention">Correction fournie par <a href="https://languagetool.org" target="_blank" rel="noopener">LanguageTool</a>.</p>
-
-      <p>Intelligence artificielle :</p>
-      <label class="champ">
-        <span>Clé d’accès Mistral</span>
-        <input type="password" id="cle-mistral" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Colle ta clé ici">
-      </label>
-      <div class="actions">
-        <button id="btn-cle">Enregistrer la clé</button>
-        <button id="btn-mistral">Tester Mistral</button>
-        <button class="secondaire" id="btn-effacer-cle">Effacer la clé</button>
-      </div>
-      <p class="infos" id="etat-cle"></p>
-      <p class="statut" id="st-mistral"></p>
-    </section>
-
-    <section class="carte">
-      <h2>4. Stockage et installation</h2>
-      <p>Lance ce test une première fois dans Safari, puis depuis l’icône de l’écran d’accueil. Rouvre l’app dans quelques jours : la date du premier test doit toujours s’afficher.</p>
-      <button id="btn-stockage">Tester le stockage</button>
-      <p class="statut" id="st-installation"></p>
-      <p class="statut" id="st-stockage"></p>
-    </section>
-
-    <section class="carte">
-      <h2>5. Rapport</h2>
-      <textarea id="rapport" rows="12" readonly></textarea>
-      <button class="principal" id="btn-copier">Copier le rapport</button>
-    </section>
-  </main>
-
+  <div id="racine">Chargement de PostsOP…</div>
+  <script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
-  <script src="pdf-lib.min.js"></script>
-  <script src="app.js"></script>
+  <script src="moteur.js"></script>
+  <script src="synchro.js"></script>
+  <script src="postsop.js"></script>
 </body>
 </html>

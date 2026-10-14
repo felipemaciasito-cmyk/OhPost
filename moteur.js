@@ -1,23 +1,27 @@
 /*
- * PostsOP — moteur de composition des slides
+ * PostsOP — moteur de composition des slides (v2)
  *
- * Calcule la position de chaque ligne à partir de la charte, puis dessine.
- * Le même calcul sert à l'aperçu, aux miniatures et, plus tard, aux exports PNG et PDF.
- * Aucune dépendance au navigateur pour le calcul : il est testé hors ligne.
+ * Le gabarit d'une slide ne modifie jamais son texte : il décide seulement de la façon
+ * de le dessiner. On peut donc changer de gabarit autant qu'on veut sans rien perdre.
+ * Le même calcul sert à l'aperçu, aux miniatures et aux exports.
  */
 (function (racine) {
   'use strict';
 
-  /* ---------- Charte Oh ! Potentiel (décisions du 11 octobre 2026) ---------- */
+  /* ---------- Charte Oh ! Potentiel ---------- */
 
-  const PALETTE = { bleu: '#003846', vert: '#C9D420', blanc: '#FFFFFF' };
+  const PALETTE = { bleu: '#003846', vert: '#C9D420', blanc: '#FFFFFF', bleuPale: '#E6EBEC', vertPale: '#F3F6CE' };
+  const P = PALETTE;
 
-  // Pour chaque fond : couleur du texte, couleur des mots mis en valeur, couleur du filet des citations.
-  // Interdits respectés : jamais de texte vert sur blanc, jamais de texte blanc sur vert.
+  // Pour chaque fond : texte, mise en valeur, filet des citations, bandeau, surligneur, encadré, décor.
+  // Interdits respectés par construction : jamais de texte vert ou blanc sur fond pâle,
+  // ni blanc sur vert, ni vert sur blanc.
   const FONDS = {
-    bleu: { nom: 'Bleu', fond: PALETTE.bleu, texte: PALETTE.blanc, accent: PALETTE.vert, filet: null },
-    blanc: { nom: 'Blanc', fond: PALETTE.blanc, texte: PALETTE.bleu, accent: PALETTE.bleu, filet: PALETTE.vert },
-    vert: { nom: 'Vert', fond: PALETTE.vert, texte: PALETTE.bleu, accent: PALETTE.bleu, filet: PALETTE.bleu },
+    bleu: { nom: 'Bleu', fond: P.bleu, texte: P.blanc, accent: P.vert, filet: null, bande: { fond: P.vert, texte: P.bleu }, surligne: { fond: P.vert, texte: P.bleu }, carte: { fond: P.blanc, texte: P.bleu }, decor: P.vert },
+    blanc: { nom: 'Blanc', fond: P.blanc, texte: P.bleu, accent: P.bleu, filet: P.vert, bande: { fond: P.vert, texte: P.bleu }, surligne: { fond: P.vert, texte: P.bleu }, carte: { fond: P.bleu, texte: P.blanc }, decor: P.vert },
+    vert: { nom: 'Vert', fond: P.vert, texte: P.bleu, accent: P.bleu, filet: P.bleu, bande: { fond: P.bleu, texte: P.blanc }, surligne: { fond: P.blanc, texte: P.bleu }, carte: { fond: P.blanc, texte: P.bleu }, decor: P.bleu },
+    bleuPale: { nom: 'Bleu pâle', fond: P.bleuPale, texte: P.bleu, accent: P.bleu, filet: P.vert, bande: { fond: P.bleu, texte: P.blanc }, surligne: { fond: P.vert, texte: P.bleu }, carte: { fond: P.bleu, texte: P.blanc }, decor: P.vert },
+    vertPale: { nom: 'Vert pâle', fond: P.vertPale, texte: P.bleu, accent: P.bleu, filet: P.bleu, bande: { fond: P.bleu, texte: P.blanc }, surligne: { fond: P.vert, texte: P.bleu }, carte: { fond: P.bleu, texte: P.blanc }, decor: P.bleu },
   };
 
   const FORMATS = {
@@ -26,26 +30,36 @@
   };
 
   const MARGES = { gauche: 81, droite: 162, haute: 110, basse: 110 };
-  const SIGNATURE = { largeur: 220, hauteur: 90, ecart: 40 }; // zone réservée au logo
+  const SIGNATURE = { l: 220, h: 90, ecart: 40 };
+  const LOGO_PARTOUT = { l: 170, h: 64, bas: 70 };
 
-  // Tailles calées sur la hauteur des minuscules de tes carrousels actuels.
-  const STYLES = {
-    couverture: { nom: 'Couverture', role: 'bold', taille: 114, interligne: 1.1, couleur: 'texte' },
-    contrepoint: { nom: 'Contrepoint', role: 'bold', taille: 114, interligne: 1.1, couleur: 'accent' },
-    corps: { nom: 'Texte', role: 'light', taille: 39, interligne: 1.25, couleur: 'texte' },
-    emphase: { nom: 'Phrase-choc', role: 'bold', taille: 39, interligne: 1.25, couleur: 'texte' },
-    citation: { nom: 'Citation', role: 'light', taille: 39, interligne: 1.25, couleur: 'accent', filet: true },
+  // Natures de paragraphe : ce que le texte EST. Le gabarit décide comment il s'affiche.
+  const NATURES = {
+    corps: { nom: 'Texte' },
+    emphase: { nom: 'Phrase-choc' },
+    citation: { nom: 'Citation' },
+    titre: { nom: 'Titre de couverture' },
+    contrepoint: { nom: 'Contrepoint' },
   };
 
-  // Blanc entre deux paragraphes, en nombre de lignes du paragraphe précédent.
-  const ESPACE_PARAGRAPHE = { couverture: 0, contrepoint: 0, corps: 1, emphase: 1, citation: 1 };
+  const GABARITS = {
+    V1: { nom: 'Classique', famille: 'Couverture', aide: 'Le titre en grand, le contrepoint dans la couleur de mise en valeur.' },
+    V2: { nom: 'Bandeau', famille: 'Couverture', aide: 'Le contrepoint posé sur un bandeau de couleur.' },
+    V3: { nom: 'Grand mot', famille: 'Couverture', aide: 'Le premier mot du contrepoint en très grand.' },
+    V4: { nom: 'Deux tons', famille: 'Couverture', aide: 'Le constat en haut, le contrepoint sur une seconde couleur en bas.' },
+    V5: { nom: 'Fleurs', famille: 'Couverture', aide: 'La couverture classique, avec ta guirlande de fleurs.' },
+    T1: { nom: 'Classique', famille: 'Texte', aide: 'Le texte aligné à gauche, calé en haut.' },
+    T2: { nom: 'Respiration', famille: 'Texte', aide: 'Une phrase seule, en grand, centrée verticalement.' },
+    T3: { nom: 'Surlignage', famille: 'Texte', aide: 'Les phrases-chocs passées au surligneur.' },
+    T4: { nom: 'Grande citation', famille: 'Texte', aide: 'La citation en grand, avec un guillemet géant.' },
+    T5: { nom: 'Encadré', famille: 'Texte', aide: 'Les phrases-chocs dans un encadré.' },
+    F1: { nom: 'Fin centrée', famille: 'Fin', aide: 'Le texte centré, les fleurs et le logo au centre.' },
+  };
 
-  // Nombre maximal de slides par réseau : valeurs à vérifier au développement, elles changent.
-  const LIMITES_SLIDES = { instagram: 20, linkedin: 100 };
+  const LIMITES_SLIDES = { instagram: 20, linkedin: 100 }; // à vérifier au développement : elles changent
 
   /* ---------- Polices ---------- */
 
-  // Police lue depuis tes fichiers : rendu exact, identique à l'export.
   function policeExacte(font) {
     return {
       exacte: true,
@@ -60,7 +74,7 @@
     };
   }
 
-  // Police système de l'iPad (Gill Sans y est installée) : rendu approché, pour la maquette.
+  // Gill Sans de l'iPad : rendu approché, en attendant tes fichiers.
   function policeSysteme(poids) {
     let ctxMesure = null;
     const css = (taille) => `${poids} ${taille}px "Gill Sans", "Gill Sans MT", "Helvetica Neue", sans-serif`;
@@ -82,10 +96,9 @@
     };
   }
 
-  /* ---------- Composition ---------- */
+  /* ---------- Texte ---------- */
 
-  // L'espace fine insécable n'existe pas dans Gill Sans : on la remplace par une espace insécable.
-  const normaliserEspaces = (texte) => texte.replace(/\u202F/g, '\u00A0');
+  const normaliserEspaces = (texte) => String(texte).replace(/\u202F/g, '\u00A0');
 
   function couperLignes(police, texte, taille, largeurMax) {
     const lignes = [];
@@ -93,98 +106,316 @@
       let courante = '';
       for (const mot of ligneImposee.split(' ')) {
         const essai = courante ? courante + ' ' + mot : mot;
-        if (!courante || police.mesurer(essai, taille) <= largeurMax) {
-          courante = essai;
-        } else {
-          lignes.push(courante);
-          courante = mot;
-        }
+        if (!courante || police.mesurer(essai, taille) <= largeurMax) courante = essai;
+        else { lignes.push(courante); courante = mot; }
       }
       lignes.push(courante);
     }
     return lignes;
   }
 
-  // slide = { role, blocs: [{ style, texte }], signature }
-  function composer(slide, formatId, fondId, choisirPolice) {
-    const fmt = FORMATS[formatId];
-    const fond = FONDS[fondId];
-    const largeurColonne = fmt.l - MARGES.gauche - MARGES.droite;
-    const basDisponible = fmt.h - MARGES.basse - (slide.signature ? SIGNATURE.hauteur + SIGNATURE.ecart : 0);
-    const lignes = [];
-    const filets = [];
+  // Empile des paragraphes dans une colonne. Les éléments sont exprimés depuis le haut de la pile.
+  function empiler(specs, zone, choisirPolice) {
+    const elements = [];
     let y = 0;
     let tropLarge = false;
-
-    slide.blocs.forEach((bloc, i) => {
-      const style = STYLES[bloc.style];
-      // Sur fond blanc ou vert, le contrepoint ne peut pas changer de couleur : il change de graisse.
-      const role = bloc.style === 'contrepoint' && fond.accent === fond.texte ? 'light' : style.role;
-      const police = choisirPolice(role);
-      const hauteurLigne = style.taille * style.interligne;
-      const ligneDeBase = (hauteurLigne - (police.asc + police.desc) * style.taille) / 2 + police.asc * style.taille;
-      const couleur = fond[style.couleur];
-      const debutBloc = y;
-
-      for (const texte of couperLignes(police, bloc.texte, style.taille, largeurColonne)) {
-        const largeur = police.mesurer(texte, style.taille);
-        if (largeur > largeurColonne + 0.5) tropLarge = true;
-        lignes.push({ texte, x: MARGES.gauche, yBase: y + ligneDeBase, police, taille: style.taille, couleur, largeur });
-        y += hauteurLigne;
+    specs.forEach((s, i) => {
+      const police = choisirPolice(s.role);
+      const hl = s.taille * s.interligne;
+      const base = (hl - (police.asc + police.desc) * s.taille) / 2 + police.asc * s.taille;
+      const debut = y;
+      const marge = s.carte ? s.carte.marge : 0;
+      const largeur = (s.largeur || zone.largeur) - 2 * marge;
+      const locaux = [];
+      if (s.carte) y += marge;
+      if (s.decor) {
+        // Guillemet géant posé juste au-dessus de la citation.
+        locaux.push({ type: 'ligne', texte: '«', x: zone.x - 19, y: y + 170, police: choisirPolice('bold'), taille: 380, couleur: s.decor });
+        y += 190;
       }
-      if (style.filet && fond.filet) filets.push({ y0: debutBloc, y1: y, couleur: fond.filet });
-      if (i < slide.blocs.length - 1) y += ESPACE_PARAGRAPHE[bloc.style] * hauteurLigne;
+      for (const texte of couperLignes(police, s.texte, s.taille, largeur)) {
+        const l = police.mesurer(texte, s.taille);
+        if (l > largeur + 0.5) tropLarge = true;
+        const x = zone.alignement === 'centre' ? zone.x + (zone.largeur - l) / 2 : zone.x + marge;
+        if (s.surligne) {
+          const hb = s.taille * 1.18;
+          locaux.push({ type: 'rect', x: x - 10, y: y + (hl - hb) / 2, l: l + 20, h: hb, couleur: s.surligne });
+        }
+        locaux.push({ type: 'ligne', texte, x, y: y + base, police, taille: s.taille, couleur: s.couleur });
+        y += hl;
+      }
+      if (s.carte) {
+        y += marge;
+        locaux.unshift({ type: 'rect', x: zone.x, y: debut, l: zone.largeur, h: y - debut, couleur: s.carte.fond, rayon: 28 });
+      }
+      if (s.filet) locaux.push({ type: 'rect', x: zone.x - 30, y: debut + 8, l: 5, h: y - debut - 16, couleur: s.filet });
+      elements.push(...locaux);
+      if (i < specs.length - 1) y += s.espaceApres || 0;
     });
+    return { elements, hauteur: y, tropLarge };
+  }
 
-    const hauteur = y;
-    const centre = String(slide.role).toLowerCase() === 'couverture';
-    const y0 = centre ? (MARGES.haute + basDisponible - hauteur) / 2 : MARGES.haute;
-    for (const ligne of lignes) ligne.yBase += y0;
-    for (const filet of filets) { filet.y0 += y0; filet.y1 += y0; }
+  const decaler = (elements, dy) => elements.map((e) => ({ ...e, y: e.y + dy }));
 
-    const depasseBas = y0 + hauteur > basDisponible + 0.5;
-    const depasseHaut = y0 < MARGES.haute - 0.5;
+  // Plus grande taille (entre min et max) pour laquelle la pile tient dans la zone.
+  function ajuster(fabriquer, zone, hauteurMax, choisirPolice, max, min) {
+    for (let taille = max; taille >= min; taille -= 4) {
+      const pile = empiler(fabriquer(taille), zone, choisirPolice);
+      if (!pile.tropLarge && pile.hauteur <= hauteurMax) return pile;
+    }
+    return empiler(fabriquer(min), zone, choisirPolice);
+  }
+
+  /* ---------- Gabarits ---------- */
+
+  function gabaritParDefaut(slide, index, total) {
+    if (slide.gabarit && GABARITS[slide.gabarit]) return slide.gabarit;
+    if (index === 0 || String(slide.role).toLowerCase() === 'couverture') return 'V1';
+    return 'T1';
+  }
+
+  // Une ligne de texte courant à 39 px, interligne 1,25 : l'unité d'espacement entre paragraphes.
+  const LIGNE = 39 * 1.25;
+
+  function specsTexte(blocs, fond, options = {}) {
+    return blocs.map((b) => {
+      const n = b.style;
+      if (n === 'citation') return { texte: b.texte, role: 'light', taille: 39, interligne: 1.25, couleur: fond.accent, filet: fond.filet, espaceApres: LIGNE };
+      if (n === 'corps') return { texte: b.texte, role: 'light', taille: 39, interligne: 1.25, couleur: fond.texte, espaceApres: LIGNE };
+      // emphase, titre, contrepoint
+      if (options.surligne) return { texte: b.texte, role: 'bold', taille: options.tailleSurligne || 58, interligne: 1.4, couleur: fond.surligne.texte, surligne: fond.surligne.fond, espaceApres: LIGNE };
+      return { texte: b.texte, role: 'bold', taille: 39, interligne: 1.25, couleur: fond.texte, espaceApres: LIGNE };
+    });
+  }
+
+  function composer(slide, formatId, fondId, choisirPolice, contexte = {}) {
+    const fmt = FORMATS[formatId];
+    const fond = FONDS[fondId] || FONDS.bleu;
+    const index = contexte.index || 0;
+    const total = contexte.total || 1;
+    const reglages = contexte.reglages || {};
+    const gab = gabaritParDefaut(slide, index, total);
+    const signature = !!slide.signature;
+    const logoPartout = !!reglages.logoPartout && !signature;
+    const L = fmt.l;
+    const H = fmt.h;
+    const zone = { x: MARGES.gauche, largeur: L - MARGES.gauche - MARGES.droite, alignement: 'gauche' };
+    const haut = MARGES.haute;
+    const bas = H - MARGES.basse - (signature && gab !== 'F1' ? SIGNATURE.h + SIGNATURE.ecart : 0) - (logoPartout ? LOGO_PARTOUT.h + 30 : 0);
+    const blocs = slide.blocs.filter((b) => String(b.texte).trim());
+    const cp = fond.accent === fond.texte ? 'light' : 'bold';
+    let elements = [];
+    let deborde = false;
+    let tropLarge = false;
+    let couleurPied = fond.texte;
+
+    const titre = blocs[0];
+    const suite = blocs.slice(1);
+    const pileCentree = (pile, zoneHaut, zoneBas) => {
+      const y0 = (zoneHaut + zoneBas - pile.hauteur) / 2;
+      if (y0 < zoneHaut - 0.5 || y0 + pile.hauteur > zoneBas + 0.5) deborde = true;
+      tropLarge = tropLarge || pile.tropLarge;
+      return decaler(pile.elements, y0);
+    };
+    const pileHaut = (pile, y0, zoneBas) => {
+      if (y0 + pile.hauteur > zoneBas + 0.5) deborde = true;
+      tropLarge = tropLarge || pile.tropLarge;
+      return decaler(pile.elements, y0);
+    };
+    const couverture = (taille, couleurTitre, couleurSuite, roleSuite) => [
+      ...(titre ? [{ texte: titre.texte, role: 'bold', taille, interligne: 1.1, couleur: couleurTitre, espaceApres: 0 }] : []),
+      ...suite.map((b) => ({ texte: b.texte, role: roleSuite, taille, interligne: 1.1, couleur: couleurSuite, espaceApres: 0 })),
+    ];
+
+    switch (gab) {
+      case 'V1': {
+        elements = pileCentree(empiler(couverture(114, fond.texte, fond.accent, cp), zone, choisirPolice), haut, bas);
+        break;
+      }
+      case 'V2': {
+        const bandeHaut = Math.round(H * 0.593);
+        const bandeH = Math.round(H * 0.278);
+        const t = empiler(titre ? [{ texte: titre.texte, role: 'bold', taille: 104, interligne: 1.08, couleur: fond.texte }] : [], zone, choisirPolice);
+        elements.push(...pileHaut(t, haut + 40, bandeHaut - 30));
+        elements.push({ type: 'rect', x: 0, y: bandeHaut, l: L, h: bandeH, couleur: fond.bande.fond });
+        const zoneBande = { ...zone, largeur: L - 2 * MARGES.gauche };
+        const c = ajuster((taille) => suite.map((b) => ({ texte: b.texte, role: 'bold', taille, interligne: 1.08, couleur: fond.bande.texte })), zoneBande, bandeH - 60, choisirPolice, 92, 56);
+        elements.push(...pileCentree(c, bandeHaut + 30, bandeHaut + bandeH - 30));
+        break;
+      }
+      case 'V3': {
+        if (!suite.length) { elements = pileCentree(empiler(couverture(114, fond.texte, fond.accent, cp), zone, choisirPolice), haut, bas); break; }
+        const texteSuite = suite.map((b) => b.texte).join('\n');
+        const coupe = texteSuite.includes('\n') ? texteSuite.indexOf('\n') : (texteSuite.indexOf(' ') > 0 ? texteSuite.indexOf(' ') : texteSuite.length);
+        const grand = texteSuite.slice(0, coupe).trim();
+        const reste = texteSuite.slice(coupe).replace(/\n/g, ' ').trim();
+        const zoneLarge = { ...zone, largeur: L - 2 * MARGES.gauche };
+        const police = choisirPolice('bold');
+        let tailleGrand = 230;
+        while (tailleGrand > 120 && police.mesurer(grand, tailleGrand) > zoneLarge.largeur) tailleGrand -= 10;
+        const specs = [
+          ...(titre ? [{ texte: titre.texte.replace(/\n/g, ' '), role: 'light', taille: 52, interligne: 1.2, couleur: fond.texte, espaceApres: 36 }] : []),
+          { texte: grand, role: 'bold', taille: tailleGrand, interligne: 1, couleur: fond.accent, espaceApres: 36 },
+          ...(reste ? [{ texte: reste, role: 'bold', taille: 84, interligne: 1.1, couleur: fond.texte }] : []),
+        ];
+        elements = pileCentree(empiler(specs, zoneLarge, choisirPolice), haut + 30, bas - 30);
+        break;
+      }
+      case 'V4': {
+        const coupe = Math.round(H * 0.556);
+        const zoneLarge = { ...zone, largeur: L - 2 * MARGES.gauche };
+        const t = ajuster((taille) => (titre ? [{ texte: titre.texte, role: 'bold', taille, interligne: 1.08, couleur: fond.texte }] : []), zoneLarge, coupe - 56 - haut, choisirPolice, 96, 56);
+        const yTitre = coupe - 56 - t.hauteur;
+        if (yTitre < haut - 0.5) deborde = true;
+        tropLarge = tropLarge || t.tropLarge;
+        elements.push({ type: 'rect', x: 0, y: coupe, l: L, h: H - coupe, couleur: fond.bande.fond });
+        elements.push(...decaler(t.elements, yTitre));
+        const c = ajuster((taille) => suite.map((b) => ({ texte: b.texte, role: 'bold', taille, interligne: 1.08, couleur: fond.bande.texte })), zoneLarge, bas - coupe - 56, choisirPolice, 96, 56);
+        elements.push(...pileHaut(c, coupe + 56, bas));
+        couleurPied = fond.bande.texte;
+        break;
+      }
+      case 'V5': {
+        elements = pileHaut(empiler(couverture(96, fond.texte, fond.accent, cp), zone, choisirPolice), haut + 10, H - 300);
+        const l = Math.round(L * 0.52);
+        const h = Math.round((l * 275) / 696);
+        elements.push({ type: 'image', cle: 'fleurs', x: L - 60 - l, y: H - 70 - h, l, h, libelle: 'Fleurs', couleur: fond.texte });
+        break;
+      }
+      case 'T2': {
+        const c = ajuster((taille) => blocs.map((b) => ({ texte: b.texte, role: 'bold', taille, interligne: 1.1, couleur: b.style === 'citation' ? fond.accent : fond.texte, espaceApres: taille * 0.4 })), zone, bas - haut, choisirPolice, 140, 52);
+        elements = pileCentree(c, haut, bas);
+        break;
+      }
+      case 'T3': {
+        const pile = ajuster((taille) => specsTexte(blocs, fond, { surligne: true, tailleSurligne: taille }), zone, bas - haut, choisirPolice, 58, 42);
+        elements = pileHaut(pile, haut, bas);
+        break;
+      }
+      case 'T4': {
+        if (!blocs.some((b) => b.style === 'citation')) { elements = pileHaut(empiler(specsTexte(blocs, fond), zone, choisirPolice), haut, bas); break; }
+        const zoneLarge = { ...zone, largeur: L - MARGES.gauche - 120 };
+        let premiere = true;
+        const pile = ajuster((taille) => {
+          premiere = true;
+          return blocs.map((b) => {
+            if (b.style === 'citation') {
+              const spec = { texte: b.texte.replace(/^«\s*/, ''), role: 'light', taille, interligne: 1.3, couleur: fond.texte, decor: premiere ? fond.decor : null, espaceApres: LIGNE };
+              premiere = false;
+              return spec;
+            }
+            return { texte: b.texte, role: b.style === 'corps' ? 'light' : 'bold', taille: 39, interligne: 1.25, couleur: fond.texte, largeur: zone.largeur, espaceApres: LIGNE };
+          });
+        }, zoneLarge, bas - haut, choisirPolice, 56, 40);
+        elements = pileHaut(pile, haut, bas);
+        break;
+      }
+      case 'T5': {
+        const zoneLarge = { ...zone, largeur: L - 2 * MARGES.gauche };
+        const pile = ajuster((taille) => blocs.map((b) => {
+          if (b.style === 'corps' || b.style === 'citation') return { ...specsTexte([b], fond)[0], largeur: zone.largeur, espaceApres: 56 };
+          return { texte: b.texte, role: 'bold', taille, interligne: 1.15, couleur: fond.carte.texte, carte: { fond: fond.carte.fond, marge: 56 }, espaceApres: 56 };
+        }), zoneLarge, bas - haut, choisirPolice, 76, 40);
+        elements = pileHaut(pile, haut, bas);
+        break;
+      }
+      case 'F1': {
+        const zoneCentre = { x: 140, largeur: L - 280, alignement: 'centre' };
+        const specs = blocs.map((b) => ({ texte: b.texte, role: b.style === 'corps' || b.style === 'citation' ? 'light' : 'bold', taille: 52, interligne: 1.3, couleur: b.style === 'citation' ? fond.accent : fond.texte, espaceApres: 40 }));
+        const pile = empiler(specs, zoneCentre, choisirPolice);
+        const y0 = Math.round(H * 0.213);
+        elements.push(...pileHaut(pile, y0, H - 420));
+        const lf = 420;
+        const hf = Math.round((lf * 275) / 696);
+        elements.push({ type: 'image', cle: 'fleurs', x: (L - lf) / 2, y: y0 + pile.hauteur + 60, l: lf, h: hf, libelle: 'Fleurs', couleur: fond.texte });
+        if (signature) elements.push({ type: 'image', cle: 'logo', x: (L - 260) / 2, y: H - 90 - 100, l: 260, h: 100, libelle: 'Logo Oh ! Potentiel', couleur: fond.texte });
+        break;
+      }
+      default: { // T1
+        elements = pileHaut(empiler(specsTexte(blocs, fond), zone, choisirPolice), haut, bas);
+      }
+    }
+
+    // Éléments fixes : logo de fin, logo sur chaque slide, numéro, indicateur « glisser ».
+    if (signature && gab !== 'F1') elements.push({ type: 'image', cle: 'logo', x: MARGES.gauche, y: H - MARGES.basse - SIGNATURE.h, l: SIGNATURE.l, h: SIGNATURE.h, libelle: 'Logo Oh ! Potentiel', couleur: couleurPied });
+    if (logoPartout) elements.push({ type: 'image', cle: 'logo', x: L - 81 - LOGO_PARTOUT.l, y: H - LOGO_PARTOUT.bas - LOGO_PARTOUT.h, l: LOGO_PARTOUT.l, h: LOGO_PARTOUT.h, libelle: 'Logo', couleur: couleurPied });
+    if (reglages.numero && !signature) {
+      const police = choisirPolice('light');
+      elements.push({ type: 'ligne', texte: `${index + 1}\u00A0/\u00A0${total}`, x: MARGES.gauche, y: H - 62, police, taille: 26, couleur: couleurPied, opacite: 0.75 });
+    }
+    if (reglages.glisser && index < total - 1) elements.push({ type: 'fleche', x: L - 64, y: H / 2, couleur: gab === 'V4' && H / 2 > H * 0.556 ? couleurPied : fond.texte });
+
     return {
-      fmt, fond, lignes, filets, hauteur, y0, largeurColonne,
-      deborde: tropLarge || depasseBas || depasseHaut,
-      tropLarge,
-      exacte: lignes.every((l) => l.police.exacte),
-      signature: slide.signature ? {
-        x: MARGES.gauche,
-        y: fmt.h - MARGES.basse - SIGNATURE.hauteur,
-        l: SIGNATURE.largeur,
-        h: SIGNATURE.hauteur,
-      } : null,
+      fmt, fond, gabarit: gab, elements,
+      deborde: deborde || tropLarge,
+      exacte: elements.every((e) => e.type !== 'ligne' || e.police.exacte),
     };
   }
 
   /* ---------- Dessin ---------- */
 
-  function dessiner(ctx, compo) {
+  function rectArrondi(ctx, x, y, l, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + l - r, y);
+    ctx.quadraticCurveTo(x + l, y, x + l, y + r);
+    ctx.lineTo(x + l, y + h - r);
+    ctx.quadraticCurveTo(x + l, y + h, x + l - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  function dessiner(ctx, compo, ressources = {}) {
     const { fmt, fond } = compo;
     ctx.fillStyle = fond.fond;
     ctx.fillRect(0, 0, fmt.l, fmt.h);
-    for (const filet of compo.filets) {
-      ctx.fillStyle = filet.couleur;
-      ctx.fillRect(MARGES.gauche - 30, filet.y0 + 8, 5, filet.y1 - filet.y0 - 16);
-    }
-    for (const ligne of compo.lignes) {
-      ligne.police.dessiner(ctx, ligne.texte, ligne.x, ligne.yBase, ligne.taille, ligne.couleur);
-    }
-    if (compo.signature) {
-      // Emplacement du logo officiel : la version à fond transparent n'est pas encore disponible.
-      const s = compo.signature;
-      ctx.save();
-      ctx.strokeStyle = fond.texte;
-      ctx.globalAlpha = 0.55;
-      ctx.lineWidth = 2;
-      ctx.setLineDash([10, 8]);
-      ctx.strokeRect(s.x, s.y, s.l, s.h);
-      ctx.setLineDash([]);
-      ctx.fillStyle = fond.texte;
-      ctx.font = '500 22px -apple-system, "Helvetica Neue", sans-serif';
-      ctx.fillText('Logo Oh ! Potentiel', s.x + 18, s.y + 52);
-      ctx.restore();
+    for (const e of compo.elements) {
+      if (e.type === 'rect') {
+        ctx.fillStyle = e.couleur;
+        if (e.rayon) { rectArrondi(ctx, e.x, e.y, e.l, e.h, e.rayon); ctx.fill(); } else ctx.fillRect(e.x, e.y, e.l, e.h);
+      } else if (e.type === 'ligne') {
+        ctx.save();
+        if (e.opacite) ctx.globalAlpha = e.opacite;
+        e.police.dessiner(ctx, e.texte, e.x, e.y, e.taille, e.couleur);
+        ctx.restore();
+      } else if (e.type === 'image') {
+        const image = ressources[e.cle];
+        if (image && image.width) {
+          const echelle = Math.min(e.l / image.width, e.h / image.height);
+          const l = image.width * echelle;
+          const h = image.height * echelle;
+          ctx.drawImage(image, e.x + (e.l - l) / 2, e.y + (e.h - h) / 2, l, h);
+        } else {
+          ctx.save();
+          ctx.strokeStyle = e.couleur;
+          ctx.fillStyle = e.couleur;
+          ctx.globalAlpha = 0.55;
+          ctx.lineWidth = 2;
+          ctx.setLineDash([10, 8]);
+          ctx.strokeRect(e.x, e.y, e.l, e.h);
+          ctx.setLineDash([]);
+          ctx.font = '500 20px -apple-system, "Helvetica Neue", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(e.libelle, e.x + e.l / 2, e.y + e.h / 2 + 7);
+          ctx.restore();
+        }
+      } else if (e.type === 'fleche') {
+        ctx.save();
+        ctx.strokeStyle = e.couleur;
+        ctx.globalAlpha = 0.8;
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(e.x - 14, e.y - 22);
+        ctx.lineTo(e.x + 8, e.y);
+        ctx.lineTo(e.x - 14, e.y + 22);
+        ctx.stroke();
+        ctx.restore();
+      }
     }
   }
 
@@ -193,25 +424,37 @@
   const normaliserTexte = (texte) => normaliserEspaces(texte).replace(/\s+/g, ' ').trim();
   const compterMots = (texte) => (normaliserTexte(texte).match(/\S+/g) || []).length;
 
-  // Passages de l'article absents des slides (rien ne doit disparaître sans ton accord).
   function passagesManquants(paragraphes, slides) {
     const contenu = normaliserTexte(slides.map((s) => s.blocs.map((b) => b.texte).join(' ')).join(' '));
     return paragraphes.filter((p) => normaliserTexte(p) && !contenu.includes(normaliserTexte(p)));
   }
 
+  function textesAjoutes(paragraphes, slides) {
+    const article = normaliserTexte(paragraphes.join(' '));
+    const ajoutes = [];
+    slides.forEach((s, i) => s.blocs.forEach((b) => {
+      const t = normaliserTexte(b.texte);
+      if (t && !article.includes(t)) ajoutes.push({ slide: i, texte: t });
+    }));
+    return ajoutes;
+  }
+
   function controler(article, compositions, reglages) {
     const alertes = [];
     compositions.forEach((compo, i) => {
-      if (compo.deborde) alertes.push({ niveau: 'bloquant', slide: i, message: 'Le texte dépasse les marges.' });
+      if (compo.deborde) alertes.push({ niveau: 'bloquant', slide: i, cible: 'design', message: 'Le texte dépasse les marges. Raccourcis-le, déplace un paragraphe ou essaie un autre gabarit.' });
       const mots = article.slides[i].blocs.reduce((n, b) => n + compterMots(b.texte), 0);
-      if (mots > reglages.motsMax) alertes.push({ niveau: 'avertissement', slide: i, message: `${mots} mots : au-delà de ta limite de ${reglages.motsMax}.` });
+      if (mots > reglages.motsMax) alertes.push({ niveau: 'avertissement', slide: i, cible: 'design', message: `${mots} mots : au-delà de ta limite de ${reglages.motsMax}.` });
     });
     const limite = LIMITES_SLIDES[article.reseau];
     if (article.slides.length > limite) {
-      alertes.push({ niveau: 'bloquant', slide: null, message: `${article.slides.length} slides : la limite ${article.reseau === 'instagram' ? 'd’Instagram' : 'de LinkedIn'} est de ${limite}.` });
+      alertes.push({ niveau: 'bloquant', slide: null, cible: 'structure', message: `${article.slides.length} slides : la limite ${article.reseau === 'instagram' ? 'd’Instagram' : 'de LinkedIn'} est de ${limite}.` });
     }
     for (const passage of passagesManquants(article.texte, article.slides)) {
-      alertes.push({ niveau: 'bloquant', slide: null, message: `Passage de l’article absent des slides : « ${passage.slice(0, 60)}${passage.length > 60 ? '…' : ''} »` });
+      alertes.push({ niveau: 'bloquant', slide: null, cible: 'design', message: `Ce passage de l’article ne figure dans aucune slide : « ${passage.slice(0, 60)}${passage.length > 60 ? '…' : ''} ». Tout le texte doit être dans le carrousel : remets-le dans une slide, ou change l’accroche.` });
+    }
+    for (const ajout of textesAjoutes(article.texte, article.slides)) {
+      alertes.push({ niveau: 'avertissement', slide: ajout.slide, cible: 'design', message: `Ce texte n’existe pas dans l’article : « ${ajout.texte.slice(0, 50)}${ajout.texte.length > 50 ? '…' : ''} ». Vérifie qu’il est voulu.` });
     }
     return alertes;
   }
@@ -221,37 +464,60 @@
     const slides = [];
     if (!paragraphes.length) return slides;
     const [premier, ...suite] = paragraphes;
-    slides.push({ role: 'Couverture', blocs: [{ style: compterMots(premier) <= 14 ? 'couverture' : 'corps', texte: premier }] });
+    slides.push({ role: 'Couverture', gabarit: 'V1', blocs: [{ style: 'titre', texte: premier }] });
     let courante = null;
     for (const p of suite) {
       const style = /^«/.test(p.trim()) ? 'citation' : 'corps';
       if (courante) {
-        const essai = { role: 'Texte', blocs: [...courante.blocs, { style, texte: p }] };
+        const essai = { ...courante, blocs: [...courante.blocs, { style, texte: p }] };
         if (!composer(essai, formatId, fondId, choisirPolice).deborde) { courante = essai; continue; }
         slides.push(courante);
       }
-      courante = { role: 'Texte', blocs: [{ style, texte: p }] };
+      courante = { role: 'Texte', gabarit: 'T1', blocs: [{ style, texte: p }] };
     }
     if (courante) slides.push(courante);
-
-    // La dernière slide porte le logo : si elle déborde à cause de lui, ses derniers paragraphes passent sur une slide de fin.
     const derniere = slides[slides.length - 1];
     derniere.signature = true;
-    const fin = { role: 'Texte', blocs: [], signature: true };
-    while (derniere.blocs.length > 1 && composer(derniere, formatId, fondId, choisirPolice).deborde) {
-      fin.blocs.unshift(derniere.blocs.pop());
-    }
-    if (fin.blocs.length) {
-      derniere.signature = false;
-      slides.push(fin);
-    }
+    const fin = { role: 'Texte', gabarit: 'T1', blocs: [], signature: true };
+    while (derniere.blocs.length > 1 && composer(derniere, formatId, fondId, choisirPolice).deborde) fin.blocs.unshift(derniere.blocs.pop());
+    if (fin.blocs.length) { derniere.signature = false; slides.push(fin); }
     return slides;
   }
 
+  // Proposer une autre présentation, sans IA : un fond et des gabarits
+  // différents de ceux des articles précédents, toujours dans la charte.
+  function proposerPresentation(article, autres, rythme, aleatoire = Math.random, convient = () => true) {
+    const recents = autres.slice(0, 3);
+    const fonds = Object.keys(FONDS).filter((f) => f !== article.fond && !recents.some((a) => a.fond === f));
+    const choisir = (liste, repli) => (liste.length ? liste[Math.floor(aleatoire() * liste.length)] : repli);
+    const fond = choisir(fonds, Object.keys(FONDS).find((f) => f !== article.fond));
+    const couvertures = ['V1', 'V2', 'V3', 'V4', 'V5'].filter((g) => g !== (article.slides[0] && article.slides[0].gabarit) && !recents.some((a) => a.slides[0] && a.slides[0].gabarit === g));
+    const melanger = (liste) => liste.map((g) => [aleatoire(), g]).sort((a, b) => a[0] - b[0]).map((x) => x[1]);
+    // Pour chaque slide, des gabarits par ordre de préférence ; on garde le premier qui tient dans les marges.
+    const slides = article.slides.map((s, i) => {
+      let preferes;
+      if (i === 0) preferes = [...melanger(couvertures), 'V1'];
+      else if (rythme === 'regulier') preferes = ['T1'];
+      else {
+        const seulementChoc = s.blocs.length && s.blocs.every((b) => b.style === 'emphase');
+        const citation = s.blocs.some((b) => b.style === 'citation');
+        const choc = s.blocs.some((b) => b.style === 'emphase');
+        if (seulementChoc) preferes = ['T2', 'T5', 'T1'];
+        else if (choc) preferes = [...melanger(['T3', 'T5']), 'T1'];
+        else if (citation && rythme === 'contraste') preferes = ['T4', 'T1'];
+        else preferes = ['T1'];
+        if (s.signature && rythme === 'contraste') preferes = ['F1', ...preferes];
+      }
+      const retenu = preferes.find((g) => convient({ ...s, gabarit: g }, i, fond)) || 'T1';
+      return { ...s, gabarit: retenu };
+    });
+    return { fond, slides };
+  }
+
   const api = {
-    PALETTE, FONDS, FORMATS, MARGES, STYLES, LIMITES_SLIDES,
-    policeExacte, policeSysteme, couperLignes, composer, dessiner,
-    compterMots, passagesManquants, controler, decouperMecaniquement,
+    PALETTE, FONDS, FORMATS, MARGES, NATURES, GABARITS, LIMITES_SLIDES,
+    policeExacte, policeSysteme, couperLignes, composer, dessiner, gabaritParDefaut,
+    compterMots, passagesManquants, textesAjoutes, controler, decouperMecaniquement, proposerPresentation,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else racine.PostsOPMoteur = api;

@@ -432,3 +432,58 @@ blockquote { margin: 8px 0; padding: 8px 12px; border-left: 3px solid var(--touc
 label.echantillon { position: relative; cursor: pointer; overflow: hidden; }
 label.echantillon input[type="color"] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
 .guide { margin: 0 0 12px; padding-left: 22px; display: grid; gap: 10px; font-size: 15px; line-height: 1.5; }
+
+/* ---------- Phase 3, étape 1 ---------- */
+
+.historique { display: inline-flex; gap: 6px; margin-left: 4px; }
+.historique .bouton { min-height: 36px; }
+
+/* Bulle « i » : position calculée, toujours au premier plan, jamais coupée par un panneau */
+.bulle-fixe {
+  position: fixed; z-index: 1000; padding: 12px 14px; border-radius: 12px; background: var(--texte); color: var(--fond);
+  font-size: 14px; line-height: 1.45; font-weight: 400; text-align: left; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25); pointer-events: none;
+}
+
+.lien.fort { font-weight: 700; }
+
+/* Bibliothèque */
+.outils-bibliotheque { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+.tri { display: inline-flex; align-items: center; gap: 8px; }
+.vignette { position: relative; }
+.tampon-publie {
+  position: absolute; top: 8px; right: 8px; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px 4px 8px;
+  border-radius: 999px; background: #C9D420; color: #003846; font-size: 12px; font-weight: 700; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+.carte-article.publie { border-color: var(--touche); box-shadow: 0 0 0 2px var(--touche-doux); }
+.carte-article.publie .vignette canvas, .ligne-article.publie .vignette canvas { filter: saturate(0.85); }
+.en-corbeille { opacity: 0.6; }
+.en-corbeille:hover { opacity: 1; }
+
+.liste-articles { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.ligne-article { display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 16px; background: var(--surface); border: 1px solid var(--trait); }
+.ligne-article.publie { border-color: var(--touche); }
+.ligne-article-ouvrir { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ligne-article-ouvrir:disabled { cursor: default; }
+.ligne-article .tampon-publie { display: none; }
+.ligne-article-texte { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ligne-article .carte-article-titre { font-size: 18px; }
+.ligne-article .barre-edition { border: 0; padding: 0; }
+
+/* Menu « … » d'un article */
+.menu-article { position: relative; display: inline-flex; margin-left: auto; }
+.voile-menu { position: fixed; inset: 0; z-index: 40; }
+.menu {
+  position: absolute; right: 0; bottom: calc(100% + 6px); z-index: 41; min-width: 240px; padding: 6px; border-radius: 14px;
+  background: var(--surface); border: 1px solid var(--trait); box-shadow: 0 14px 40px rgba(0, 0, 0, 0.22); display: flex; flex-direction: column;
+}
+.menu-element { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border: 0; border-radius: 10px; background: none; color: var(--texte); font: inherit; font-size: 15px; text-align: left; cursor: pointer; }
+.menu-element:hover { background: var(--surface-2); }
+.menu-element.danger { color: var(--erreur); }
+
+/* Contrôle qualité et export */
+.solutions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; }
+.confirmation { margin-top: 12px; padding: 14px; border-radius: 14px; background: var(--attention-doux); }
+.confirmation .liste-alertes { margin: 8px 0 12px; }
+.fichiers-prets { margin-top: 14px; display: grid; gap: 12px; }
+.liste-fichiers { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.liste-fichiers li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: 10px; background: var(--surface-2); font-size: 14px; }

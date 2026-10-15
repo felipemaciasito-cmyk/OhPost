@@ -13,6 +13,7 @@
   const React = racine.React || require('react');
   const M = racine.PostsOPMoteur || require('./moteur.js');
   const S = racine.PostsOPSynchro || require('./synchro.js');
+  const X = racine.PostsOPExport || require('./export.js');
   const { createElement: h, Fragment, Component, useState, useReducer, useEffect, useRef, useContext, createContext } = React;
 
   const NB = '\u00A0';
@@ -77,13 +78,13 @@
   ];
 
   const AIDES = {
-    bibliotheque: { titre: 'Tes articles', textes: ['Chaque article devient un carrousel. Touche une carte pour l’ouvrir.', '« Modifier » permet de réordonner ou de supprimer des articles. Tout est enregistré automatiquement, et synchronisé avec tes autres appareils si la synchronisation est configurée.', '⌘Z (ou Ctrl+Z) annule ta dernière action, ⇧⌘Z (ou Ctrl+Y) la rétablit.'] },
+    bibliotheque: { titre: 'Tes articles', textes: ['Trois sections : En cours, Publiés (validés par toi) et Corbeille, d’où tu peux restaurer un article.', 'Le menu « … » d’une carte permet de dupliquer, d’utiliser un article comme modèle pour un nouveau texte, de le marquer comme publié ou de le mettre à la corbeille.', 'Trie et affiche tes articles comme tu veux, en grille ou en liste. « Annuler » et ⌘Z (Ctrl+Z) reviennent en arrière à tout moment.'] },
     configuration: { titre: 'La configuration', textes: ['Charte : tes couleurs et tes tailles de texte. Tout changement s’applique à tous tes carrousels.', 'Ressources : tes polices, ton logo et tes fleurs, importés une fois et retrouvés sur tous tes appareils.', 'Réglages : le comportement de l’outil. Synchronisation : la liaison avec ton dépôt GitHub privé.'] },
     texte: { titre: 'Étape 1 · Texte', textes: ['Tu relis et corriges ton article avant de le mettre en slides.', 'La vérification LanguageTool surligne les fautes dans ton texte. Pour chacune, choisis la bonne correction parmi celles proposées, ou ignore-la.', 'Les suggestions de style arriveront avec l’IA : tu sélectionneras un passage directement dans ton texte.'] },
     structure: { titre: 'Étape 2 · Structure', textes: ['La répartition de ton texte en slides. Sans IA, l’outil remplit chaque slide de paragraphes tant qu’ils tiennent.', 'Tu peux réordonner, fusionner, scinder, ajouter ou supprimer des slides. Rien de ton texte ne peut disparaître sans que l’outil te le signale.'] },
     design: { titre: 'Étape 3 · Design', textes: ['L’apparence du carrousel, puis chaque slide. Ce que tu vois ici est exactement ce qui sera exporté.', 'Changer de gabarit ne modifie jamais ton texte. Les natures de paragraphe proposées dépendent du gabarit choisi.', 'Les flèches d’un paragraphe le déplacent dans sa slide, ou vers la slide précédente ou suivante.'] },
     description: { titre: 'Étape 4 · Description', textes: ['Le texte qui accompagne le carrousel : légende Instagram et texte du post LinkedIn.', 'Pour l’instant tu l’écris toi-même ; l’IA pourra te proposer une version plus tard.'] },
-    export: { titre: 'Étape 5 · Export', textes: ['Les fichiers à publier : des images PNG pour Instagram, un PDF pour LinkedIn. L’export arrive en phase 3.', 'Tant qu’un point bloquant reste à régler, l’export attend. « Corriger » mène directement à l’endroit concerné.'] },
+    export: { titre: 'Étape 5 · Export', textes: ['Les fichiers à publier : des images PNG pour Instagram, un PDF pour LinkedIn, ou les deux.', 'S’il reste des alertes, l’outil te les rappelle avant d’exporter : à toi de décider.', 'Une fois publié sur le réseau, marque l’article comme publié : il rejoint la section Publiés.'] },
   };
 
   /* ================================================================== */
@@ -94,7 +95,8 @@
     pret: false, ecran: 'bibliotheque', articleId: null, etape: 'texte', slide: 0, onglet: 'charte',
     feuille: null, aide: false, message: null, edition: false,
     articles: [], projet: PROJET_DEFAUT, apparence: 'auto',
-    polices: { light: null, bold: null }, images: { logo: null, fleurs: null },
+    polices: { light: null, bold: null }, images: { logo: null, logoClair: null, fleurs: null },
+    bibliotheque: { section: 'encours', tri: 'ordre', vue: 'grille' },
     synchro: { statut: 'non-configure', detail: '', derniere: null, attente: 0, conflits: [] },
     historique: { passe: [], futur: [], groupe: null, quand: 0 },
   };
@@ -154,7 +156,26 @@
       case 'reglage': return { ...etat, projet: { ...etat.projet, reglages: { ...etat.projet.reglages, [action.cle]: action.valeur } } };
       case 'article': {
         const articles = etat.articles.map((a) => (a.id === action.id ? { ...action.maj(a), modifie: maintenant() } : a));
-        return avecHistorique(etat, articles, action.groupe);
+        const e = avecHistorique(etat, articles, action.groupe);
+        return action.annonce ? { ...e, message: { texte: action.annonce, annulable: true } } : e;
+      }
+      case 'bibliotheque': return { ...etat, bibliotheque: { ...etat.bibliotheque, [action.champ]: action.valeur }, edition: action.champ === 'tri' ? false : etat.edition };
+      case 'corbeille': {
+        const articles = etat.articles.map((a) => (a.id === action.id ? { ...a, corbeille: maintenant() } : a));
+        return { ...avecHistorique(etat, articles), message: { texte: 'Article mis à la corbeille.', annulable: true } };
+      }
+      case 'restaurer': {
+        const articles = etat.articles.map((a) => (a.id === action.id ? { ...a, corbeille: null } : a));
+        return { ...avecHistorique(etat, articles), message: { texte: 'Article restauré.', annulable: true } };
+      }
+      case 'viderCorbeille': {
+        const articles = etat.articles.filter((a) => !a.corbeille);
+        const e = avecHistorique(etat, articles);
+        return { ...e, feuille: null, message: { texte: 'Corbeille vidée. GitHub garde une copie de chaque article dans son historique.', annulable: true }, projet: { ...e.projet, ordre: articles.map((a) => a.id) } };
+      }
+      case 'statut': {
+        const articles = etat.articles.map((a) => (a.id === action.id ? { ...a, statut: action.statut, publie: action.statut === 'Publié' ? maintenant() : null } : a));
+        return { ...avecHistorique(etat, articles), message: { texte: action.statut === 'Publié' ? 'Article marqué comme publié : il est rangé dans la section Publiés.' : 'Article remis en cours.', annulable: true } };
       }
       case 'creer': {
         const e = avecHistorique(etat, [action.article, ...etat.articles]);
@@ -171,7 +192,7 @@
       case 'supprimerArticle': {
         const articles = etat.articles.filter((a) => a.id !== action.id);
         const e = avecHistorique(etat, articles);
-        return { ...e, feuille: null, message: 'Article supprimé. ⌘Z (ou Ctrl+Z) pour l’annuler.', projet: { ...e.projet, ordre: articles.map((a) => a.id) } };
+        return { ...e, feuille: null, message: { texte: 'Article supprimé définitivement.', annulable: true }, projet: { ...e.projet, ordre: articles.map((a) => a.id) } };
       }
       case 'deplacerArticle': {
         const i = etat.articles.findIndex((a) => a.id === action.id);
@@ -251,6 +272,9 @@
       return { ...a, slides };
     },
     champ: (cle, valeur) => (a) => ({ ...a, [cle]: valeur }),
+    echelle: (i, echelle) => majSlide(i, (s) => ({ ...s, echelle })),
+    validerAlerte: (cle) => (a) => ({ ...a, alertesValidees: [...new Set([...(a.alertesValidees || []), cle])] }),
+    reafficherAlertes: () => (a) => ({ ...a, alertesValidees: [] }),
     texte: (paragraphes) => (a) => ({ ...a, texte: paragraphes }),
     presentation: ({ fond, slides }) => (a) => ({ ...a, fond, slides }),
     description: (reseau, texte) => (a) => ({ ...a, descriptions: { ...a.descriptions, [reseau]: { ...(a.descriptions || DESCRIPTIONS_VIDES)[reseau], fr: texte } } }),
@@ -307,6 +331,10 @@
     annuler: 'M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3', retablir: 'M15 14l5-5-5-5M20 9H10a6 6 0 000 12h3',
     nuage: 'M7 18h10a4 4 0 00.5-7.97A6 6 0 006.1 9.2 4.5 4.5 0 007 18z', ciseaux: 'M6 6a2 2 0 100 4 2 2 0 000-4zM6 14a2 2 0 100 4 2 2 0 000-4zM20 4L8.1 15.9M14.5 14.5L20 20M8.1 8.1L12 12',
     fusion: 'M8 4v6a4 4 0 004 4h0a4 4 0 014 4v2M16 4v6a4 4 0 01-4 4',
+    engrenage: 'M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z',
+    points: 'M5 12h.01M12 12h.01M19 12h.01', grille: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z', liste: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+    coche: 'M5 12l5 5L20 7', partager: 'M12 3v12M8 7l4-4 4 4M5 13v6a2 2 0 002 2h10a2 2 0 002-2v-6', telecharger: 'M12 3v12M8 11l4 4 4-4M5 19h14',
+    restaurer: 'M3 12a9 9 0 109-9 9 9 0 00-6.4 2.6L3 8M3 3v5h5', modele: 'M8 8h12v12H8zM16 8V4H4v12h4',
   };
   const Icone = ({ nom, taille = 20 }) => h('svg', { className: 'icone', width: taille, height: taille, viewBox: '0 0 24 24', 'aria-hidden': 'true' },
     h('path', { d: TRACES[nom], fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }));
@@ -325,10 +353,20 @@
   const Pastille = ({ ton = 'neutre', children }) => h('span', { className: 'pastille ' + ton }, children);
 
   function Info({ texte }) {
-    const [ouverte, setOuverte] = useState(false);
-    return h('span', { className: cls('info', ouverte && 'ouverte') },
-      h('button', { type: 'button', className: 'info-bouton', 'aria-label': 'Explication', onClick: () => setOuverte(!ouverte), onBlur: () => setOuverte(false) }, 'i'),
-      h('span', { className: 'bulle', role: 'tooltip' }, texte));
+    const [position, setPosition] = useState(null);
+    const bouton = useRef(null);
+    const ouvrir = () => {
+      const r = bouton.current && bouton.current.getBoundingClientRect();
+      if (!r) return;
+      const largeur = 280;
+      const gauche = Math.max(12, Math.min(r.left + r.width / 2 - largeur / 2, racine.innerWidth - largeur - 12));
+      const enBas = r.bottom + 160 < racine.innerHeight;
+      setPosition({ left: gauche, top: enBas ? r.bottom + 8 : undefined, bottom: enBas ? undefined : racine.innerHeight - r.top + 8, width: largeur });
+    };
+    const fermer = () => setPosition(null);
+    return h('span', { className: 'info', onMouseEnter: ouvrir, onMouseLeave: fermer },
+      h('button', { type: 'button', ref: bouton, className: 'info-bouton', 'aria-label': 'Explication', 'aria-expanded': !!position, onClick: () => (position ? fermer() : ouvrir()), onBlur: fermer }, 'i'),
+      position && h('span', { className: 'bulle-fixe', role: 'tooltip', style: position }, texte));
   }
 
   function Carte({ titre, sousTitre, info, children, actions, classe }) {
@@ -345,7 +383,7 @@
       h('div', { className: 'ligne-controle' }, children));
   }
 
-  function SlideCanvas({ slide, formatId, fondId, largeur, index = 0, total = 1, onClick, selectionnee, etiquette }) {
+  function SlideCanvas({ slide, formatId, fondId, largeur, index = 0, total = 1, onClick, selectionnee, etiquette, logo = 'auto' }) {
     const ref = useRef(null);
     const { choisirPolice, version, images, reglages, charte } = useContext(Contexte);
     const fmt = M.FORMATS[formatId];
@@ -358,8 +396,8 @@
       canvas.height = Math.round(hauteur * ratio);
       const ctx = canvas.getContext('2d');
       ctx.setTransform(canvas.width / fmt.l, 0, 0, canvas.height / fmt.h, 0, 0);
-      M.dessiner(ctx, M.composer(slide, formatId, fondId, choisirPolice, { index, total, reglages, charte }), images);
-    }, [slide, formatId, fondId, largeur, hauteur, version, choisirPolice, images, reglages, charte, index, total]);
+      M.dessiner(ctx, M.composer(slide, formatId, fondId, choisirPolice, { index, total, reglages, charte, logo }), images);
+    }, [slide, formatId, fondId, largeur, hauteur, version, choisirPolice, images, reglages, charte, index, total, logo]);
     const proprietes = { ref, className: cls('slide', selectionnee && 'selectionnee'), style: { width: largeur + 'px', height: hauteur + 'px' } };
     if (onClick) return h('button', { type: 'button', className: 'slide-bouton', onClick, 'aria-label': etiquette }, h('canvas', proprietes));
     return h('canvas', { ...proprietes, role: 'img', 'aria-label': etiquette || 'Slide' });
@@ -387,8 +425,9 @@
     const h0 = etat.historique;
     return h('header', { className: 'barre' },
       h('div', { className: 'barre-gauche' }, gauche,
-        h(Bouton, { variante: 'icone', etiquette: 'Annuler (⌘Z)', titre: 'Annuler (⌘Z)', disabled: !h0.passe.length, onClick: () => dispatch({ type: 'annuler' }) }, h(Icone, { nom: 'annuler' })),
-        h(Bouton, { variante: 'icone', etiquette: 'Rétablir (⇧⌘Z)', titre: 'Rétablir (⇧⌘Z)', disabled: !h0.futur.length, onClick: () => dispatch({ type: 'retablir' }) }, h(Icone, { nom: 'retablir' }))),
+        h('div', { className: 'historique', role: 'group', 'aria-label': 'Historique' },
+          h(Bouton, { variante: 'petit', titre: 'Annuler (⌘Z ou Ctrl+Z)', disabled: !h0.passe.length, onClick: () => dispatch({ type: 'annuler' }) }, h(Icone, { nom: 'annuler', taille: 18 }), 'Annuler'),
+          h(Bouton, { variante: 'petit', titre: 'Rétablir (⇧⌘Z ou Ctrl+Y)', disabled: !h0.futur.length, onClick: () => dispatch({ type: 'retablir' }) }, h(Icone, { nom: 'retablir', taille: 18 }), 'Rétablir'))),
       h('div', { className: 'barre-titre gill' }, titre),
       h('div', { className: 'barre-droite' },
         h('button', { type: 'button', className: 'etat-synchro ' + ton, title: etat.synchro.detail || libelle, onClick: () => dispatch({ type: 'ecran', ecran: 'configuration', onglet: 'synchro' }) },
@@ -410,7 +449,11 @@
 
   function Message({ etat, dispatch }) {
     if (!etat.message) return null;
-    return h('div', { className: 'message', role: 'status' }, h('span', null, etat.message), h('button', { type: 'button', className: 'lien', onClick: () => dispatch({ type: 'message', message: null }) }, 'Fermer'));
+    const m = typeof etat.message === 'string' ? { texte: etat.message } : etat.message;
+    return h('div', { className: 'message', role: 'status' }, h('span', null, m.texte),
+      h('span', { className: 'actions-ligne' },
+        m.annulable && h('button', { type: 'button', className: 'lien fort', onClick: () => { dispatch({ type: 'annuler' }); dispatch({ type: 'message', message: null }); } }, 'Annuler'),
+        h('button', { type: 'button', className: 'lien', onClick: () => dispatch({ type: 'message', message: null }) }, 'Fermer')));
   }
 
   function Feuille({ titre, onAnnuler, action, children }) {
@@ -441,10 +484,63 @@
   /* 5. Bibliothèque                                                     */
   /* ================================================================== */
 
-  const TON_STATUT = { Brouillon: 'neutre', Prêt: 'ok', Exporté: 'info' };
+  const TON_STATUT = { Brouillon: 'neutre', Prêt: 'neutre', Exporté: 'info', Publié: 'ok' };
+  const TRIS = [['ordre', 'Mon ordre'], ['modifie', 'Dernière modification'], ['titre', 'Titre'], ['statut', 'Statut'], ['reseau', 'Réseau']];
+  const RANG_STATUT = { Brouillon: 0, Prêt: 0, Exporté: 1, Publié: 2 };
+
+  function trierArticles(liste, tri) {
+    if (tri === 'ordre') return liste;
+    const comparer = {
+      modifie: (a, b) => String(b.modifie).localeCompare(String(a.modifie)),
+      titre: (a, b) => a.titre.localeCompare(b.titre, 'fr', { sensitivity: 'base' }),
+      statut: (a, b) => (RANG_STATUT[a.statut] || 0) - (RANG_STATUT[b.statut] || 0) || String(b.modifie).localeCompare(String(a.modifie)),
+      reseau: (a, b) => a.reseau.localeCompare(b.reseau) || String(b.modifie).localeCompare(String(a.modifie)),
+    }[tri];
+    return [...liste].sort(comparer);
+  }
+
+  function MenuArticle({ article, dispatch, section }) {
+    const [ouvert, setOuvert] = useState(false);
+    const faire = (action) => () => { setOuvert(false); dispatch(action); };
+    const elements = section === 'corbeille'
+      ? [['restaurer', 'Restaurer', { type: 'restaurer', id: article.id }], ['poubelle', 'Supprimer définitivement', { type: 'feuille', feuille: { supprimer: article.id } }, 'danger']]
+      : [
+        ['modele', 'Dupliquer', { type: 'dupliquer', id: article.id }],
+        ['plus', 'Utiliser comme modèle', { type: 'feuille', feuille: { nouvel: true, modele: article.id } }],
+        article.statut === 'Publié' ? ['restaurer', 'Remettre en cours', { type: 'statut', id: article.id, statut: 'Exporté' }] : ['coche', 'Marquer comme publié', { type: 'statut', id: article.id, statut: 'Publié' }],
+        ['poubelle', 'Mettre à la corbeille', { type: 'corbeille', id: article.id }, 'danger'],
+      ];
+    return h('span', { className: 'menu-article' },
+      h(Bouton, { variante: 'icone', etiquette: 'Actions pour ' + article.titre, titre: 'Actions', onClick: () => setOuvert(!ouvert) }, h(Icone, { nom: 'points' })),
+      ouvert && h(Fragment, null,
+        h('span', { className: 'voile-menu', onClick: () => setOuvert(false) }),
+        h('span', { className: 'menu', role: 'menu' }, elements.map(([icone, libelle, action, ton]) => h('button', { key: libelle, type: 'button', role: 'menuitem', className: cls('menu-element', ton), onClick: faire(action) }, h(Icone, { nom: icone, taille: 18 }), libelle)))));
+  }
 
   function Bibliotheque({ etat, dispatch }) {
+    const b = etat.bibliotheque;
+    const sections = {
+      encours: etat.articles.filter((a) => !a.corbeille && a.statut !== 'Publié'),
+      publies: etat.articles.filter((a) => !a.corbeille && a.statut === 'Publié'),
+      corbeille: etat.articles.filter((a) => a.corbeille),
+    };
+    const liste = trierArticles(sections[b.section] || [], b.tri);
+    const reordonnable = b.tri === 'ordre' && b.section !== 'corbeille';
     const aSupprimer = etat.feuille && etat.feuille.supprimer ? etat.articles.find((a) => a.id === etat.feuille.supprimer) : null;
+    const nouvel = etat.feuille === 'nouvel' || (etat.feuille && etat.feuille.nouvel);
+    const regler = (champ) => (valeur) => dispatch({ type: 'bibliotheque', champ, valeur });
+    const vignette = (a, largeur) => h('div', { className: 'vignette' }, a.slides[0] && h(SlideCanvas, { slide: a.slides[0], formatId: a.format, fondId: a.fond, largeur, total: a.slides.length, logo: a.logo, etiquette: 'Couverture de ' + a.titre }),
+      a.statut === 'Publié' && h('span', { className: 'tampon-publie' }, h(Icone, { nom: 'coche', taille: 16 }), 'Publié'));
+    const details = (a) => h(Fragment, null,
+      h('span', { className: 'carte-article-titre gill' }, a.titre),
+      h('span', { className: 'doux petit bloc' }, `${a.slides.length} slides · ${M.FORMATS[a.format].nom} · ${a.reseau === 'instagram' ? 'Instagram' : 'LinkedIn'}`),
+      h('span', { className: 'carte-article-pied' }, h(Pastille, { ton: TON_STATUT[a.statut] }, a.statut === 'Publié' && a.publie ? 'Publié le ' + new Date(a.publie).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : a.statut === 'Prêt' ? 'Brouillon' : a.statut),
+        h('span', { className: 'doux petit' }, b.section === 'corbeille' ? 'supprimé ' + dateCourte(a.corbeille) : dateCourte(a.modifie))));
+    const outils = (a, i) => h('div', { className: 'barre-edition' },
+      etat.edition && reordonnable && h(Fragment, null,
+        h(Bouton, { variante: 'icone', etiquette: 'Avancer', disabled: i === 0, onClick: () => dispatch({ type: 'deplacerArticle', id: a.id, delta: liste[i - 1] ? etat.articles.indexOf(liste[i - 1]) - etat.articles.indexOf(a) : 0 }) }, h(Icone, { nom: b.vue === 'liste' ? 'haut' : 'gauche' })),
+        h(Bouton, { variante: 'icone', etiquette: 'Reculer', disabled: i === liste.length - 1, onClick: () => dispatch({ type: 'deplacerArticle', id: a.id, delta: liste[i + 1] ? etat.articles.indexOf(liste[i + 1]) - etat.articles.indexOf(a) : 0 }) }, h(Icone, { nom: b.vue === 'liste' ? 'bas' : 'droite' }))),
+      h(MenuArticle, { article: a, dispatch, section: b.section }));
     return h(Fragment, null,
       h(Barre, { etat, dispatch, titre: '', gauche: h('span', { className: 'marque gill' }, 'PostsOP') }),
       etat.aide && h(PanneauAide, { cle: 'bibliotheque', dispatch }),
@@ -453,52 +549,76 @@
         h('div', { className: 'tete-page' },
           h('h1', { className: 'gill' }, 'Articles'),
           h('div', { className: 'actions-ligne' },
-            h(Bouton, { variante: 'icone', etiquette: 'Configuration', titre: 'Configuration', onClick: () => dispatch({ type: 'ecran', ecran: 'configuration' }) }, h(Icone, { nom: 'reglages' })),
-            etat.articles.length > 0 && h(Bouton, { variante: etat.edition ? 'principal' : 'secondaire', onClick: () => dispatch({ type: 'edition' }) }, etat.edition ? 'Terminé' : 'Modifier'),
+            h(Bouton, { variante: 'icone', etiquette: 'Configuration', titre: 'Configuration', onClick: () => dispatch({ type: 'ecran', ecran: 'configuration' }) }, h(Icone, { nom: 'engrenage' })),
             h(Bouton, { variante: 'principal', onClick: () => dispatch({ type: 'feuille', feuille: 'nouvel' }) }, h(Icone, { nom: 'plus' }), 'Nouvel article'))),
-        etat.edition && h('p', { className: 'note' }, 'Réordonne tes articles avec les flèches, ou supprime-les. Touche « Terminé » quand c’est fini.'),
-        !etat.articles.length && h('div', { className: 'vide' }, h('p', { className: 'gill' }, 'Aucun article pour l’instant.'), h(Bouton, { variante: 'principal', onClick: () => dispatch({ type: 'feuille', feuille: 'nouvel' }) }, h(Icone, { nom: 'plus' }), 'Créer ton premier article')),
-        h('div', { className: 'grille-articles' },
-          etat.articles.map((a, i) => h('article', { key: a.id, className: cls('carte-article', etat.edition && 'en-edition') },
-            h('button', { type: 'button', className: 'carte-article-ouvrir', disabled: etat.edition, onClick: () => dispatch({ type: 'ouvrir', id: a.id }), 'aria-label': 'Ouvrir ' + a.titre },
-              h('div', { className: 'vignette' }, a.slides[0] && h(SlideCanvas, { slide: a.slides[0], formatId: a.format, fondId: a.fond, largeur: 210, total: a.slides.length, etiquette: 'Couverture de ' + a.titre })),
-              h('span', { className: 'carte-article-texte' },
-                h('span', { className: 'carte-article-titre gill' }, a.titre),
-                h('span', { className: 'doux petit bloc' }, `${a.slides.length} slides · ${M.FORMATS[a.format].nom} · ${a.reseau === 'instagram' ? 'Instagram' : 'LinkedIn'}`),
-                h('span', { className: 'carte-article-pied' }, h(Pastille, { ton: TON_STATUT[a.statut] }, a.statut), h('span', { className: 'doux petit' }, dateCourte(a.modifie))))),
-            etat.edition
-              ? h('div', { className: 'barre-edition' },
-                h(Bouton, { variante: 'icone', etiquette: 'Avancer', disabled: i === 0, onClick: () => dispatch({ type: 'deplacerArticle', id: a.id, delta: -1 }) }, h(Icone, { nom: 'gauche' })),
-                h(Bouton, { variante: 'icone', etiquette: 'Reculer', disabled: i === etat.articles.length - 1, onClick: () => dispatch({ type: 'deplacerArticle', id: a.id, delta: 1 }) }, h(Icone, { nom: 'droite' })),
-                h(Bouton, { variante: 'danger', onClick: () => dispatch({ type: 'feuille', feuille: { supprimer: a.id } }) }, h(Icone, { nom: 'poubelle', taille: 18 }), 'Supprimer'))
-              : h('div', { className: 'barre-edition' }, h(Bouton, { variante: 'lien', onClick: () => dispatch({ type: 'dupliquer', id: a.id }) }, 'Dupliquer')))))),
-      etat.feuille === 'nouvel' && h(FeuilleNouvelArticle, { etat, dispatch }),
+        h('div', { className: 'outils-bibliotheque' },
+          h(Segmente, { etiquette: 'Section', valeur: b.section, onChange: regler('section'), options: [
+            { valeur: 'encours', libelle: `En cours (${sections.encours.length})` },
+            { valeur: 'publies', libelle: `Publiés (${sections.publies.length})` },
+            { valeur: 'corbeille', libelle: `Corbeille (${sections.corbeille.length})` }] }),
+          h('div', { className: 'actions-ligne' },
+            h('label', { className: 'tri' }, h('span', { className: 'doux petit' }, 'Trier par'),
+              h('select', { className: 'choix', value: b.tri, onChange: (e) => regler('tri')(e.target.value), 'aria-label': 'Trier par' }, TRIS.map(([v, l]) => h('option', { key: v, value: v }, l)))),
+            h(Segmente, { etiquette: 'Présentation', petit: true, valeur: b.vue, onChange: regler('vue'), options: [{ valeur: 'grille', icone: 'grille', etiquette: 'En grille' }, { valeur: 'liste', icone: 'liste', etiquette: 'En liste' }] }),
+            reordonnable && liste.length > 1 && h(Bouton, { variante: etat.edition ? 'principal' : 'secondaire', onClick: () => dispatch({ type: 'edition' }) }, etat.edition ? 'Terminé' : 'Réordonner'),
+            b.section === 'corbeille' && liste.length > 0 && h(Bouton, { variante: 'danger', onClick: () => dispatch({ type: 'feuille', feuille: 'vider' }) }, 'Vider la corbeille'))),
+        b.section === 'corbeille' && h('p', { className: 'note' }, 'Les articles de la corbeille ne s’affichent plus ailleurs. Restaure-les depuis leur menu « … ».'),
+        !liste.length && h('div', { className: 'vide' }, h('p', { className: 'gill' }, { encours: 'Aucun article en cours.', publies: 'Aucun article publié pour l’instant.', corbeille: 'La corbeille est vide.' }[b.section]),
+          b.section === 'encours' && h(Bouton, { variante: 'principal', onClick: () => dispatch({ type: 'feuille', feuille: 'nouvel' }) }, h(Icone, { nom: 'plus' }), 'Créer un article')),
+        b.vue === 'grille'
+          ? h('div', { className: 'grille-articles' }, liste.map((a, i) => h('article', { key: a.id, className: cls('carte-article', a.statut === 'Publié' && 'publie', b.section === 'corbeille' && 'en-corbeille') },
+            h('button', { type: 'button', className: 'carte-article-ouvrir', disabled: etat.edition || b.section === 'corbeille', onClick: () => dispatch({ type: 'ouvrir', id: a.id }), 'aria-label': 'Ouvrir ' + a.titre },
+              vignette(a, 210), h('span', { className: 'carte-article-texte' }, details(a))),
+            outils(a, i))))
+          : h('ul', { className: 'liste-articles' }, liste.map((a, i) => h('li', { key: a.id, className: cls('ligne-article', a.statut === 'Publié' && 'publie', b.section === 'corbeille' && 'en-corbeille') },
+            h('button', { type: 'button', className: 'ligne-article-ouvrir', disabled: etat.edition || b.section === 'corbeille', onClick: () => dispatch({ type: 'ouvrir', id: a.id }), 'aria-label': 'Ouvrir ' + a.titre },
+              vignette(a, 64), h('span', { className: 'ligne-article-texte' }, details(a))),
+            outils(a, i))))),
+      nouvel && h(FeuilleNouvelArticle, { etat, dispatch }),
       aSupprimer && h(Feuille, {
-        titre: 'Supprimer cet article ?', onAnnuler: () => dispatch({ type: 'feuille', feuille: null }),
+        titre: 'Supprimer définitivement ?', onAnnuler: () => dispatch({ type: 'feuille', feuille: null }),
         action: h(Bouton, { variante: 'danger plein', onClick: () => dispatch({ type: 'supprimerArticle', id: aSupprimer.id }) }, 'Supprimer'),
-      }, h('p', null, `« ${aSupprimer.titre} » et son carrousel seront supprimés sur tous tes appareils. Tu pourras l’annuler juste après avec ⌘Z, et GitHub en garde une copie dans son historique.`)));
+      }, h('p', null, `« ${aSupprimer.titre} » sera supprimé sur tous tes appareils. Tu pourras encore l’annuler juste après, et GitHub en garde une copie dans son historique.`)),
+      etat.feuille === 'vider' && h(Feuille, {
+        titre: 'Vider la corbeille ?', onAnnuler: () => dispatch({ type: 'feuille', feuille: null }),
+        action: h(Bouton, { variante: 'danger plein', onClick: () => dispatch({ type: 'viderCorbeille' }) }, 'Vider'),
+      }, h('p', null, `${sections.corbeille.length} article(s) seront supprimés sur tous tes appareils. GitHub en garde une copie dans son historique.`)));
+  }
+
+  // Applique la mise en page d'un article modèle à de nouvelles slides : couverture, rythme des gabarits, fin.
+  function appliquerModele(slides, modele) {
+    const textes = modele.slides.slice(1).map((s, i) => M.gabaritParDefaut(s, i + 1)).filter((g) => g !== 'F1');
+    const fin = M.gabaritParDefaut(modele.slides[modele.slides.length - 1], modele.slides.length - 1);
+    return slides.map((s, i) => {
+      if (i === 0) return { ...s, gabarit: M.gabaritParDefaut(modele.slides[0], 0) };
+      if (i === slides.length - 1 && fin === 'F1') return { ...s, gabarit: 'F1' };
+      return { ...s, gabarit: textes.length ? textes[(i - 1) % textes.length] : 'T1' };
+    });
   }
 
   function FeuilleNouvelArticle({ etat, dispatch }) {
     const r = etat.projet.reglages;
+    const modele = etat.feuille && etat.feuille.modele ? etat.articles.find((a) => a.id === etat.feuille.modele) : null;
     const [texte, setTexte] = useState('');
-    const [reseau, setReseau] = useState(r.reseauDefaut);
-    const [format, setFormat] = useState(r.formatDefaut);
-    const [fond, setFond] = useState('bleu');
+    const [reseau, setReseau] = useState(modele ? modele.reseau : r.reseauDefaut);
+    const [format, setFormat] = useState(modele ? modele.format : r.formatDefaut);
+    const [fond, setFond] = useState(modele ? modele.fond : 'bleu');
     const { choisirPolice, charte, reglages } = useContext(Contexte);
     const paragraphes = texte.split(/\n\s*\n|\n/).map((p) => p.trim()).filter(Boolean);
     function creer() {
       const premier = paragraphes[0] || 'Nouvel article';
-      const slides = M.decouperMecaniquement(paragraphes, format, fond, choisirPolice, { charte, reglages });
+      let slides = M.decouperMecaniquement(paragraphes, format, fond, choisirPolice, { charte, reglages });
+      if (modele) slides = appliquerModele(slides, modele);
       dispatch({
         type: 'creer',
-        article: { id: nouvelId(), titre: premier.length > 48 ? premier.slice(0, 48) + '…' : premier, statut: 'Brouillon', reseau, format, fond, modifie: maintenant(), texte: paragraphes, slides, descriptions: DESCRIPTIONS_VIDES },
+        article: { id: nouvelId(), titre: premier.length > 48 ? premier.slice(0, 48) + '…' : premier, statut: 'Brouillon', reseau, format, fond, logo: modele ? modele.logo || 'auto' : 'auto', modifie: maintenant(), texte: paragraphes, slides, descriptions: DESCRIPTIONS_VIDES },
       });
     }
-    return h(Feuille, { titre: 'Nouvel article', onAnnuler: () => dispatch({ type: 'feuille', feuille: null }), action: h(Bouton, { variante: 'principal', disabled: !paragraphes.length, onClick: creer }, 'Créer') },
+    return h(Feuille, { titre: modele ? 'Nouvel article d’après un modèle' : 'Nouvel article', onAnnuler: () => dispatch({ type: 'feuille', feuille: null }), action: h(Bouton, { variante: 'principal', disabled: !paragraphes.length, onClick: creer }, 'Créer') },
+      modele && h('p', { className: 'note' }, `Mise en page reprise de « ${modele.titre} » : fond, format, réseau, gabarits et logo. Colle ton nouveau texte.`),
       h('label', { className: 'etiquette', htmlFor: 'texte-nouvel' }, 'Texte de l’article'),
       h('textarea', { id: 'texte-nouvel', className: 'zone-texte', rows: 9, value: texte, placeholder: 'Colle ici le texte de ton article Word.', onChange: (e) => setTexte(e.target.value) }),
-      h('p', { className: 'doux petit' }, paragraphes.length ? `${paragraphes.length} paragraphe(s) · ${M.compterMots(texte)} mots. Le découpage en slides se fera sans IA, paragraphe par paragraphe.` : 'L’import direct d’un fichier Word arrivera en phase 3.'),
+      h('p', { className: 'doux petit' }, paragraphes.length ? `${paragraphes.length} paragraphe(s) · ${M.compterMots(texte)} mots. Le découpage en slides se fera sans IA, paragraphe par paragraphe.` : 'L’import direct d’un fichier Word arrivera à l’étape suivante.'),
       h(Ligne, { etiquette: 'Réseau', aide: 'Fixe le format d’export : images pour Instagram, PDF pour LinkedIn.' }, h(Segmente, { valeur: reseau, onChange: setReseau, options: [{ valeur: 'instagram', libelle: 'Instagram' }, { valeur: 'linkedin', libelle: 'LinkedIn' }] })),
       h(Ligne, { etiquette: 'Format', aide: '1:1 comme tes carrousels actuels, 4:5 pour plus de place.' }, h(Segmente, { valeur: format, onChange: setFormat, options: [{ valeur: 'carre', libelle: '1:1' }, { valeur: 'portrait', libelle: '4:5' }] })),
       h(Ligne, { etiquette: 'Fond', aide: 'Il pourra changer ensuite.' }, h(SelecteurFond, { valeur: fond, onChange: setFond })));
@@ -511,7 +631,7 @@
   function Atelier({ etat, dispatch }) {
     const article = etat.articles.find((a) => a.id === etat.articleId);
     if (!article) return h(Bibliotheque, { etat, dispatch });
-    const majA = (maj, groupe) => dispatch({ type: 'article', id: article.id, maj, groupe });
+    const majA = (maj, groupe, annonce) => dispatch({ type: 'article', id: article.id, maj, groupe, annonce });
     const vues = { texte: EtapeTexte, structure: EtapeStructure, design: EtapeDesign, description: EtapeDescription, export: EtapeExport };
     const index = ETAPES.findIndex((e) => e.id === etat.etape);
     return h(Fragment, null,
@@ -637,20 +757,20 @@
         h('ol', { className: 'liste-slides' },
           article.slides.map((s, i) => h('li', { key: i, className: 'ligne-slide' },
             h('button', { type: 'button', className: cls('item-slide', i === etat.slide && 'actif'), onClick: () => dispatch({ type: 'aller', etape: 'design', slide: i }), 'aria-label': `Ouvrir la slide ${i + 1} dans Design` },
-              h(SlideCanvas, { slide: s, formatId: article.format, fondId: article.fond, largeur: 104, index: i, total: n }),
+              h(SlideCanvas, { slide: s, formatId: article.format, fondId: article.fond, largeur: 104, index: i, total: n, logo: article.logo }),
               h('span', { className: 'item-slide-texte' },
                 h('span', { className: 'item-slide-tete' }, h('span', { className: 'num' }, i + 1), h(Pastille, null, M.GABARITS[M.gabaritParDefaut(s, i)].nom), h('span', { className: 'doux petit' }, s.blocs.reduce((m, b) => m + M.compterMots(b.texte), 0) + ' mots')),
                 h('span', { className: 'extrait' }, s.blocs.map((b) => b.texte.replace(/\n/g, ' ')).join(' ') || 'Slide vide'))),
             h('div', { className: 'outils-slide' },
               h(Bouton, { variante: 'icone petit', etiquette: 'Monter la slide', disabled: i === 0, onClick: () => majA(OP.deplacerSlide(i, -1)) }, h(Icone, { nom: 'haut', taille: 18 })),
               h(Bouton, { variante: 'icone petit', etiquette: 'Descendre la slide', disabled: i === n - 1, onClick: () => majA(OP.deplacerSlide(i, 1)) }, h(Icone, { nom: 'bas', taille: 18 })),
-              h(Bouton, { variante: 'icone petit', etiquette: 'Fusionner avec la slide suivante', titre: 'Fusionner avec la suivante', disabled: i === n - 1, onClick: () => majA(OP.fusionnerAvecSuivante(i)) }, h(Icone, { nom: 'fusion', taille: 18 })),
+              h(Bouton, { variante: 'icone petit', etiquette: 'Fusionner avec la slide suivante', titre: 'Fusionner avec la suivante', disabled: i === n - 1, onClick: () => majA(OP.fusionnerAvecSuivante(i), null, `Slides ${i + 1} et ${i + 2} fusionnées.`) }, h(Icone, { nom: 'fusion', taille: 18 })),
               h(Bouton, { variante: 'icone petit', etiquette: 'Ajouter une slide après celle-ci', titre: 'Ajouter une slide après', onClick: () => majA(OP.ajouterSlide(i)) }, h(Icone, { nom: 'plus', taille: 18 })),
-              h(Bouton, { variante: 'icone petit danger', etiquette: 'Supprimer la slide', titre: 'Supprimer la slide', disabled: n <= 1, onClick: () => majA(OP.supprimerSlide(i)) }, h(Icone, { nom: 'poubelle', taille: 18 }))))))),
+              h(Bouton, { variante: 'icone petit danger', etiquette: 'Supprimer la slide', titre: 'Supprimer la slide', disabled: n <= 1, onClick: () => majA(OP.supprimerSlide(i), null, `Slide ${i + 1} supprimée.`) }, h(Icone, { nom: 'poubelle', taille: 18 }))))))),
       h('aside', { className: 'panneau' },
         h(Carte, { titre: 'Découpage', info: 'Sans IA, l’outil remplit chaque slide de paragraphes tant qu’ils tiennent dans les marges.' },
           h('p', { className: 'petit' }, 'Redécouper repart de ton texte et remplace les slides actuelles. Tu peux l’annuler avec ⌘Z.'),
-          h(Bouton, { variante: 'principal large', onClick: () => majA(OP.champ('slides', M.decouperMecaniquement(article.texte, article.format, article.fond, choisirPolice, { charte, reglages }))) }, 'Redécouper le texte'),
+          h(Bouton, { variante: 'principal large', onClick: () => majA(OP.champ('slides', M.decouperMecaniquement(article.texte, article.format, article.fond, choisirPolice, { charte, reglages })), null, 'Texte redécoupé.') }, 'Redécouper le texte'),
           h('p', { className: 'doux petit' }, 'Pour scinder une slide à un paragraphe précis, utilise les ciseaux du paragraphe dans l’étape Design.')),
         h(Carte, { titre: 'Propositions de l’IA', sousTitre: 'Accroches de couverture, mises en valeur justifiées et fins de slide arriveront avec l’IA. Tu les accepteras, modifieras ou refuseras une à une.' })));
   }
@@ -660,13 +780,18 @@
   const FAMILLES = [['Couverture', ['V1', 'V2', 'V3', 'V4', 'V5']], ['Texte', ['T1', 'T2', 'T3', 'T4', 'T5']], ['Fin', ['F1']]];
 
   function EtapeDesign({ etat, dispatch, article, majA }) {
-    const { choisirPolice, reglages, charte } = useContext(Contexte);
+    const { choisirPolice, reglages, charte, images } = useContext(Contexte);
     const [refApercu, largeurDispo] = useLargeur(480);
     const total = article.slides.length;
     const i = Math.min(etat.slide, total - 1);
     const slide = article.slides[i];
-    const compositions = article.slides.map((s, k) => M.composer(s, article.format, article.fond, choisirPolice, { index: k, total, reglages, charte }));
-    const alertes = M.controler(article, compositions, reglages);
+    const logo = article.logo || 'auto';
+    const contexteRendu = { reglages, charte, logo };
+    const compositions = article.slides.map((s, k) => M.composer(s, article.format, article.fond, choisirPolice, { ...contexteRendu, index: k, total }));
+    const toutes = M.controler(article, compositions, reglages);
+    const validees = article.alertesValidees || [];
+    const alertes = toutes.filter((a) => !validees.includes(a.cle));
+    const nbValidees = toutes.length - alertes.length;
     const exacte = compositions.every((c) => c.exacte);
     const largeurApercu = Math.max(220, Math.min(largeurDispo, article.format === 'portrait' ? 460 : 560));
     const gabaritActuel = M.gabaritParDefaut(slide, i);
@@ -674,19 +799,18 @@
 
     function proposer() {
       const autres = etat.articles.filter((a) => a.id !== article.id);
-      const convient = (s, k, fond) => !M.composer(s, article.format, fond, choisirPolice, { index: k, total, reglages, charte }).deborde;
+      const convient = (s, k, fond) => !M.composer(s, article.format, fond, choisirPolice, { ...contexteRendu, index: k, total }).deborde;
       const proposition = M.proposerPresentation(article, autres, reglages.rythme, Math.random, convient);
-      majA(OP.presentation(proposition));
-      dispatch({ type: 'message', message: `Nouvelle présentation : fond ${M.fondsDe(charte.palette)[proposition.fond].nom.toLowerCase()}, couverture « ${M.GABARITS[proposition.slides[0].gabarit].nom} ». Ton texte n’a pas changé. ⌘Z pour revenir à la précédente.` });
+      majA(OP.presentation(proposition), null, `Nouvelle présentation : fond ${M.fondsDe(charte.palette)[proposition.fond].nom.toLowerCase()}, couverture « ${M.GABARITS[proposition.slides[0].gabarit].nom} ». Ton texte n’a pas changé.`);
     }
 
     return h('div', { className: 'deux-colonnes design' },
       h('div', { className: 'colonne-principale' },
-        h('div', { className: 'zone-apercu', ref: refApercu }, h(SlideCanvas, { slide, formatId: article.format, fondId: article.fond, largeur: largeurApercu, index: i, total, etiquette: 'Aperçu de la slide ' + (i + 1) })),
+        h('div', { className: 'zone-apercu', ref: refApercu }, h(SlideCanvas, { slide, formatId: article.format, fondId: article.fond, largeur: largeurApercu, index: i, total, logo, etiquette: 'Aperçu de la slide ' + (i + 1) })),
         !exacte && h('p', { className: 'doux petit centre' }, 'Rendu approché avec la police de l’appareil. Importe tes fichiers Gill Sans dans Configuration › Ressources pour un rendu exact.'),
         h('div', { className: 'bande-miniatures', role: 'list' },
           article.slides.map((s, k) => h('div', { key: k, className: 'miniature', role: 'listitem' },
-            h(SlideCanvas, { slide: s, formatId: article.format, fondId: article.fond, largeur: 92, index: k, total, selectionnee: k === i, onClick: () => dispatch({ type: 'slide', index: k }), etiquette: 'Afficher la slide ' + (k + 1) }),
+            h(SlideCanvas, { slide: s, formatId: article.format, fondId: article.fond, largeur: 92, index: k, total, logo, selectionnee: k === i, onClick: () => dispatch({ type: 'slide', index: k }), etiquette: 'Afficher la slide ' + (k + 1) }),
             h('div', { className: cls('miniature-pied', compositions[k].deborde && 'erreur') }, (compositions[k].deborde ? '⚠︎ ' : '') + (k + 1)))))),
       h('aside', { className: 'panneau' },
         h(Carte, { titre: 'Carrousel', info: 'Ces choix s’appliquent à toutes les slides de cet article.' },
@@ -694,6 +818,9 @@
           h(SelecteurFond, { valeur: article.fond, onChange: (v) => majA(OP.champ('fond', v)) }),
           h(Ligne, { etiquette: 'Format', aide: '4:5 donne plus de place sur Instagram.' }, h(Segmente, { valeur: article.format, onChange: (v) => majA(OP.champ('format', v)), options: [{ valeur: 'carre', libelle: '1:1' }, { valeur: 'portrait', libelle: '4:5' }] })),
           h(Ligne, { etiquette: 'Réseau', aide: 'Fixe le type de fichier exporté.' }, h(Segmente, { valeur: article.reseau, onChange: (v) => majA(OP.champ('reseau', v)), options: [{ valeur: 'instagram', libelle: 'Instagram' }, { valeur: 'linkedin', libelle: 'LinkedIn' }] })),
+          h(Ligne, { etiquette: 'Logo', aide: 'Automatique : la version claire sur les fonds foncés, la foncée sur les autres. Essaie les deux.' },
+            h(Segmente, { valeur: logo, onChange: (v) => majA(OP.champ('logo', v)), options: [{ valeur: 'auto', libelle: 'Auto' }, { valeur: 'fonce', libelle: 'Foncé' }, { valeur: 'clair', libelle: 'Clair' }] })),
+          (!images.logo || !images.logoClair) && h('p', { className: 'doux petit' }, `${!images.logo && !images.logoClair ? 'Aucune version du logo n’est importée' : !images.logoClair ? 'La version claire du logo n’est pas encore importée' : 'La version foncée du logo n’est pas encore importée'} : un cadre marque sa place. Configuration › Ressources.`),
           h(Bouton, { variante: 'principal large', onClick: proposer }, h(Icone, { nom: 'baguette', taille: 18 }), 'Proposer une autre présentation'),
           h('p', { className: 'doux petit' }, 'Un fond et des gabarits différents de tes derniers articles, toujours dans ta charte. Ton texte ne change pas.')),
         h(Carte, {
@@ -708,7 +835,8 @@
           h('div', { className: 'surtitre' }, famille),
           h('div', { className: 'grille-gabarits' }, codes.map((code) => h('button', {
             key: code, type: 'button', className: cls('gabarit-choix', gabaritActuel === code && 'actif'), 'aria-pressed': gabaritActuel === code, onClick: () => majA(OP.gabarit(i, code)), title: M.GABARITS[code].aide,
-          }, h(SlideCanvas, { slide: { ...slide, gabarit: code }, formatId: article.format, fondId: article.fond, largeur: 64, index: i, total }), h('span', null, M.GABARITS[code].nom)))))),
+          }, h(SlideCanvas, { slide: { ...slide, gabarit: code }, formatId: article.format, fondId: article.fond, largeur: 64, index: i, total, logo }), h('span', null, M.GABARITS[code].nom)))))),
+        slide.echelle && slide.echelle < 1 && h('p', { className: 'note petit' }, `Texte de cette slide réduit à ${Math.round(slide.echelle * 100)} %. `, h('button', { type: 'button', className: 'lien', onClick: () => majA(OP.echelle(i, 1), null, 'Taille normale rétablie.') }, 'Revenir à la taille normale')),
         h('div', { className: 'ligne-etiquette blocs-titre' }, 'Paragraphes', h(Info, { texte: 'Seules les natures utiles au gabarit choisi sont proposées. Les flèches haut et bas réordonnent ; les flèches gauche et droite envoient le paragraphe sur la slide voisine ; les ciseaux coupent la slide juste avant ce paragraphe.' })),
         slide.blocs.map((b, n) => h('div', { key: n, className: 'bloc-edition' },
           h('div', { className: 'bloc-outils' },
@@ -722,10 +850,35 @@
             h(Bouton, { variante: 'icone petit danger', etiquette: 'Supprimer le paragraphe', onClick: () => majA(OP.supprimerBloc(i, n)) }, h(Icone, { nom: 'poubelle', taille: 18 }))),
           h('textarea', { className: 'zone-texte', rows: 3, value: b.texte, 'aria-label': 'Texte du paragraphe ' + (n + 1), onChange: (e) => majA(OP.modifierBloc(i, n, { texte: e.target.value }), `bloc-${i}-${n}`) }))),
         h(Bouton, { variante: 'ajouter', onClick: () => majA(OP.ajouterBloc(i)) }, h(Icone, { nom: 'plus', taille: 18 }), 'Ajouter un paragraphe')),
-        h(Carte, { titre: 'Contrôle qualité', info: 'Marges, densité, limite du réseau, et présence de tout le texte de l’article.', sousTitre: alertes.length ? `${alertes.length} point(s) à regarder` : 'Tout est en ordre.' },
-          alertes.length
-            ? h('ul', { className: 'liste-alertes' }, alertes.map((a, k) => h('li', { key: k, className: a.niveau }, h('span', null, a.message), a.slide !== null && h(Bouton, { variante: 'petit', onClick: () => dispatch({ type: 'slide', index: a.slide }) }, 'Voir la slide ' + (a.slide + 1)))))
-            : h('p', { className: 'ok petit' }, 'Marges, densité, limite du réseau et intégrité du texte : OK.'))));
+        h(ControleQualite, { article, alertes, nbValidees, majA, dispatch, choisirPolice, contexteRendu })));
+  }
+
+  function ControleQualite({ article, alertes, nbValidees, majA, dispatch, choisirPolice, contexteRendu }) {
+    const libelles = {
+      reduire: (s) => `Réduire le texte à ${Math.round(s.echelle * 100)} %`,
+      scinder: (s) => s.reste > 1 ? `Envoyer les ${s.reste} derniers paragraphes sur une nouvelle slide` : 'Envoyer le dernier paragraphe sur une nouvelle slide',
+      portrait: () => 'Passer tout le carrousel en 4:5',
+      gabarit: (s) => `Essayer le gabarit « ${M.GABARITS[s.gabarit].nom} »`,
+    };
+    const appliquer = (a, sol) => {
+      if (sol.type === 'reduire') majA(OP.echelle(a.slide, sol.echelle), null, `Texte de la slide ${a.slide + 1} réduit à ${Math.round(sol.echelle * 100)} %.`);
+      else if (sol.type === 'scinder') majA(OP.scinder(a.slide, sol.bloc), null, `Slide ${a.slide + 1} coupée en deux.`);
+      else if (sol.type === 'portrait') majA(OP.champ('format', 'portrait'), null, 'Carrousel passé en 4:5.');
+      else if (sol.type === 'gabarit') majA(OP.gabarit(a.slide, sol.gabarit), null, `Gabarit « ${M.GABARITS[sol.gabarit].nom} » appliqué à la slide ${a.slide + 1}.`);
+      dispatch({ type: 'slide', index: a.slide });
+    };
+    return h(Carte, { titre: 'Contrôle qualité', info: 'Marges, densité, lisibilité, limite du réseau, et présence de tout le texte de l’article. « C’est voulu » masque une alerte tant que la slide ne change pas.', sousTitre: alertes.length ? `${alertes.length} point(s) à regarder` : 'Tout est en ordre.' },
+      alertes.length
+        ? h('ul', { className: 'liste-alertes' }, alertes.map((a) => h('li', { key: a.cle, className: a.niveau },
+          h('span', null, (a.slide !== null ? `Slide ${a.slide + 1} · ` : '') + a.message),
+          a.type === 'deborde' && h('span', { className: 'solutions' },
+            M.solutionsDebordement(article, a.slide, choisirPolice, contexteRendu).map((sol, k) => h(Bouton, { key: k, variante: k === 0 ? 'principal petit' : 'petit', onClick: () => appliquer(a, sol) }, libelles[sol.type](sol))),
+            h('span', { className: 'petit' }, 'Ou modifie toi-même le texte de la slide, ci-dessus.')),
+          h('span', { className: 'actions-ligne' },
+            a.slide !== null && h(Bouton, { variante: 'petit', onClick: () => dispatch({ type: 'slide', index: a.slide }) }, 'Voir la slide ' + (a.slide + 1)),
+            h(Bouton, { variante: 'petit', onClick: () => majA(OP.validerAlerte(a.cle), null, 'Alerte validée : elle reviendra si la slide change.') }, h(Icone, { nom: 'coche', taille: 16 }), 'C’est voulu')))))
+        : h('p', { className: 'ok petit' }, 'Marges, densité, lisibilité, limite du réseau et intégrité du texte : OK.'),
+      nbValidees > 0 && h('p', { className: 'doux petit' }, `${nbValidees} alerte(s) validée(s) par toi. `, h('button', { type: 'button', className: 'lien', onClick: () => majA(OP.reafficherAlertes(), null, 'Alertes réaffichées.') }, 'Les réafficher')));
   }
 
   /* ---------- Étapes 4 et 5 ---------- */
@@ -747,24 +900,68 @@
       }));
   }
 
-  function EtapeExport({ etat, dispatch, article }) {
-    const { choisirPolice, reglages, charte } = useContext(Contexte);
+  const taille = (octets) => (octets > 1048576 ? (octets / 1048576).toFixed(1).replace('.', ',') + ' Mo' : Math.max(1, Math.round(octets / 1024)) + ' Ko');
+
+  function EtapeExport({ dispatch, article, majA }) {
+    const { choisirPolice, reglages, charte, images } = useContext(Contexte);
+    const [quoi, setQuoi] = useState(article.reseau === 'linkedin' ? 'pdf' : 'png');
+    const [suivi, setSuivi] = useState({ statut: 'repos' });
     const total = article.slides.length;
-    const compositions = article.slides.map((s, k) => M.composer(s, article.format, article.fond, choisirPolice, { index: k, total, reglages, charte }));
-    const bloquants = M.controler(article, compositions, reglages).filter((a) => a.niveau === 'bloquant');
-    const fichier = article.reseau === 'linkedin' ? 'Un PDF de ' + total + ' pages' : total + ' images PNG';
-    void etat;
+    const logo = article.logo || 'auto';
+    const compositions = article.slides.map((s, k) => M.composer(s, article.format, article.fond, choisirPolice, { index: k, total, reglages, charte, logo }));
+    const validees = article.alertesValidees || [];
+    const alertes = M.controler(article, compositions, reglages).filter((a) => !validees.includes(a.cle));
+    const manquants = [...new Set(compositions.flatMap((c) => c.elements.filter((e) => e.type === 'image' && !images[e.cle]).map((e) => e.cle)))];
+    const nomsImages = { logo: 'le logo foncé', logoClair: 'le logo clair', fleurs: 'les fleurs' };
+    const exacte = compositions.every((c) => c.exacte);
+
+    async function preparer(force) {
+      if (!force && (alertes.length || manquants.length)) { setSuivi({ statut: 'confirmation' }); return; }
+      if ((quoi === 'pdf' || quoi === 'les-deux') && !racine.PDFLib) { setSuivi({ statut: 'erreur', message: 'Le fichier pdf-lib.min.js est introuvable sur ton site : vérifie qu’il est bien dans ton dépôt.' }); return; }
+      setSuivi({ statut: 'encours' });
+      try {
+        const echelle = reglages.resolution === '1' ? 1 : 2;
+        const resultat = await X.preparer({ article, compositions, ressources: images, echelle, quoi, PDFLib: racine.PDFLib });
+        setSuivi({ statut: 'pret', ...resultat, partage: X.peutPartager(resultat.fichiers) });
+        if (article.statut === 'Brouillon' || article.statut === 'Prêt') majA(OP.champ('statut', 'Exporté'));
+      } catch (erreur) {
+        setSuivi({ statut: 'erreur', message: erreur.message });
+      }
+    }
+    async function partager() {
+      try { await X.partager(suivi.fichiers); } catch (erreur) { if (erreur.name !== 'AbortError') dispatch({ type: 'message', message: 'Partage impossible ici : utilise « Télécharger ». (' + erreur.message + ')' }); }
+    }
+    async function telecharger() {
+      const nom = await X.telecharger(suivi.fichiers, suivi.base);
+      dispatch({ type: 'message', message: `« ${nom} » téléchargé.` });
+    }
+
     return h('div', { className: 'colonne-unique' },
-      h(Carte, {
-        titre: 'Exporter', sousTitre: `${fichier} · ${M.FORMATS[article.format].nom} · fond ${M.fondsDe(charte.palette)[article.fond].nom.toLowerCase()}`,
-        actions: h(Bouton, { variante: 'principal', disabled: bloquants.length > 0, onClick: () => dispatch({ type: 'message', message: 'L’export arrive en phase 3, la prochaine étape. Le banc d’essai l’a déjà validé sur ton iPad.' }) }, 'Exporter'),
-      },
-      bloquants.length
-        ? h(Fragment, null, h('p', { className: 'erreur' }, `Export en attente : ${bloquants.length} point(s) à régler.`),
-          h('ul', { className: 'liste-alertes' }, bloquants.map((a, k) => h('li', { key: k, className: 'bloquant' }, h('span', null, (a.slide !== null ? `Slide ${a.slide + 1} · ` : '') + a.message), h(Bouton, { variante: 'principal petit', onClick: () => dispatch({ type: 'aller', etape: a.cible, slide: a.slide }) }, 'Corriger')))))
-        : h('p', { className: 'ok' }, 'Prêt à exporter.')),
+      h(Carte, { titre: 'Exporter', info: 'Les fichiers sont dessinés par le même moteur que l’aperçu : ce que tu vois est ce que tu obtiens.', sousTitre: `${total} slides · ${M.FORMATS[article.format].nom} · fond ${M.fondsDe(charte.palette)[article.fond].nom.toLowerCase()}` },
+        h(Ligne, { etiquette: 'Fichiers', aide: 'Images PNG pour Instagram, PDF pour LinkedIn (le réseau le recommande pour les carrousels).' },
+          h(Segmente, { valeur: quoi, onChange: (v) => { setQuoi(v); setSuivi({ statut: 'repos' }); }, options: [{ valeur: 'png', libelle: 'Images PNG' }, { valeur: 'pdf', libelle: 'PDF' }, { valeur: 'les-deux', libelle: 'Les deux' }] })),
+        h('p', { className: 'doux petit' }, `Résolution des images : ×${reglages.resolution === '1' ? 1 : 2} (modifiable dans Réglages).${exacte ? '' : ' Tes polices ne sont pas importées sur cet appareil : le rendu sera approché, et le PDF contiendra des images.'}`),
+        suivi.statut !== 'confirmation' && h(Bouton, { variante: 'principal large', disabled: suivi.statut === 'encours', onClick: () => preparer(false) }, h(Icone, { nom: 'telecharger', taille: 18 }), suivi.statut === 'encours' ? 'Préparation…' : 'Préparer les fichiers'),
+        suivi.statut === 'confirmation' && h('div', { className: 'confirmation' },
+          h('p', null, h('strong', null, 'Avant d’exporter, il reste :')),
+          h('ul', { className: 'liste-alertes' },
+            alertes.map((a) => h('li', { key: a.cle, className: a.niveau }, h('span', null, (a.slide !== null ? `Slide ${a.slide + 1} · ` : '') + a.message))),
+            manquants.map((m) => h('li', { key: m, className: 'avertissement' }, h('span', null, `Il manque ${nomsImages[m] || m} : sa place restera vide dans les fichiers.`)))),
+          h('div', { className: 'actions-ligne' },
+            h(Bouton, { variante: 'principal', onClick: () => preparer(true) }, 'Exporter quand même'),
+            h(Bouton, { onClick: () => dispatch({ type: 'aller', etape: 'design', slide: alertes[0] && alertes[0].slide !== null ? alertes[0].slide : 0 }) }, 'Revenir corriger'))),
+        suivi.statut === 'erreur' && h('p', { className: 'erreur' }, 'Export impossible : ' + suivi.message),
+        suivi.statut === 'pret' && h('div', { className: 'fichiers-prets' },
+          h('ul', { className: 'liste-fichiers' }, suivi.fichiers.map((f) => h('li', { key: f.nom }, h('span', null, f.nom), h('span', { className: 'doux petit' }, taille(f.blob.size))))),
+          h('div', { className: 'actions-ligne' },
+            suivi.partage && h(Bouton, { variante: 'principal', onClick: partager }, h(Icone, { nom: 'partager', taille: 18 }), 'Partager ou enregistrer'),
+            h(Bouton, { variante: suivi.partage ? 'secondaire' : 'principal', onClick: telecharger }, h(Icone, { nom: 'telecharger', taille: 18 }), suivi.fichiers.length > 1 ? 'Télécharger (archive ZIP)' : 'Télécharger')))),
+      h(Carte, { titre: 'Publication', info: 'Une fois le carrousel publié sur le réseau, marque-le comme publié : il rejoint la section Publiés de ta bibliothèque.' },
+        article.statut === 'Publié'
+          ? h('div', { className: 'actions-ligne' }, h(Pastille, { ton: 'ok' }, 'Publié le ' + new Date(article.publie || Date.now()).toLocaleDateString('fr-FR')), h(Bouton, { variante: 'lien', onClick: () => dispatch({ type: 'statut', id: article.id, statut: 'Exporté' }) }, 'Remettre en cours'))
+          : h(Bouton, { onClick: () => dispatch({ type: 'statut', id: article.id, statut: 'Publié' }) }, h(Icone, { nom: 'coche', taille: 18 }), 'Marquer comme publié')),
       h('div', { className: 'grille-export' }, article.slides.map((s, k) => h('div', { key: k, className: 'export-item' },
-        h(SlideCanvas, { slide: s, formatId: article.format, fondId: article.fond, largeur: 180, index: k, total, etiquette: 'Slide ' + (k + 1) }), h('div', { className: 'doux petit centre' }, k + 1)))));
+        h(SlideCanvas, { slide: s, formatId: article.format, fondId: article.fond, largeur: 180, index: k, total, logo, etiquette: 'Slide ' + (k + 1) }), h('div', { className: 'doux petit centre' }, k + 1)))));
   }
 
   /* ================================================================== */
@@ -837,7 +1034,8 @@
         h(Ligne, { etiquette: 'Gill Sans MT Light', aide: 'Texte courant et citations.' }, statut(etat.polices.light, r.light && r.light.nom, 'Rendu approché'), champ('Importer', 'light')),
         h(Ligne, { etiquette: 'Gill Sans MT Bold', aide: 'Titres et phrases-chocs.' }, statut(etat.polices.bold, r.bold && r.bold.nom, 'Rendu approché'), champ('Importer', 'bold'))),
       h(Carte, { titre: 'Logo et motifs', info: 'Utilise des PNG à fond transparent : ils s’affichent sur tous les fonds.' },
-        h(Ligne, { etiquette: 'Logo officiel sans fond', aide: 'En attendant, un cadre en pointillés marque sa place.' }, statut(etat.images.logo, r.logo && r.logo.nom, 'Manquant'), champ('Importer', 'logo', 'image/png,image/svg+xml')),
+        h(Ligne, { etiquette: 'Logo foncé, pour les fonds clairs', aide: 'Fonds blanc, vert et pâles. En attendant, un cadre en pointillés marque sa place.' }, statut(etat.images.logo, r.logo && r.logo.nom, 'Manquant'), champ('Importer', 'logo', 'image/png,image/svg+xml')),
+        h(Ligne, { etiquette: 'Logo clair, pour les fonds foncés', aide: 'Fond bleu. Tu choisis ensuite la version voulue pour chaque article, dans Design.' }, statut(etat.images.logoClair, r.logoClair && r.logoClair.nom, 'Manquant'), champ('Importer', 'logoClair', 'image/png,image/svg+xml')),
         h(Ligne, { etiquette: 'Fleurs', aide: 'Utilisées par les gabarits « Fleurs » et « Fin centrée ».' }, statut(etat.images.fleurs, r.fleurs && r.fleurs.nom, 'À importer'), champ('Importer', 'fleurs', 'image/png,image/svg+xml'))),
       etatImport && h('p', { className: 'note' }, etatImport));
   }
@@ -922,7 +1120,8 @@
   const lireConfig = () => { try { return JSON.parse(racine.localStorage.getItem(CLE_CONFIG)) || null; } catch (e) { return null; } };
   const lireApparence = () => { try { return racine.localStorage.getItem('postsop-apparence') || 'auto'; } catch (e) { return 'auto'; } };
 
-  const CHEMINS_RESSOURCES = { light: 'ressources/police-light', bold: 'ressources/police-bold', logo: 'ressources/logo', fleurs: 'ressources/fleurs' };
+  const CHEMINS_RESSOURCES = { light: 'ressources/police-light', bold: 'ressources/police-bold', logo: 'ressources/logo', logoClair: 'ressources/logo-clair', fleurs: 'ressources/fleurs' };
+  const lirePreferencesBibliotheque = () => { try { return { ...ETAT_INITIAL.bibliotheque, ...(JSON.parse(racine.localStorage.getItem('postsop-bibliotheque')) || {}) }; } catch (e) { return ETAT_INITIAL.bibliotheque; } };
 
   function chargerImage(blob) {
     return new Promise((resoudre, rejeter) => {
@@ -951,7 +1150,7 @@
   }
 
   function App({ etatInitial }) {
-    const [etat, dispatch] = useReducer(reducteur, etatInitial || { ...ETAT_INITIAL, apparence: lireApparence() });
+    const [etat, dispatch] = useReducer(reducteur, etatInitial || { ...ETAT_INITIAL, apparence: lireApparence(), bibliotheque: lirePreferencesBibliotheque() });
     const systemeSombre = useModeSysteme();
     const [contexte, setContexte] = useState(() => ({ choisirPolice: fabriquerChoix(etat.polices), version: 0, images: etat.images, reglages: etat.projet.reglages, charte: etat.projet.charte }));
     const etatRef = useRef(etat);
@@ -964,9 +1163,10 @@
 
     useEffect(() => {
       setContexte((c) => ({ choisirPolice: fabriquerChoix(etat.polices), version: c.version + 1, images: etat.images, reglages: etat.projet.reglages, charte: etat.projet.charte }));
-    }, [etat.polices.light, etat.polices.bold, etat.images.logo, etat.images.fleurs, etat.projet.reglages, etat.projet.charte]);
+    }, [etat.polices.light, etat.polices.bold, etat.images.logo, etat.images.logoClair, etat.images.fleurs, etat.projet.reglages, etat.projet.charte]);
 
     useEffect(() => { try { racine.localStorage.setItem('postsop-apparence', etat.apparence); } catch (e) { /* indisponible */ } }, [etat.apparence]);
+    useEffect(() => { try { racine.localStorage.setItem('postsop-bibliotheque', JSON.stringify(etat.bibliotheque)); } catch (e) { /* indisponible */ } }, [etat.bibliotheque]);
 
     /* ---------- Enregistrement local ---------- */
 
@@ -1011,7 +1211,7 @@
           try { dispatch({ type: 'polices', polices: { [role]: opentype.parse(versTampon(octets)) } }); } catch (e) { /* police illisible : rendu approché */ }
         }
       }
-      for (const cle of ['logo', 'fleurs']) {
+      for (const cle of ['logo', 'logoClair', 'fleurs']) {
         const octets = r[CHEMINS_RESSOURCES[cle]];
         if (octets) {
           try { dispatch({ type: 'images', images: { [cle]: await chargerImage(new Blob([octets], { type: (infos[cle] && infos[cle].type) || 'image/png' })) } }); } catch (e) { /* image illisible */ }
@@ -1171,7 +1371,7 @@
     }
   }
 
-  const api = { App, Filet, reducteur, OP, normaliserProjet, ETAT_INITIAL, PROJET_DEFAUT, EXEMPLE, REGLAGES_DEFAUT, verifierLisibilite, contraste, extraitAvecMarque, fabriquerChoix };
+  const api = { App, Filet, reducteur, OP, normaliserProjet, trierArticles, appliquerModele, ETAT_INITIAL, PROJET_DEFAUT, EXEMPLE, REGLAGES_DEFAUT, verifierLisibilite, contraste, extraitAvecMarque, fabriquerChoix };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else {
     racine.addEventListener('DOMContentLoaded', () => {

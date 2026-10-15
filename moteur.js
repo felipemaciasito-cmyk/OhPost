@@ -93,6 +93,18 @@
     return utiles[0];
   }
 
+  function luminanceHex(hex) {
+    const v = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((x) => (x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+  }
+  const fondFonce = (couleur) => luminanceHex(couleur) < 0.25;
+  // choix : 'auto' (selon la couleur derrière le logo), 'fonce' ou 'clair'.
+  function cleLogo(choix, couleurDerriere) {
+    if (choix === 'fonce') return 'logo';
+    if (choix === 'clair') return 'logoClair';
+    return fondFonce(couleurDerriere) ? 'logoClair' : 'logo';
+  }
+
   const LIMITES_SLIDES = { instagram: 20, linkedin: 100 }; // à vérifier au développement : elles changent
 
   /* ---------- Polices ---------- */
@@ -103,6 +115,7 @@
       asc: font.ascender / font.unitsPerEm,
       desc: -font.descender / font.unitsPerEm,
       mesurer: (texte, taille) => font.getAdvanceWidth(texte, taille, { kerning: true }),
+      trace: (texte, x, y, taille) => font.getPath(texte, x, y, taille, { kerning: true }).toPathData(2),
       dessiner(ctx, texte, x, y, taille, couleur) {
         const chemin = font.getPath(texte, x, y, taille, { kerning: true });
         chemin.fill = couleur;
@@ -230,8 +243,9 @@
     const charte = contexte.charte || CHARTE_DEFAUT;
     const fonds = fondsDe(charte.palette);
     const fond = fonds[fondId] || fonds.bleu;
-    const kT = (charte.tailleTexte || 39) / 39; // échelle du texte courant
-    const kC = (charte.tailleTitre || 114) / 114; // échelle des couvertures
+    const echelle = slide.echelle || 1; // réduction propre à cette slide
+    const kT = ((charte.tailleTexte || 39) / 39) * echelle; // échelle du texte courant
+    const kC = ((charte.tailleTitre || 114) / 114) * echelle; // échelle des couvertures
     const T = (n) => Math.round(n * kT);
     const C = (n) => Math.round(n * kC);
     const LIGNE = T(39) * 1.25;
@@ -382,8 +396,12 @@
     }
 
     // Éléments fixes : logo de fin, logo sur chaque slide, numéro, indicateur « glisser ».
-    if (signature && gab !== 'F1') elements.push({ type: 'image', cle: 'logo', x: MARGES.gauche, y: H - MARGES.basse - SIGNATURE.h, l: SIGNATURE.l, h: SIGNATURE.h, libelle: 'Logo Oh ! Potentiel', couleur: couleurPied });
-    if (logoPartout) elements.push({ type: 'image', cle: 'logo', x: L - 81 - LOGO_PARTOUT.l, y: H - LOGO_PARTOUT.bas - LOGO_PARTOUT.h, l: LOGO_PARTOUT.l, h: LOGO_PARTOUT.h, libelle: 'Logo', couleur: couleurPied });
+    const choixLogo = contexte.logo || 'auto';
+    const derriere = gab === 'V4' ? fond.bande.fond : fond.fond;
+    const libelleLogo = (cle) => (cle === 'logoClair' ? 'Logo clair' : 'Logo foncé');
+    for (const e of elements) if (e.type === 'image' && e.cle === 'logo') { e.cle = cleLogo(choixLogo, fond.fond); e.libelle = libelleLogo(e.cle); }
+    if (signature && gab !== 'F1') elements.push({ type: 'image', cle: cleLogo(choixLogo, derriere), libelle: libelleLogo(cleLogo(choixLogo, derriere)), x: MARGES.gauche, y: H - MARGES.basse - SIGNATURE.h, l: SIGNATURE.l, h: SIGNATURE.h, couleur: couleurPied });
+    if (logoPartout) elements.push({ type: 'image', cle: cleLogo(choixLogo, derriere), x: L - 81 - LOGO_PARTOUT.l, y: H - LOGO_PARTOUT.bas - LOGO_PARTOUT.h, l: LOGO_PARTOUT.l, h: LOGO_PARTOUT.h, libelle: 'Logo', couleur: couleurPied });
     if (reglages.numero && !signature) {
       const police = choisirPolice('light');
       elements.push({ type: 'ligne', texte: `${index + 1}\u00A0/\u00A0${total}`, x: MARGES.gauche, y: H - 62, police, taille: 26, couleur: couleurPied, opacite: 0.75 });
@@ -391,7 +409,7 @@
     if (reglages.glisser && index < total - 1) elements.push({ type: 'fleche', x: L - 64, y: H / 2, couleur: gab === 'V4' && H / 2 > H * 0.556 ? couleurPied : fond.texte });
 
     return {
-      fmt, fond, gabarit: gab, elements,
+      fmt, fond, gabarit: gab, elements, tailleTexte: T(39),
       deborde: deborde || tropLarge,
       exacte: elements.every((e) => e.type !== 'ligne' || e.police.exacte),
     };
@@ -413,7 +431,7 @@
     ctx.closePath();
   }
 
-  function dessiner(ctx, compo, ressources = {}) {
+  function dessiner(ctx, compo, ressources = {}, options = {}) {
     const { fmt, fond } = compo;
     ctx.fillStyle = fond.fond;
     ctx.fillRect(0, 0, fmt.l, fmt.h);
@@ -433,7 +451,7 @@
           const l = image.width * echelle;
           const h = image.height * echelle;
           ctx.drawImage(image, e.x + (e.l - l) / 2, e.y + (e.h - h) / 2, l, h);
-        } else {
+        } else if (!options.export) {
           ctx.save();
           ctx.strokeStyle = e.couleur;
           ctx.fillStyle = e.couleur;
@@ -484,22 +502,36 @@
     return ajoutes;
   }
 
+  function empreinte(texte) {
+    let h = 2166136261;
+    for (let i = 0; i < texte.length; i++) { h ^= texte.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return (h >>> 0).toString(36);
+  }
   function controler(article, compositions, reglages) {
+    const brutes = controlerBrut(article, compositions, reglages);
+    return brutes.map((a) => {
+      const s = a.slide !== null ? article.slides[a.slide] : null;
+      const contenu = s ? JSON.stringify([s.blocs, s.gabarit, article.fond, article.format]) : a.message;
+      return { ...a, cle: empreinte(a.type + '|' + a.slide + '|' + contenu) };
+    });
+  }
+  function controlerBrut(article, compositions, reglages) {
     const alertes = [];
     compositions.forEach((compo, i) => {
-      if (compo.deborde) alertes.push({ niveau: 'bloquant', slide: i, cible: 'design', message: 'Le texte dépasse les marges. Raccourcis-le, déplace un paragraphe ou essaie un autre gabarit.' });
+      if (compo.deborde) alertes.push({ type: 'deborde', niveau: 'bloquant', slide: i, cible: 'design', message: 'Le texte dépasse les marges. Raccourcis-le, déplace un paragraphe ou essaie un autre gabarit.' });
       const mots = article.slides[i].blocs.reduce((n, b) => n + compterMots(b.texte), 0);
-      if (mots > reglages.motsMax) alertes.push({ niveau: 'avertissement', slide: i, cible: 'design', message: `${mots} mots : au-delà de ta limite de ${reglages.motsMax}.` });
+      if (compo.tailleTexte && compo.tailleTexte < 34) alertes.push({ type: 'lisibilite', niveau: 'avertissement', slide: i, cible: 'design', message: `Texte à ${compo.tailleTexte} px : en dessous de 34 px, la lecture sur téléphone devient difficile.` });
+      if (mots > reglages.motsMax) alertes.push({ type: 'densite', niveau: 'avertissement', slide: i, cible: 'design', message: `${mots} mots : au-delà de ta limite de ${reglages.motsMax}.` });
     });
     const limite = LIMITES_SLIDES[article.reseau];
     if (article.slides.length > limite) {
-      alertes.push({ niveau: 'bloquant', slide: null, cible: 'structure', message: `${article.slides.length} slides : la limite ${article.reseau === 'instagram' ? 'd’Instagram' : 'de LinkedIn'} est de ${limite}.` });
+      alertes.push({ type: 'limite', niveau: 'bloquant', slide: null, cible: 'structure', message: `${article.slides.length} slides : la limite ${article.reseau === 'instagram' ? 'd’Instagram' : 'de LinkedIn'} est de ${limite}.` });
     }
     for (const passage of passagesManquants(article.texte, article.slides)) {
-      alertes.push({ niveau: 'bloquant', slide: null, cible: 'design', message: `Ce passage de l’article ne figure dans aucune slide : « ${passage.slice(0, 60)}${passage.length > 60 ? '…' : ''} ». Tout le texte doit être dans le carrousel : remets-le dans une slide, ou change l’accroche.` });
+      alertes.push({ type: 'manquant', niveau: 'bloquant', slide: null, cible: 'design', message: `Ce passage de l’article ne figure dans aucune slide : « ${passage.slice(0, 60)}${passage.length > 60 ? '…' : ''} ». Tout le texte doit être dans le carrousel : remets-le dans une slide, ou change l’accroche.` });
     }
     for (const ajout of textesAjoutes(article.texte, article.slides)) {
-      alertes.push({ niveau: 'avertissement', slide: ajout.slide, cible: 'design', message: `Ce texte n’existe pas dans l’article : « ${ajout.texte.slice(0, 50)}${ajout.texte.length > 50 ? '…' : ''} ». Vérifie qu’il est voulu.` });
+      alertes.push({ type: 'ajout', niveau: 'avertissement', slide: ajout.slide, cible: 'design', message: `Ce texte n’existe pas dans l’article : « ${ajout.texte.slice(0, 50)}${ajout.texte.length > 50 ? '…' : ''} ». Vérifie qu’il est voulu.` });
     }
     return alertes;
   }
@@ -559,10 +591,31 @@
     return { fond, slides };
   }
 
+  // Cherche, pour une slide qui déborde, les corrections possibles en un geste.
+  function solutionsDebordement(article, i, choisirPolice, contexte = {}) {
+    const s = article.slides[i];
+    const ctx = { ...contexte, index: i, total: article.slides.length };
+    const tient = (slide, format = article.format, fond = article.fond) => !composer(slide, format, fond, choisirPolice, ctx).deborde;
+    const solutions = [];
+    for (const e of [0.95, 0.9, 0.85, 0.8, 0.75]) {
+      if (tient({ ...s, echelle: (s.echelle || 1) * e })) { solutions.push({ type: 'reduire', echelle: Math.round((s.echelle || 1) * e * 100) / 100 }); break; }
+    }
+    if (s.blocs.length > 1) {
+      for (let b = s.blocs.length - 1; b >= 1; b--) {
+        if (tient({ ...s, blocs: s.blocs.slice(0, b), signature: false })) { solutions.push({ type: 'scinder', bloc: b, reste: s.blocs.length - b }); break; }
+      }
+    }
+    if (article.format === 'carre' && tient(s, 'portrait')) solutions.push({ type: 'portrait' });
+    const famille = /^V/.test(gabaritParDefaut(s, i)) ? ['V1', 'V2', 'V3', 'V4', 'V5'] : ['T1', 'T3', 'T5', 'T4', 'T2', 'F1'];
+    const autre = famille.find((g) => g !== gabaritParDefaut(s, i) && tient({ ...s, gabarit: g }));
+    if (autre) solutions.push({ type: 'gabarit', gabarit: autre });
+    return solutions;
+  }
+
   const api = {
     PALETTE, FONDS, CHARTE_DEFAUT, construireFonds, fondsDe, naturesUtiles, natureAffichee, FORMATS, MARGES, NATURES, GABARITS, LIMITES_SLIDES,
-    policeExacte, policeSysteme, couperLignes, composer, dessiner, gabaritParDefaut,
-    compterMots, passagesManquants, textesAjoutes, controler, decouperMecaniquement, proposerPresentation,
+    policeExacte, policeSysteme, fondFonce, cleLogo, couperLignes, composer, dessiner, gabaritParDefaut,
+    compterMots, passagesManquants, textesAjoutes, controler, solutionsDebordement, decouperMecaniquement, proposerPresentation,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else racine.PostsOPMoteur = api;

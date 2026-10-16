@@ -510,3 +510,34 @@ label.echantillon input[type="color"] { position: absolute; inset: 0; width: 100
 .coupure { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
 .coupure-ligne { flex: 1; border-top: 2px dashed var(--trait); }
 @media (max-width: 700px) { .groupe-corps { flex-direction: column; } }
+
+/* ---------- Phase 3, étape 3 : mise en forme ---------- */
+
+.barre-format {
+  position: sticky; top: 8px; z-index: 5; margin: 8px 0 12px; padding: 10px; border-radius: 14px;
+  background: var(--surface); border: 1px solid var(--trait); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+.barre-format-cible { margin-bottom: 8px; }
+.barre-format-outils { display: flex; flex-wrap: wrap; gap: 8px; }
+.groupe-format { display: inline-flex; align-items: center; gap: 4px; padding-right: 8px; border-right: 1px solid var(--trait); }
+.groupe-format:last-child { border-right: 0; }
+.format {
+  min-width: 40px; min-height: 40px; padding: 0 10px; border: 1px solid transparent; border-radius: 10px; background: var(--surface-2);
+  color: var(--texte); font: inherit; font-size: 16px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+}
+.format:hover { background: var(--surface-3); }
+.format:disabled { opacity: 0.4; cursor: default; }
+.format.actif { background: var(--touche-doux); border-color: var(--touche); color: var(--touche-texte); }
+.format.gras { font-weight: 800; }
+.format.italique { font-style: italic; font-family: Georgia, serif; }
+.format.souligne { text-decoration: underline; text-underline-offset: 3px; }
+.format.large { font-size: 14px; font-weight: 600; }
+.filet-icone { display: inline-block; width: 4px; height: 18px; border-radius: 2px; background: currentColor; }
+.champ-taille { width: 64px; min-height: 40px; padding: 0 8px; border: 1px solid var(--trait); border-radius: 10px; background: var(--surface); color: var(--texte); font: inherit; }
+.bloc-edition.cible { box-shadow: 0 0 0 2px var(--touche-doux); border-radius: 12px; }
+.champ-formate .editeur-zone { min-height: 64px; }
+.champ-formate .editeur-fond mark { box-shadow: none; border-radius: 3px; background: rgba(201, 212, 32, 0.35); }
+.champ-formate .editeur-fond mark.f-gras { background: rgba(0, 56, 70, 0.16); }
+.champ-formate .editeur-fond mark.f-souligne { box-shadow: 0 2px 0 currentColor; }
+.champ-formate .editeur-fond mark.f-italique { box-shadow: 0 2px 0 rgba(201, 212, 32, 0.9); }
+.theme-sombre .champ-formate .editeur-fond mark.f-gras { background: rgba(255, 255, 255, 0.18); }

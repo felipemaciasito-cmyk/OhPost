@@ -37,6 +37,72 @@
     return [debut, fin];
   }
 
+  /* ---------- Mise en forme d'un paragraphe ----------
+   * marques : [{ debut, fin, gras?, italique?, souligne?, taille? }], positions dans le texte affiché du paragraphe.
+   * Une valeur null retire l'attribut ; false force l'absence (du gras sur un titre déjà gras, par exemple). */
+
+  const ATTRIBUTS = ['gras', 'italique', 'souligne', 'taille'];
+
+  function normaliserMarques(marques, longueur) {
+    const bornes = new Set([0, longueur]);
+    for (const m of marques || []) { bornes.add(Math.max(0, Math.min(longueur, m.debut))); bornes.add(Math.max(0, Math.min(longueur, m.fin))); }
+    const points = [...bornes].sort((x, y) => x - y);
+    const sortie = [];
+    for (let k = 0; k < points.length - 1; k++) {
+      const p = points[k];
+      const q = points[k + 1];
+      const attributs = {};
+      for (const m of marques || []) {
+        if (m.debut <= p && m.fin >= q) for (const cle of ATTRIBUTS) if (cle in m) { if (m[cle] === null) delete attributs[cle]; else attributs[cle] = m[cle]; }
+      }
+      if (!Object.keys(attributs).length) continue;
+      const precedente = sortie[sortie.length - 1];
+      if (precedente && precedente.fin === p && ATTRIBUTS.every((cle) => precedente[cle] === attributs[cle])) precedente.fin = q;
+      else sortie.push({ debut: p, fin: q, ...attributs });
+    }
+    return sortie;
+  }
+
+  function appliquerForme(marques, longueur, debut, fin, changement) {
+    if (fin <= debut) return normaliserMarques(marques, longueur);
+    return normaliserMarques([...(marques || []), { debut, fin, ...changement }], longueur);
+  }
+
+  // Valeur effective d'un attribut sur chaque caractère du passage : vrai partout ?
+  function partoutVrai(marques, debut, fin, cle, parDefaut) {
+    if (fin <= debut) return false;
+    for (let k = debut; k < fin; k++) {
+      const m = (marques || []).find((x) => x.debut <= k && x.fin > k && cle in x);
+      if (!(m ? !!m[cle] : parDefaut)) return false;
+    }
+    return true;
+  }
+
+  // Le texte d'un paragraphe change : les marques suivent (taper juste après un mot en gras continue le gras).
+  function remapperMarques(ancien, nouveau, marques) {
+    if (!marques || !marques.length || ancien === nouveau) return marques;
+    const L = ancien.length;
+    const N = nouveau.length;
+    let a = 0;
+    while (a < L && a < N && ancien[a] === nouveau[a]) a++;
+    let b = 0;
+    while (b < L - a && b < N - a && ancien[L - 1 - b] === nouveau[N - 1 - b]) b++;
+    const delta = N - L;
+    const versDebut = (x) => (x < a ? x : x >= L - b ? x + delta : N - b);
+    const versFin = (x) => (x >= L - b ? x + delta : x <= a ? x : N - b);
+    return normaliserMarques(marques.map((m) => ({ ...m, debut: versDebut(m.debut), fin: versFin(m.fin) })).filter((m) => m.fin > m.debut), N);
+  }
+
+  // Marques d'un morceau [debut, fin[ du paragraphe, ramenées au début de ce morceau.
+  const extraireMarques = (marques, debut, fin) => normaliserMarques((marques || []).map((m) => ({ ...m, debut: Math.max(m.debut, debut) - debut, fin: Math.min(m.fin, fin) - debut })).filter((m) => m.fin > m.debut), fin - debut);
+  const decalerMarques = (marques, d) => (marques || []).map((m) => ({ ...m, debut: m.debut + d, fin: m.fin + d }));
+  const avecMarques = (bloc, marques) => {
+    const propres = normaliserMarques(marques, (bloc.texte || '').length);
+    const copie = { ...bloc };
+    if (propres.length) copie.marques = propres; else delete copie.marques;
+    return copie;
+  };
+
   /* ---------- Liaison d'un article existant (ancien format, ou nouvelles slides) ---------- */
 
   function lierArticle(article) {
@@ -132,7 +198,8 @@
         const { debut } = bloc.lien;
         const fin = Math.max(debut, bloc.lien.fin);
         const lien = { debut, fin, retours: bloc.lien.retours.filter((r) => r > debut && r < fin) };
-        return { ...bloc, lien, texte: materialiser(nouvelle, lien) };
+        const texteNeuf = materialiser(nouvelle, lien);
+        return avecMarques({ ...bloc, lien, texte: texteNeuf }, remapperMarques(bloc.texte, texteNeuf, bloc.marques));
       }),
     }));
     if (!options.garderVides) {
@@ -160,7 +227,7 @@
     for (let k = 0; k < nouveau.length; k++) if (nouveau[k] === '\n') lien.retours.push(bloc.lien.debut + k);
     return {
       ...recale,
-      slides: recale.slides.map((s, k) => (k !== i ? s : { ...s, blocs: s.blocs.map((b, m) => (m !== n ? b : { ...b, lien, texte: materialiser(nouvelle, lien) })) })),
+      slides: recale.slides.map((s, k) => (k !== i ? s : { ...s, blocs: s.blocs.map((b, m) => (m !== n ? b : avecMarques({ ...b, lien, texte: nouveau }, remapperMarques(bloc.texte, nouveau, bloc.marques)))) })),
     };
   }
 
@@ -181,11 +248,15 @@
       const [d2, f2] = resserrer(source, coupe, bloc.lien.fin);
       const l1 = { debut: d1, fin: f1, retours: bloc.lien.retours.filter((r) => r > d1 && r < f1) };
       const l2 = { debut: d2, fin: f2, retours: bloc.lien.retours.filter((r) => r > d2 && r < f2) };
-      avant = [...avant, { ...bloc, lien: l1, texte: materialiser(source, l1) }];
-      apres = [{ ...bloc, style: suiteDe(bloc.style), lien: l2, texte: materialiser(source, l2) }, ...apres];
+      const base = bloc.lien.debut;
+      avant = [...avant, avecMarques({ ...bloc, lien: l1, texte: materialiser(source, l1) }, extraireMarques(bloc.marques, d1 - base, f1 - base))];
+      apres = [avecMarques({ ...bloc, style: suiteDe(bloc.style), lien: l2, texte: materialiser(source, l2) }, extraireMarques(bloc.marques, d2 - base, f2 - base)), ...apres];
     } else {
-      avant = [...avant, { ...bloc, texte: bloc.texte.slice(0, position).trim() }];
-      apres = [{ ...bloc, style: suiteDe(bloc.style), texte: bloc.texte.slice(position).trim() }, ...apres];
+      const gauche = bloc.texte.slice(0, position);
+      const droite = bloc.texte.slice(position);
+      const debutDroite = position + (droite.length - droite.trimStart().length);
+      avant = [...avant, avecMarques({ ...bloc, texte: gauche.trimEnd() }, extraireMarques(bloc.marques, 0, gauche.trimEnd().length))];
+      apres = [avecMarques({ ...bloc, style: suiteDe(bloc.style), texte: droite.trim() }, extraireMarques(bloc.marques, debutDroite, debutDroite + droite.trim().length)), ...apres];
     }
     if (!avant.length || !apres.length) return article;
     const couverture = /^V/.test(s.gabarit || '') || (i === 0 && !s.gabarit);
@@ -208,7 +279,8 @@
       const entre = source.slice(dernier.lien.fin, premier.lien.debut);
       if (!entre.includes(SEPARATEUR) && !entre.trim()) {
         const lien = { debut: dernier.lien.debut, fin: premier.lien.fin, retours: [...dernier.lien.retours, ...premier.lien.retours] };
-        blocs = [...s1.blocs.slice(0, -1), { ...dernier, lien, texte: materialiser(source, lien) }, ...s2.blocs.slice(1)];
+        const marques = [...(dernier.marques || []), ...decalerMarques(premier.marques, premier.lien.debut - dernier.lien.debut)];
+        blocs = [...s1.blocs.slice(0, -1), avecMarques({ ...dernier, lien, texte: materialiser(source, lien) }, marques), ...s2.blocs.slice(1)];
       }
     }
     const fusion = { ...s1, blocs, signature: s1.signature || s2.signature };
@@ -248,7 +320,7 @@
     return passages;
   }
 
-  const api = { SEPARATEUR, sourceDe, materialiser, lierArticle, appliquerEditionSource, modifierBlocLie, couperSlide, retirerCoupure, phrases, passagesNonCouverts };
+  const api = { ATTRIBUTS, normaliserMarques, appliquerForme, partoutVrai, remapperMarques, extraireMarques, avecMarques, SEPARATEUR, sourceDe, materialiser, lierArticle, appliquerEditionSource, modifierBlocLie, couperSlide, retirerCoupure, phrases, passagesNonCouverts };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else racine.PostsOPLiens = api;
 })(typeof window !== 'undefined' ? window : globalThis);

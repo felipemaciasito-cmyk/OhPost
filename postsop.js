@@ -83,7 +83,7 @@
     configuration: { titre: 'La configuration', textes: ['Charte : tes couleurs et tes tailles de texte. Tout changement s’applique à tous tes carrousels.', 'Ressources : tes polices, ton logo et tes fleurs, importés une fois et retrouvés sur tous tes appareils.', 'Réglages : le comportement de l’outil. Synchronisation : la liaison avec ton dépôt GitHub privé.'] },
     texte: { titre: 'Étape 1 · Texte', textes: ['Ton texte est la référence du carrousel : chaque modification ici met les slides à jour, sans toucher à leur mise en page. Et un paragraphe modifié dans Design modifie aussi ce texte.', 'La vérification LanguageTool surligne les fautes dans ton texte. Pour chacune, choisis la bonne correction parmi celles proposées, ou ignore-la.', 'Les suggestions de style arriveront avec l’IA : tu sélectionneras un passage directement dans ton texte.'] },
     structure: { titre: 'Étape 2 · Structure', textes: ['Tout ton texte, réparti en slides. Touche une phrase pour couper la slide avant ou après elle, même au milieu d’un paragraphe.', '« Retirer la coupure » réunit deux slides ; un paragraphe coupé en deux est recollé.', 'Les slides restent liées à ton texte : si tu le modifies à l’étape Texte, elles suivent.'] },
-    design: { titre: 'Étape 3 · Design', textes: ['L’apparence du carrousel, puis chaque slide. Ce que tu vois ici est exactement ce qui sera exporté.', 'Changer de gabarit ne modifie jamais ton texte. Les natures de paragraphe proposées dépendent du gabarit choisi.', 'Les flèches d’un paragraphe le déplacent dans sa slide, ou vers la slide précédente ou suivante.'] },
+    design: { titre: 'Étape 3 · Design', textes: ['L’apparence du carrousel, puis chaque slide. Ce que tu vois ici est exactement ce qui sera exporté.', 'Mise en forme : sélectionne des mots dans un paragraphe, puis gras, italique, souligné, taille (de la charte ou libre), alignement ou filet. Sans sélection, elle s’applique au paragraphe entier.', 'Changer de gabarit ne modifie jamais ton texte. Les natures de paragraphe proposées dépendent du gabarit choisi.', 'Les flèches d’un paragraphe le déplacent dans sa slide, ou vers la slide précédente ou suivante.'] },
     description: { titre: 'Étape 4 · Description', textes: ['Le texte qui accompagne le carrousel : légende Instagram et texte du post LinkedIn.', 'Pour l’instant tu l’écris toi-même ; l’IA pourra te proposer une version plus tard.'] },
     export: { titre: 'Étape 5 · Export', textes: ['Les fichiers à publier : des images PNG pour Instagram, un PDF pour LinkedIn, ou les deux.', 'S’il reste des alertes, l’outil te les rappelle avant d’exporter : à toi de décider.', 'Une fois publié sur le réseau, marque l’article comme publié : il rejoint la section Publiés.'] },
   };
@@ -96,7 +96,7 @@
     pret: false, ecran: 'bibliotheque', articleId: null, etape: 'texte', slide: 0, onglet: 'charte',
     feuille: null, aide: false, message: null, edition: false,
     articles: [], projet: PROJET_DEFAUT, apparence: 'auto',
-    polices: { light: null, bold: null }, images: { logo: null, logoClair: null, fleurs: null },
+    polices: { light: null, bold: null, lightItalic: null, boldItalic: null }, images: { logo: null, logoClair: null, fleurs: null },
     bibliotheque: { section: 'encours', tri: 'ordre', vue: 'grille' },
     synchro: { statut: 'non-configure', detail: '', derniere: null, attente: 0, conflits: [] },
     historique: { passe: [], futur: [], groupe: null, quand: 0 },
@@ -250,7 +250,20 @@
       return { ...a, slides };
     },
     gabarit: (i, gabarit) => majSlide(i, (s) => ({ ...s, gabarit })),
-    modifierBloc: (i, b, champs) => majSlide(i, (s) => ({ ...s, blocs: s.blocs.map((bloc, n) => (n === b ? { ...bloc, ...champs } : bloc)) })),
+    modifierBloc: (i, b, champs) => majSlide(i, (s) => ({ ...s, blocs: s.blocs.map((bloc, n) => {
+      if (n !== b) return bloc;
+      if (champs.texte === undefined) return { ...bloc, ...champs };
+      return L.avecMarques({ ...bloc, ...champs }, L.remapperMarques(bloc.texte, champs.texte, bloc.marques));
+    }) })),
+    // Mise en forme d'un passage (gras, italique, souligné, taille) ; null retire l'attribut.
+    formater: (i, b, debut, fin, changement) => majSlide(i, (s) => ({ ...s, blocs: s.blocs.map((bloc, n) => (n !== b ? bloc : L.avecMarques(bloc, L.appliquerForme(bloc.marques, bloc.texte.length, debut, fin, changement)))) })),
+    // Réglages du paragraphe entier (alignement, filet) ; null revient au réglage du gabarit.
+    paragraphe: (i, b, champs) => majSlide(i, (s) => ({ ...s, blocs: s.blocs.map((bloc, n) => {
+      if (n !== b) return bloc;
+      const copie = { ...bloc };
+      for (const [cle, valeur] of Object.entries(champs)) { if (valeur === null) delete copie[cle]; else copie[cle] = valeur; }
+      return copie;
+    }) })),
     ajouterBloc: (i) => majSlide(i, (s) => ({ ...s, blocs: [...s.blocs, { style: 'corps', texte: '' }] })),
     supprimerBloc: (i, b) => majSlide(i, (s) => ({ ...s, blocs: s.blocs.filter((_, n) => n !== b) })),
     deplacerBloc: (i, b, delta) => majSlide(i, (s) => {
@@ -319,12 +332,17 @@
 
   const Contexte = createContext({ choisirPolice: null, version: 0, images: {}, reglages: REGLAGES_DEFAUT, charte: M.CHARTE_DEFAUT });
 
+  // Rôles : light, bold, lightItalic, boldItalic. Sans fichier italique, les lettres de la police droite sont penchées.
   function fabriquerChoix(polices) {
-    const systeme = {};
+    const cache = {};
     return (role) => {
-      if (polices[role]) return M.policeExacte(polices[role]);
-      if (!systeme[role]) systeme[role] = M.policeSysteme(role === 'bold' ? 700 : 300);
-      return systeme[role];
+      if (cache[role]) return cache[role];
+      const italique = /Italic$/.test(role);
+      const droite = role.replace('Italic', '');
+      if (polices[role]) cache[role] = M.policeExacte(polices[role]);
+      else if (italique && polices[droite]) cache[role] = M.policeExacte(polices[droite], { inclinaison: 0.2 });
+      else cache[role] = M.policeSysteme(droite === 'bold' ? 700 : 300, italique);
+      return cache[role];
     };
   }
 
@@ -855,6 +873,9 @@
     const largeurApercu = Math.max(220, Math.min(largeurDispo, article.format === 'portrait' ? 460 : 560));
     const gabaritActuel = M.gabaritParDefaut(slide, i);
     const natures = M.naturesUtiles(gabaritActuel);
+    // Passage sélectionné dans un paragraphe de cette slide (ou le dernier paragraphe touché).
+    const [sel, setSel] = useState({ slide: -1, n: 0, debut: 0, fin: 0 });
+    const selActive = sel.slide === i && sel.n < slide.blocs.length ? sel : { slide: i, n: 0, debut: 0, fin: 0 };
 
     function proposer() {
       const autres = etat.articles.filter((a) => a.id !== article.id);
@@ -896,8 +917,9 @@
             key: code, type: 'button', className: cls('gabarit-choix', gabaritActuel === code && 'actif'), 'aria-pressed': gabaritActuel === code, onClick: () => majA(OP.gabarit(i, code)), title: M.GABARITS[code].aide,
           }, h(SlideCanvas, { slide: { ...slide, gabarit: code }, formatId: article.format, fondId: article.fond, largeur: 64, index: i, total, logo }), h('span', null, M.GABARITS[code].nom)))))),
         slide.echelle && slide.echelle < 1 && h('p', { className: 'note petit' }, `Texte de cette slide réduit à ${Math.round(slide.echelle * 100)} %. `, h('button', { type: 'button', className: 'lien', onClick: () => majA(OP.echelle(i, 1), null, 'Taille normale rétablie.') }, 'Revenir à la taille normale')),
-        h('div', { className: 'ligne-etiquette blocs-titre' }, 'Paragraphes', h(Info, { texte: 'Seules les natures utiles au gabarit choisi sont proposées. Les flèches haut et bas réordonnent ; les flèches gauche et droite envoient le paragraphe sur la slide voisine ; les ciseaux coupent la slide juste avant ce paragraphe.' })),
-        slide.blocs.map((b, n) => h('div', { key: n, className: 'bloc-edition' },
+        h('div', { className: 'ligne-etiquette blocs-titre' }, 'Paragraphes', h(Info, { texte: 'Sélectionne des mots dans un paragraphe, puis utilise la barre de mise en forme : l’aperçu se met à jour aussitôt. Sans sélection, elle s’applique au paragraphe entier. Les flèches haut et bas réordonnent ; gauche et droite envoient le paragraphe sur la slide voisine ; les ciseaux coupent la slide avant lui.' })),
+        h(BarreFormat, { slide, i, sel: selActive, majA, charte, gabarit: gabaritActuel, fondId: article.fond }),
+        slide.blocs.map((b, n) => h('div', { key: n, className: cls('bloc-edition', selActive.n === n && 'cible') },
           h('div', { className: 'bloc-outils' },
             h('select', { className: 'choix', value: M.natureAffichee(gabaritActuel, b.style, n), 'aria-label': 'Nature du paragraphe ' + (n + 1), onChange: (e) => majA(OP.modifierBloc(i, n, { style: e.target.value })) },
               natures.map(([cle, nom]) => h('option', { key: cle, value: cle }, nom))),
@@ -907,10 +929,99 @@
             h(Bouton, { variante: 'icone petit', etiquette: 'Envoyer sur la slide suivante', disabled: i === total - 1, onClick: () => majA(OP.blocVersSlide(i, n, 1)) }, h(Icone, { nom: 'droite', taille: 18 })),
             h(Bouton, { variante: 'icone petit', etiquette: 'Couper la slide avant ce paragraphe', disabled: n === 0, onClick: () => majA(OP.scinder(i, n)) }, h(Icone, { nom: 'ciseaux', taille: 18 })),
             h(Bouton, { variante: 'icone petit danger', etiquette: 'Supprimer le paragraphe', onClick: () => majA(OP.supprimerBloc(i, n)) }, h(Icone, { nom: 'poubelle', taille: 18 }))),
-          h('textarea', { className: 'zone-texte', rows: 3, value: b.texte, 'aria-label': 'Texte du paragraphe ' + (n + 1), onChange: (e) => majA(b.lien ? OP.blocLie(i, n, e.target.value) : OP.modifierBloc(i, n, { texte: e.target.value }), `bloc-${i}-${n}`) }),
+          h(ChampFormate, { bloc: b, etiquette: 'Texte du paragraphe ' + (n + 1),
+            onChange: (valeur) => majA(b.lien ? OP.blocLie(i, n, valeur) : OP.modifierBloc(i, n, { texte: valeur }), `bloc-${i}-${n}`),
+            onSelection: (debut, fin) => setSel({ slide: i, n, debut, fin }) }),
           h('div', { className: 'doux petit' }, b.lien ? 'Lié au texte de l’article : le modifier ici modifie aussi l’étape Texte. Un retour à la ligne ne change que la mise en page.' : 'Texte ajouté, absent de l’article.'))),
         h(Bouton, { variante: 'ajouter', onClick: () => majA(OP.ajouterBloc(i)) }, h(Icone, { nom: 'plus', taille: 18 }), 'Ajouter un paragraphe')),
         h(ControleQualite, { article, alertes, nbValidees, majA, dispatch, choisirPolice, contexteRendu })));
+  }
+
+  // Champ de paragraphe : les passages mis en forme sont teintés (l'aperçu montre le rendu exact).
+  function ChampFormate({ bloc, etiquette, onChange, onSelection }) {
+    const zone = useRef(null);
+    useEffect(() => {
+      const el = zone.current;
+      if (!el) return;
+      el.style.height = 'auto';
+      el.style.height = el.scrollHeight + 'px';
+    }, [bloc.texte]);
+    const texte = bloc.texte;
+    const morceaux = [];
+    let curseur = 0;
+    for (const m of bloc.marques || []) {
+      if (m.debut > curseur) morceaux.push(texte.slice(curseur, m.debut));
+      morceaux.push(h('mark', { key: m.debut, className: cls(m.gras && 'f-gras', m.italique && 'f-italique', m.souligne && 'f-souligne', m.taille && 'f-taille') }, texte.slice(m.debut, m.fin)));
+      curseur = m.fin;
+    }
+    morceaux.push(texte.slice(curseur) + '\n');
+    const signaler = (e) => onSelection(e.target.selectionStart, e.target.selectionEnd);
+    return h('div', { className: 'editeur champ-formate' },
+      h('div', { className: 'editeur-fond', 'aria-hidden': 'true' }, morceaux),
+      h('textarea', { ref: zone, className: 'editeur-zone', value: texte, rows: 2, 'aria-label': etiquette, onChange: (e) => onChange(e.target.value), onSelect: signaler, onFocus: signaler, onKeyUp: signaler, onMouseUp: signaler }));
+  }
+
+  const ATTRIBUTS_GRAS_PAR_DEFAUT = ['titre', 'contrepoint', 'emphase'];
+
+  function BarreFormat({ slide, i, sel, majA, charte, gabarit, fondId }) {
+    const bloc = slide.blocs[sel.n];
+    const [libre, setLibre] = useState('');
+    if (!bloc) return null;
+    const entier = sel.fin <= sel.debut;
+    const debut = entier ? 0 : sel.debut;
+    const fin = entier ? bloc.texte.length : sel.fin;
+    const baseGras = ATTRIBUTS_GRAS_PAR_DEFAUT.includes(bloc.style);
+    const actif = {
+      gras: L.partoutVrai(bloc.marques, debut, fin, 'gras', baseGras),
+      italique: L.partoutVrai(bloc.marques, debut, fin, 'italique', false),
+      souligne: L.partoutVrai(bloc.marques, debut, fin, 'souligne', false),
+    };
+    const basculer = (cle, base) => {
+      const nouvelle = !actif[cle];
+      majA(OP.formater(i, sel.n, debut, fin, { [cle]: nouvelle === base ? null : nouvelle }));
+    };
+    const tailles = [...new Set((bloc.marques || []).filter((m) => m.debut < fin && m.fin > debut).map((m) => m.taille || 0))];
+    const tailleCommune = tailles.length === 1 && tailles[0] ? String(tailles[0]) : '';
+    const T = charte.tailleTexte;
+    const C = charte.tailleTitre;
+    const presets = [['Petit', Math.round(T * 0.85)], ['Texte', T], ['Moyen', Math.round(T * 1.5)], ['Grand', Math.round(C * 0.75)], ['Titre', C]];
+    const appliquerTaille = (valeur) => {
+      const n = Number(valeur);
+      majA(OP.formater(i, sel.n, debut, fin, { taille: valeur === '' || !n ? null : Math.max(12, Math.min(400, Math.round(n))) }));
+    };
+    const fonds = M.fondsDe(charte.palette);
+    const filetParDefaut = bloc.style === 'citation' && !!fonds[fondId].filet && ['T1', 'T3', 'T5'].includes(gabarit);
+    const filetActif = bloc.filet === undefined ? filetParDefaut : bloc.filet;
+    const alignement = bloc.alignement || (gabarit === 'F1' ? 'centre' : 'gauche');
+    const garder = (e) => e.preventDefault(); // garde la sélection dans le champ sur ordinateur
+    const extrait = bloc.texte.slice(debut, fin).replace(/\s+/g, ' ');
+    return h('div', { className: 'barre-format', role: 'toolbar', 'aria-label': 'Mise en forme' },
+      h('div', { className: 'barre-format-cible doux petit' }, entier
+        ? `Paragraphe ${sel.n + 1} entier · sélectionne des mots pour n’agir que sur eux`
+        : `Sélection : « ${extrait.length > 40 ? extrait.slice(0, 40) + '…' : extrait} » · paragraphe ${sel.n + 1}`),
+      h('div', { className: 'barre-format-outils' },
+        h('span', { className: 'groupe-format' },
+          h('button', { type: 'button', className: cls('format', 'gras', actif.gras && 'actif'), 'aria-pressed': actif.gras, title: 'Gras', onMouseDown: garder, onClick: () => basculer('gras', baseGras) }, 'B'),
+          h('button', { type: 'button', className: cls('format', 'italique', actif.italique && 'actif'), 'aria-pressed': actif.italique, title: 'Italique', onMouseDown: garder, onClick: () => basculer('italique', false) }, 'I'),
+          h('button', { type: 'button', className: cls('format', 'souligne', actif.souligne && 'actif'), 'aria-pressed': actif.souligne, title: 'Souligné', onMouseDown: garder, onClick: () => basculer('souligne', false) }, 'U')),
+        h('span', { className: 'groupe-format' },
+          h('select', { className: 'choix', 'aria-label': 'Taille', value: presets.some(([, v]) => String(v) === tailleCommune) ? tailleCommune : tailleCommune ? 'autre' : '', onMouseDown: (e) => e.stopPropagation(), onChange: (e) => { if (e.target.value !== 'autre') appliquerTaille(e.target.value); } },
+            h('option', { value: '' }, 'Taille d’origine'),
+            presets.map(([nom, v]) => h('option', { key: nom, value: String(v) }, `${nom} · ${v} px`)),
+            tailleCommune && !presets.some(([, v]) => String(v) === tailleCommune) && h('option', { value: 'autre' }, `${tailleCommune} px`)),
+          h('input', { className: 'champ-taille', type: 'number', inputMode: 'numeric', min: 12, max: 400, placeholder: 'px', 'aria-label': 'Taille libre en pixels', value: libre,
+            onChange: (e) => setLibre(e.target.value), onKeyDown: (e) => { if (e.key === 'Enter' && libre) { appliquerTaille(libre); setLibre(''); } } }),
+          h('button', { type: 'button', className: 'format', title: 'Appliquer cette taille', disabled: !libre, onMouseDown: garder, onClick: () => { appliquerTaille(libre); setLibre(''); } }, 'OK')),
+        h('span', { className: 'groupe-format' },
+          [['gauche', 'Aligner à gauche', 'M4 6h16M4 12h10M4 18h14'], ['centre', 'Centrer', 'M4 6h16M7 12h10M5 18h14'], ['droite', 'Aligner à droite', 'M4 6h16M10 12h10M6 18h14']].map(([v, titre, d]) => h('button', {
+            key: v, type: 'button', className: cls('format', alignement === v && 'actif'), 'aria-pressed': alignement === v, title: titre + ' (tout le paragraphe)', onMouseDown: garder,
+            onClick: () => majA(OP.paragraphe(i, sel.n, { alignement: v === (gabarit === 'F1' ? 'centre' : 'gauche') ? null : v })),
+          }, h('svg', { width: 18, height: 18, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' }))))),
+        h('span', { className: 'groupe-format' },
+          h('button', { type: 'button', className: cls('format', 'large', filetActif && 'actif'), 'aria-pressed': filetActif, title: 'Filet latéral (tout le paragraphe)', onMouseDown: garder, onClick: () => majA(OP.paragraphe(i, sel.n, { filet: !filetActif === filetParDefaut ? null : !filetActif })) },
+            h('span', { className: 'filet-icone', 'aria-hidden': 'true' }), 'Filet'),
+          h('button', { type: 'button', className: 'format large', title: entier ? 'Retirer toute la mise en forme du paragraphe' : 'Retirer la mise en forme de la sélection', onMouseDown: garder,
+            onClick: () => { majA(OP.formater(i, sel.n, debut, fin, { gras: null, italique: null, souligne: null, taille: null })); if (entier) majA(OP.paragraphe(i, sel.n, { alignement: null, filet: null })); } }, 'Effacer'))));
   }
 
   function ControleQualite({ article, alertes, nbValidees, majA, dispatch, choisirPolice, contexteRendu }) {
@@ -1074,8 +1185,8 @@
             h('figcaption', null, h('strong', null, M.GABARITS[code].nom), h('span', { className: 'doux' }, M.GABARITS[code].aide)))))))),
       h(Carte, { titre: 'Règles', info: 'Le contrat que l’outil fait respecter automatiquement.' },
         h('div', { className: 'regles' },
-          h('div', null, h('h4', null, 'Obligatoire'), h('ul', { className: 'liste-simple' }, h('li', null, 'Marge gauche de 81 px, texte aligné à gauche'), h('li', null, 'Un seul fond par carrousel'), h('li', null, 'Logo officiel sur la dernière slide'))),
-          h('div', null, h('h4', null, 'Autorisé'), h('ul', { className: 'liste-simple' }, h('li', null, 'Cinq fonds, dont deux nuances pâles'), h('li', null, 'Format 1:1 ou 4:5'), h('li', null, 'Dernière slide centrée'), h('li', null, 'Logo sur chaque slide (réglage)'))),
+          h('div', null, h('h4', null, 'Obligatoire'), h('ul', { className: 'liste-simple' }, h('li', null, 'Marge gauche de 81 px ; texte aligné à gauche par défaut'), h('li', null, 'Un seul fond par carrousel'), h('li', null, 'Logo officiel sur la dernière slide'))),
+          h('div', null, h('h4', null, 'Autorisé'), h('ul', { className: 'liste-simple' }, h('li', null, 'Cinq fonds, dont deux nuances pâles'), h('li', null, 'Format 1:1 ou 4:5'), h('li', null, 'Dernière slide centrée'), h('li', null, 'Logo sur chaque slide (réglage)'), h('li', null, 'Alignement, gras, italique, souligné, taille et filet choisis paragraphe par paragraphe'))),
           h('div', null, h('h4', null, 'Interdit'), h('ul', { className: 'liste-simple' }, h('li', null, 'Texte vert sur fond blanc ou pâle'), h('li', null, 'Texte blanc sur fond vert ou pâle'), h('li', null, 'Associations de couleurs peu lisibles'))))));
   }
 
@@ -1092,7 +1203,9 @@
       h('p', { className: 'note' }, 'Importe chaque fichier une seule fois : la synchronisation le retrouve sur tes autres appareils. Il reste dans ton dépôt privé, jamais sur le site public.'),
       h(Carte, { titre: 'Polices', info: 'Leur licence Monotype interdit de les diffuser : elles ne vont que dans ton dépôt privé.' },
         h(Ligne, { etiquette: 'Gill Sans MT Light', aide: 'Texte courant et citations.' }, statut(etat.polices.light, r.light && r.light.nom, 'Rendu approché'), champ('Importer', 'light')),
-        h(Ligne, { etiquette: 'Gill Sans MT Bold', aide: 'Titres et phrases-chocs.' }, statut(etat.polices.bold, r.bold && r.bold.nom, 'Rendu approché'), champ('Importer', 'bold'))),
+        h(Ligne, { etiquette: 'Gill Sans MT Bold', aide: 'Titres et phrases-chocs.' }, statut(etat.polices.bold, r.bold && r.bold.nom, 'Rendu approché'), champ('Importer', 'bold')),
+        h(Ligne, { etiquette: 'Gill Sans MT Light Italic', aide: 'Passages mis en italique dans le texte courant. Sans lui, les lettres sont simplement penchées.' }, statut(etat.polices.lightItalic, r.lightItalic && r.lightItalic.nom, 'Italique simulé'), champ('Importer', 'lightItalic')),
+        h(Ligne, { etiquette: 'Gill Sans MT Bold Italic', aide: 'Passages en gras et en italique.' }, statut(etat.polices.boldItalic, r.boldItalic && r.boldItalic.nom, 'Italique simulé'), champ('Importer', 'boldItalic'))),
       h(Carte, { titre: 'Logo et motifs', info: 'Utilise des PNG à fond transparent : ils s’affichent sur tous les fonds.' },
         h(Ligne, { etiquette: 'Logo foncé, pour les fonds clairs', aide: 'Fonds blanc, vert et pâles. En attendant, un cadre en pointillés marque sa place.' }, statut(etat.images.logo, r.logo && r.logo.nom, 'Manquant'), champ('Importer', 'logo', 'image/png,image/svg+xml')),
         h(Ligne, { etiquette: 'Logo clair, pour les fonds foncés', aide: 'Fond bleu. Tu choisis ensuite la version voulue pour chaque article, dans Design.' }, statut(etat.images.logoClair, r.logoClair && r.logoClair.nom, 'Manquant'), champ('Importer', 'logoClair', 'image/png,image/svg+xml')),
@@ -1180,7 +1293,7 @@
   const lireConfig = () => { try { return JSON.parse(racine.localStorage.getItem(CLE_CONFIG)) || null; } catch (e) { return null; } };
   const lireApparence = () => { try { return racine.localStorage.getItem('postsop-apparence') || 'auto'; } catch (e) { return 'auto'; } };
 
-  const CHEMINS_RESSOURCES = { light: 'ressources/police-light', bold: 'ressources/police-bold', logo: 'ressources/logo', logoClair: 'ressources/logo-clair', fleurs: 'ressources/fleurs' };
+  const CHEMINS_RESSOURCES = { light: 'ressources/police-light', bold: 'ressources/police-bold', lightItalic: 'ressources/police-light-italique', boldItalic: 'ressources/police-bold-italique', logo: 'ressources/logo', logoClair: 'ressources/logo-clair', fleurs: 'ressources/fleurs' };
   const lirePreferencesBibliotheque = () => { try { return { ...ETAT_INITIAL.bibliotheque, ...(JSON.parse(racine.localStorage.getItem('postsop-bibliotheque')) || {}) }; } catch (e) { return ETAT_INITIAL.bibliotheque; } };
 
   function chargerImage(blob) {
@@ -1223,7 +1336,7 @@
 
     useEffect(() => {
       setContexte((c) => ({ choisirPolice: fabriquerChoix(etat.polices), version: c.version + 1, images: etat.images, reglages: etat.projet.reglages, charte: etat.projet.charte }));
-    }, [etat.polices.light, etat.polices.bold, etat.images.logo, etat.images.logoClair, etat.images.fleurs, etat.projet.reglages, etat.projet.charte]);
+    }, [etat.polices.light, etat.polices.bold, etat.polices.lightItalic, etat.polices.boldItalic, etat.images.logo, etat.images.logoClair, etat.images.fleurs, etat.projet.reglages, etat.projet.charte]);
 
     useEffect(() => { try { racine.localStorage.setItem('postsop-apparence', etat.apparence); } catch (e) { /* indisponible */ } }, [etat.apparence]);
     useEffect(() => { try { racine.localStorage.setItem('postsop-bibliotheque', JSON.stringify(etat.bibliotheque)); } catch (e) { /* indisponible */ } }, [etat.bibliotheque]);
@@ -1265,7 +1378,7 @@
     async function appliquerRessources(donnees) {
       const r = donnees.ressources;
       const infos = (donnees.projet && donnees.projet.ressources) || {};
-      for (const role of ['light', 'bold']) {
+      for (const role of ['light', 'bold', 'lightItalic', 'boldItalic']) {
         const octets = r[CHEMINS_RESSOURCES[role]];
         if (octets && typeof opentype !== 'undefined') {
           try { dispatch({ type: 'polices', polices: { [role]: opentype.parse(versTampon(octets)) } }); } catch (e) { /* police illisible : rendu approché */ }
@@ -1338,7 +1451,7 @@
       },
       async importerRessource(cle, fichier) {
         const octets = new Uint8Array(await fichier.arrayBuffer());
-        if (cle === 'light' || cle === 'bold') {
+        if (cle === 'light' || cle === 'bold' || cle === 'lightItalic' || cle === 'boldItalic') {
           if (typeof opentype === 'undefined') throw new Error('lecteur de polices indisponible (connexion ?)');
           let police;
           try { police = opentype.parse(versTampon(octets)); } catch (e) { throw new Error('fichier illisible : utilise un .ttf ou un .otf'); }

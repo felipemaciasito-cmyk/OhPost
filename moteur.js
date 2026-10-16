@@ -109,15 +109,27 @@
 
   /* ---------- Polices ---------- */
 
-  function policeExacte(font) {
+  // inclinaison : pente des lettres (0,2 ≈ 11°) pour un italique simulé, faute de fichier italique.
+  function policeExacte(font, options = {}) {
+    const pente = options.inclinaison || 0;
+    const incliner = (chemin, y) => {
+      if (!pente) return chemin;
+      for (const c of chemin.commands) {
+        if ('x' in c) c.x += (y - c.y) * pente;
+        if ('x1' in c) c.x1 += (y - c.y1) * pente;
+        if ('x2' in c) c.x2 += (y - c.y2) * pente;
+      }
+      return chemin;
+    };
     return {
       exacte: true,
+      simulee: !!pente,
       asc: font.ascender / font.unitsPerEm,
       desc: -font.descender / font.unitsPerEm,
       mesurer: (texte, taille) => font.getAdvanceWidth(texte, taille, { kerning: true }),
-      trace: (texte, x, y, taille) => font.getPath(texte, x, y, taille, { kerning: true }).toPathData(2),
+      trace: (texte, x, y, taille) => incliner(font.getPath(texte, x, y, taille, { kerning: true }), y).toPathData(2),
       dessiner(ctx, texte, x, y, taille, couleur) {
-        const chemin = font.getPath(texte, x, y, taille, { kerning: true });
+        const chemin = incliner(font.getPath(texte, x, y, taille, { kerning: true }), y);
         chemin.fill = couleur;
         chemin.draw(ctx);
       },
@@ -125,9 +137,9 @@
   }
 
   // Gill Sans de l'iPad : rendu approché, en attendant tes fichiers.
-  function policeSysteme(poids) {
+  function policeSysteme(poids, italique = false) {
     let ctxMesure = null;
-    const css = (taille) => `${poids} ${taille}px "Gill Sans", "Gill Sans MT", "Helvetica Neue", sans-serif`;
+    const css = (taille) => `${italique ? 'italic ' : ''}${poids} ${taille}px "Gill Sans", "Gill Sans MT", "Helvetica Neue", sans-serif`;
     return {
       exacte: false,
       asc: 0.92,
@@ -164,6 +176,60 @@
     return lignes;
   }
 
+  // Coupe un paragraphe mis en forme en lignes ; chaque ligne est une suite de morceaux de style constant.
+  function couperLignesRiches(s, largeurMax, choisirPolice) {
+    const texte = normaliserEspaces(s.texte);
+    const baseGras = s.role === 'bold';
+    const styleA = (k) => {
+      const st = { gras: baseGras, italique: false, souligne: false, taille: s.taille };
+      for (const m of s.marques) {
+        if (m.debut <= k && m.fin > k) {
+          if ('gras' in m) st.gras = !!m.gras;
+          if ('italique' in m) st.italique = !!m.italique;
+          if ('souligne' in m) st.souligne = !!m.souligne;
+          if (m.taille) st.taille = m.taille;
+        }
+      }
+      return st;
+    };
+    const cle = (st) => `${+st.gras}${+st.italique}${+st.souligne}${st.taille}`;
+    const morceaux = (p, q) => {
+      const sortie = [];
+      let k = p;
+      while (k < q) {
+        const st = styleA(k);
+        const c = cle(st);
+        let j = k + 1;
+        while (j < q && cle(styleA(j)) === c) j++;
+        const t = texte.slice(k, j);
+        const police = choisirPolice((st.gras ? 'bold' : 'light') + (st.italique ? 'Italic' : ''));
+        sortie.push({ texte: t, police, taille: st.taille, souligne: st.souligne, largeur: police.mesurer(t, st.taille) });
+        k = j;
+      }
+      return sortie;
+    };
+    const ligneDe = (p, q) => { const m = morceaux(p, q); return { morceaux: m, largeur: m.reduce((n, x) => n + x.largeur, 0) }; };
+    const lignes = [];
+    let origine = 0;
+    for (const imposee of texte.split('\n')) {
+      const mots = [];
+      const motif = /\S+/g;
+      let trouve;
+      while ((trouve = motif.exec(imposee))) mots.push([origine + trouve.index, origine + trouve.index + trouve[0].length]);
+      if (!mots.length) lignes.push({ morceaux: [], largeur: 0 });
+      let debut = null;
+      let fin = null;
+      for (const [p, q] of mots) {
+        if (debut === null) { debut = p; fin = q; continue; }
+        if (ligneDe(debut, q).largeur <= largeurMax) fin = q;
+        else { lignes.push(ligneDe(debut, fin)); debut = p; fin = q; }
+      }
+      if (debut !== null) lignes.push(ligneDe(debut, fin));
+      origine += imposee.length + 1;
+    }
+    return lignes;
+  }
+
   // Empile des paragraphes dans une colonne. Les éléments sont exprimés depuis le haut de la pile.
   function empiler(specs, zone, choisirPolice) {
     const elements = [];
@@ -183,22 +249,51 @@
         locaux.push({ type: 'ligne', texte: '«', x: zone.x - 19, y: y + 170, police: choisirPolice('bold'), taille: 380, couleur: s.decor });
         y += 190;
       }
-      for (const texte of couperLignes(police, s.texte, s.taille, largeur)) {
-        const l = police.mesurer(texte, s.taille);
-        if (l > largeur + 0.5) tropLarge = true;
-        const x = zone.alignement === 'centre' ? zone.x + (zone.largeur - l) / 2 : zone.x + marge;
-        if (s.surligne) {
-          const hb = s.taille * 1.18;
-          locaux.push({ type: 'rect', x: x - 10, y: y + (hl - hb) / 2, l: l + 20, h: hb, couleur: s.surligne });
+      const aligne = s.alignement || (zone.alignement === 'centre' ? 'centre' : 'gauche');
+      const placer = (l) => (aligne === 'centre' ? zone.x + marge + (largeur - l) / 2 : aligne === 'droite' ? zone.x + marge + largeur - l : zone.x + marge);
+      if (s.marques && s.marques.length) {
+        // Paragraphe mis en forme : chaque ligne prend la hauteur de son plus grand morceau.
+        for (const ligne of couperLignesRiches(s, largeur, choisirPolice)) {
+          const t = ligne.morceaux.length ? Math.max(...ligne.morceaux.map((m) => m.taille)) : s.taille;
+          const hlL = t * s.interligne;
+          const baseL = (hlL - (police.asc + police.desc) * t) / 2 + police.asc * t;
+          if (ligne.largeur > largeur + 0.5) tropLarge = true;
+          let x = placer(ligne.largeur);
+          if (s.surligne && ligne.morceaux.length) {
+            const hb = t * 1.18;
+            locaux.push({ type: 'rect', x: x - 10, y: y + (hlL - hb) / 2, l: ligne.largeur + 20, h: hb, couleur: s.surligne });
+          }
+          for (const m of ligne.morceaux) {
+            locaux.push({ type: 'ligne', texte: m.texte, x, y: y + baseL, police: m.police, taille: m.taille, couleur: s.couleur });
+            if (m.souligne && m.texte.trim()) {
+              const debutTexte = m.police.mesurer(m.texte.slice(0, m.texte.length - m.texte.trimStart().length), m.taille);
+              const finTexte = m.police.mesurer(m.texte.trimEnd(), m.taille);
+              locaux.push({ type: 'rect', x: x + debutTexte, y: y + baseL + m.taille * 0.11, l: finTexte - debutTexte, h: Math.max(2, Math.round(m.taille * 0.055)), couleur: s.couleur });
+            }
+            x += m.largeur;
+          }
+          y += hlL;
         }
-        locaux.push({ type: 'ligne', texte, x, y: y + base, police, taille: s.taille, couleur: s.couleur });
-        y += hl;
+      } else {
+        for (const texte of couperLignes(police, s.texte, s.taille, largeur)) {
+          const l = police.mesurer(texte, s.taille);
+          if (l > largeur + 0.5) tropLarge = true;
+          const x = placer(l);
+          if (s.surligne) {
+            const hb = s.taille * 1.18;
+            locaux.push({ type: 'rect', x: x - 10, y: y + (hl - hb) / 2, l: l + 20, h: hb, couleur: s.surligne });
+          }
+          locaux.push({ type: 'ligne', texte, x, y: y + base, police, taille: s.taille, couleur: s.couleur });
+          y += hl;
+        }
       }
       if (s.carte) {
         y += marge;
         locaux.unshift({ type: 'rect', x: zone.x, y: debut, l: zone.largeur, h: y - debut, couleur: s.carte.fond, rayon: 28 });
       }
-      if (s.filet) locaux.push({ type: 'rect', x: zone.x - 30, y: debut + 8, l: 5, h: y - debut - 16, couleur: s.filet });
+      // Filet latéral : celui de la charte (citations), ou celui que tu ajoutes ou retires toi-même.
+      const filet = s.filetPerso === undefined ? s.filet : s.filetPerso ? s.filet || s.couleurFilet : null;
+      if (filet) locaux.push({ type: 'rect', x: zone.x - 30, y: debut + 8, l: 5, h: y - debut - 16, couleur: filet });
       elements.push(...locaux);
       if (i < specs.length - 1) y += s.espaceApres || 0;
     });
@@ -230,17 +325,27 @@
     const ligne = t * 1.25;
     return blocs.map((b) => {
       const n = b.style;
-      if (n === 'citation') return { texte: b.texte, role: 'light', taille: t, interligne: 1.25, couleur: fond.accent, filet: fond.filet, espaceApres: ligne };
-      if (n === 'corps') return { texte: b.texte, role: 'light', taille: t, interligne: 1.25, couleur: fond.texte, espaceApres: ligne };
+      const r = options.riche ? options.riche(b) : {};
+      if (n === 'citation') return { ...r, texte: b.texte, role: 'light', taille: t, interligne: 1.25, couleur: fond.accent, filet: fond.filet, espaceApres: ligne };
+      if (n === 'corps') return { ...r, texte: b.texte, role: 'light', taille: t, interligne: 1.25, couleur: fond.texte, espaceApres: ligne };
       // emphase, titre, contrepoint
-      if (options.surligne) return { texte: b.texte, role: 'bold', taille: options.tailleSurligne || t * 1.5, interligne: 1.4, couleur: fond.surligne.texte, surligne: fond.surligne.fond, espaceApres: ligne };
-      return { texte: b.texte, role: 'bold', taille: t, interligne: 1.25, couleur: fond.texte, espaceApres: ligne };
+      if (options.surligne) return { ...r, texte: b.texte, role: 'bold', taille: options.tailleSurligne || t * 1.5, interligne: 1.4, couleur: fond.surligne.texte, surligne: fond.surligne.fond, espaceApres: ligne };
+      return { ...r, texte: b.texte, role: 'bold', taille: t, interligne: 1.25, couleur: fond.texte, espaceApres: ligne };
     });
   }
 
   function composer(slideBrute, formatId, fondId, choisirPolice, contexte = {}) {
     // Les blancs en bordure d'un paragraphe (en cours de frappe, par exemple) ne comptent pas dans la mise en page.
-    const slide = { ...slideBrute, blocs: slideBrute.blocs.map((b) => ({ ...b, texte: String(b.texte || '').trim() })) };
+    const slide = {
+      ...slideBrute,
+      blocs: slideBrute.blocs.map((b) => {
+        const brut = String(b.texte || '');
+        const texte = brut.trim();
+        if (!b.marques || !b.marques.length) return { ...b, texte };
+        const tete = brut.length - brut.trimStart().length;
+        return { ...b, texte, marques: b.marques.map((m) => ({ ...m, debut: Math.max(0, m.debut - tete), fin: Math.min(texte.length, m.fin - tete) })).filter((m) => m.fin > m.debut) };
+      }),
+    };
     const fmt = FORMATS[formatId];
     const charte = contexte.charte || CHARTE_DEFAUT;
     const fonds = fondsDe(charte.palette);
@@ -251,7 +356,17 @@
     const T = (n) => Math.round(n * kT);
     const C = (n) => Math.round(n * kC);
     const LIGNE = T(39) * 1.25;
-    const optionsTexte = { tailleTexte: T(39) };
+    // Mise en forme propre au paragraphe : passages en gras, italique, souligné ou d'une autre taille ; alignement ; filet.
+    const riche = (b, retire = 0) => {
+      const r = {};
+      if (b.marques && b.marques.length) {
+        r.marques = b.marques.map((m) => ({ ...m, debut: m.debut - retire, fin: m.fin - retire, ...(m.taille ? { taille: Math.round(m.taille * echelle) } : {}) })).filter((m) => m.fin > 0);
+      }
+      if (b.alignement) r.alignement = b.alignement;
+      if (b.filet !== undefined) { r.filetPerso = b.filet; r.couleurFilet = fond.filet || fond.accent; }
+      return r;
+    };
+    const optionsTexte = { tailleTexte: T(39), riche };
     const index = contexte.index || 0;
     const total = contexte.total || 1;
     const reglages = contexte.reglages || {};
@@ -284,8 +399,8 @@
       return decaler(pile.elements, y0);
     };
     const couverture = (taille, couleurTitre, couleurSuite, roleSuite) => [
-      ...(titre ? [{ texte: titre.texte, role: 'bold', taille, interligne: 1.1, couleur: couleurTitre, espaceApres: 0 }] : []),
-      ...suite.map((b) => ({ texte: b.texte, role: roleSuite, taille, interligne: 1.1, couleur: couleurSuite, espaceApres: 0 })),
+      ...(titre ? [{ ...riche(titre), texte: titre.texte, role: 'bold', taille, interligne: 1.1, couleur: couleurTitre, espaceApres: 0 }] : []),
+      ...suite.map((b) => ({ ...riche(b), texte: b.texte, role: roleSuite, taille, interligne: 1.1, couleur: couleurSuite, espaceApres: 0 })),
     ];
 
     switch (gab) {
@@ -296,17 +411,24 @@
       case 'V2': {
         const bandeHaut = Math.round(H * 0.593);
         const bandeH = Math.round(H * 0.278);
-        const t = empiler(titre ? [{ texte: titre.texte, role: 'bold', taille: C(104), interligne: 1.08, couleur: fond.texte }] : [], zone, choisirPolice);
+        const t = empiler(titre ? [{ ...riche(titre), texte: titre.texte, role: 'bold', taille: C(104), interligne: 1.08, couleur: fond.texte }] : [], zone, choisirPolice);
         elements.push(...pileHaut(t, haut + 40, bandeHaut - 30));
         elements.push({ type: 'rect', x: 0, y: bandeHaut, l: L, h: bandeH, couleur: fond.bande.fond });
         const zoneBande = { ...zone, largeur: L - 2 * MARGES.gauche };
-        const c = ajuster((taille) => suite.map((b) => ({ texte: b.texte, role: 'bold', taille, interligne: 1.08, couleur: fond.bande.texte })), zoneBande, bandeH - 60, choisirPolice, C(92), C(56));
+        const c = ajuster((taille) => suite.map((b) => ({ ...riche(b), texte: b.texte, role: 'bold', taille, interligne: 1.08, couleur: fond.bande.texte })), zoneBande, bandeH - 60, choisirPolice, C(92), C(56));
         elements.push(...pileCentree(c, bandeHaut + 30, bandeHaut + bandeH - 30));
         break;
       }
       case 'V3': {
         if (!suite.length) { elements = pileCentree(empiler(couverture(C(114), fond.texte, fond.accent, cp), zone, choisirPolice), haut, bas); break; }
         const texteSuite = suite.map((b) => b.texte).join('\n');
+        // La mise en forme suit le grand mot et la suite (quand la suite tient en un paragraphe).
+        const morceau = (debut, texte) => {
+          if (suite.length !== 1) return {};
+          const r = riche(suite[0]);
+          if (!r.marques) return { alignement: r.alignement };
+          return { alignement: r.alignement, marques: r.marques.map((m) => ({ ...m, debut: m.debut - debut, fin: Math.min(texte.length, m.fin - debut) })).filter((m) => m.fin > 0 && m.debut < texte.length).map((m) => ({ ...m, debut: Math.max(0, m.debut) })) };
+        };
         const coupe = texteSuite.includes('\n') ? texteSuite.indexOf('\n') : (texteSuite.indexOf(' ') > 0 ? texteSuite.indexOf(' ') : texteSuite.length);
         const grand = texteSuite.slice(0, coupe).trim();
         const reste = texteSuite.slice(coupe).replace(/\n/g, ' ').trim();
@@ -315,9 +437,9 @@
         let tailleGrand = C(230);
         while (tailleGrand > C(120) && police.mesurer(grand, tailleGrand) > zoneLarge.largeur) tailleGrand -= 10;
         const specs = [
-          ...(titre ? [{ texte: titre.texte.replace(/\n/g, ' '), role: 'light', taille: C(52), interligne: 1.2, couleur: fond.texte, espaceApres: 36 }] : []),
-          { texte: grand, role: 'bold', taille: tailleGrand, interligne: 1, couleur: fond.accent, espaceApres: 36 },
-          ...(reste ? [{ texte: reste, role: 'bold', taille: C(84), interligne: 1.1, couleur: fond.texte }] : []),
+          ...(titre ? [{ ...riche(titre), texte: titre.texte.replace(/\n/g, ' '), role: 'light', taille: C(52), interligne: 1.2, couleur: fond.texte, espaceApres: 36 }] : []),
+          { ...morceau(0, grand), texte: grand, role: 'bold', taille: tailleGrand, interligne: 1, couleur: fond.accent, espaceApres: 36 },
+          ...(reste ? [{ ...morceau(texteSuite.length - texteSuite.slice(coupe).trimStart().length, reste), texte: reste, role: 'bold', taille: C(84), interligne: 1.1, couleur: fond.texte }] : []),
         ];
         elements = pileCentree(empiler(specs, zoneLarge, choisirPolice), haut + 30, bas - 30);
         break;
@@ -325,13 +447,13 @@
       case 'V4': {
         const coupe = Math.round(H * 0.556);
         const zoneLarge = { ...zone, largeur: L - 2 * MARGES.gauche };
-        const t = ajuster((taille) => (titre ? [{ texte: titre.texte, role: 'bold', taille, interligne: 1.08, couleur: fond.texte }] : []), zoneLarge, coupe - 56 - haut, choisirPolice, C(96), C(56));
+        const t = ajuster((taille) => (titre ? [{ ...riche(titre), texte: titre.texte, role: 'bold', taille, interligne: 1.08, couleur: fond.texte }] : []), zoneLarge, coupe - 56 - haut, choisirPolice, C(96), C(56));
         const yTitre = coupe - 56 - t.hauteur;
         if (yTitre < haut - 0.5) deborde = true;
         tropLarge = tropLarge || t.tropLarge;
         elements.push({ type: 'rect', x: 0, y: coupe, l: L, h: H - coupe, couleur: fond.bande.fond });
         elements.push(...decaler(t.elements, yTitre));
-        const c = ajuster((taille) => suite.map((b) => ({ texte: b.texte, role: 'bold', taille, interligne: 1.08, couleur: fond.bande.texte })), zoneLarge, bas - coupe - 56, choisirPolice, C(96), C(56));
+        const c = ajuster((taille) => suite.map((b) => ({ ...riche(b), texte: b.texte, role: 'bold', taille, interligne: 1.08, couleur: fond.bande.texte })), zoneLarge, bas - coupe - 56, choisirPolice, C(96), C(56));
         elements.push(...pileHaut(c, coupe + 56, bas));
         couleurPied = fond.bande.texte;
         break;
@@ -344,7 +466,7 @@
         break;
       }
       case 'T2': {
-        const c = ajuster((taille) => blocs.map((b) => ({ texte: b.texte, role: 'bold', taille, interligne: 1.1, couleur: b.style === 'citation' ? fond.accent : fond.texte, espaceApres: taille * 0.4 })), zone, bas - haut, choisirPolice, T(140), T(52));
+        const c = ajuster((taille) => blocs.map((b) => ({ ...riche(b), texte: b.texte, role: 'bold', taille, interligne: 1.1, couleur: b.style === 'citation' ? fond.accent : fond.texte, espaceApres: taille * 0.4 })), zone, bas - haut, choisirPolice, T(140), T(52));
         elements = pileCentree(c, haut, bas);
         break;
       }
@@ -361,11 +483,12 @@
           premiere = true;
           return blocs.map((b) => {
             if (b.style === 'citation') {
-              const spec = { texte: b.texte.replace(/^«\s*/, ''), role: 'light', taille, interligne: 1.3, couleur: fond.texte, decor: premiere ? fond.decor : null, espaceApres: LIGNE };
+              const sansGuillemet = b.texte.replace(/^«\s*/, '');
+              const spec = { ...riche(b, b.texte.length - sansGuillemet.length), texte: sansGuillemet, role: 'light', taille, interligne: 1.3, couleur: fond.texte, decor: premiere ? fond.decor : null, espaceApres: LIGNE };
               premiere = false;
               return spec;
             }
-            return { texte: b.texte, role: b.style === 'corps' ? 'light' : 'bold', taille: T(39), interligne: 1.25, couleur: fond.texte, largeur: zone.largeur, espaceApres: LIGNE };
+            return { ...riche(b), texte: b.texte, role: b.style === 'corps' ? 'light' : 'bold', taille: T(39), interligne: 1.25, couleur: fond.texte, largeur: zone.largeur, espaceApres: LIGNE };
           });
         }, zoneLarge, bas - haut, choisirPolice, T(56), T(40));
         elements = pileHaut(pile, haut, bas);
@@ -375,14 +498,14 @@
         const zoneLarge = { ...zone, largeur: L - 2 * MARGES.gauche };
         const pile = ajuster((taille) => blocs.map((b) => {
           if (b.style === 'corps' || b.style === 'citation') return { ...specsTexte([b], fond, optionsTexte)[0], largeur: zone.largeur, espaceApres: 56 };
-          return { texte: b.texte, role: 'bold', taille, interligne: 1.15, couleur: fond.carte.texte, carte: { fond: fond.carte.fond, marge: 56 }, espaceApres: 56 };
+          return { ...riche(b), texte: b.texte, role: 'bold', taille, interligne: 1.15, couleur: fond.carte.texte, carte: { fond: fond.carte.fond, marge: 56 }, espaceApres: 56 };
         }), zoneLarge, bas - haut, choisirPolice, T(76), T(40));
         elements = pileHaut(pile, haut, bas);
         break;
       }
       case 'F1': {
         const zoneCentre = { x: 140, largeur: L - 280, alignement: 'centre' };
-        const specs = blocs.map((b) => ({ texte: b.texte, role: b.style === 'corps' || b.style === 'citation' ? 'light' : 'bold', taille: T(52), interligne: 1.3, couleur: b.style === 'citation' ? fond.accent : fond.texte, espaceApres: 40 }));
+        const specs = blocs.map((b) => ({ ...riche(b), texte: b.texte, role: b.style === 'corps' || b.style === 'citation' ? 'light' : 'bold', taille: T(52), interligne: 1.3, couleur: b.style === 'citation' ? fond.accent : fond.texte, espaceApres: 40 }));
         const pile = empiler(specs, zoneCentre, choisirPolice);
         const y0 = Math.round(H * 0.213);
         elements.push(...pileHaut(pile, y0, H - 420));
@@ -412,6 +535,7 @@
 
     return {
       fmt, fond, gabarit: gab, elements, tailleTexte: T(39),
+      italiqueSimule: elements.some((e) => e.type === 'ligne' && e.police && e.police.simulee),
       deborde: deborde || tropLarge,
       exacte: elements.every((e) => e.type !== 'ligne' || e.police.exacte),
     };
@@ -541,6 +665,9 @@
     compositions.forEach((compo, i) => {
       if (compo.deborde) alertes.push({ type: 'deborde', niveau: 'bloquant', slide: i, cible: 'design', message: 'Le texte dépasse les marges. Raccourcis-le, déplace un paragraphe ou essaie un autre gabarit.' });
       const mots = article.slides[i].blocs.reduce((n, b) => n + compterMots(b.texte), 0);
+      const petites = article.slides[i].blocs.some((b) => (b.marques || []).some((m) => m.taille && m.taille * (article.slides[i].echelle || 1) < 34));
+      if (petites) alertes.push({ type: 'petite', niveau: 'avertissement', slide: i, cible: 'design', message: 'Une partie du texte est en dessous de 34 px : la lecture sur téléphone devient difficile.' });
+      if (compo.italiqueSimule) alertes.push({ type: 'italique', niveau: 'avertissement', slide: i, cible: 'design', message: 'Italique simulé (lettres penchées) : importe Gill Sans Light Italic et Bold Italic dans Configuration › Ressources pour un rendu exact.' });
       if (compo.tailleTexte && compo.tailleTexte < 34) alertes.push({ type: 'lisibilite', niveau: 'avertissement', slide: i, cible: 'design', message: `Texte à ${compo.tailleTexte} px : en dessous de 34 px, la lecture sur téléphone devient difficile.` });
       if (mots > reglages.motsMax) alertes.push({ type: 'densite', niveau: 'avertissement', slide: i, cible: 'design', message: `${mots} mots : au-delà de ta limite de ${reglages.motsMax}.` });
     });

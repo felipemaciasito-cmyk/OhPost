@@ -487,3 +487,26 @@ label.echantillon input[type="color"] { position: absolute; inset: 0; width: 100
 .fichiers-prets { margin-top: 14px; display: grid; gap: 12px; }
 .liste-fichiers { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .liste-fichiers li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: 10px; background: var(--surface-2); font-size: 14px; }
+
+/* ---------- Phase 3, étape 2 : découpage manuel ---------- */
+
+.groupe-slide { padding: 14px; border-radius: 18px; background: var(--surface); border: 1px solid var(--trait); }
+.groupe-slide.actif { border-color: var(--touche); }
+.groupe-tete { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.groupe-tete .num { font-weight: 700; font-size: 17px; min-width: 22px; }
+.groupe-tete .outils-slide { flex-direction: row; margin-left: auto; }
+.groupe-corps { display: flex; gap: 16px; align-items: flex-start; }
+.groupe-corps > .slide-bouton { flex: none; }
+.groupe-texte { flex: 1; min-width: 0; display: grid; gap: 10px; }
+.texte-bloc { margin: 0; font-size: 16px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: break-word; }
+.texte-bloc.nature-titre, .texte-bloc.nature-contrepoint, .texte-bloc.nature-emphase { font-weight: 700; }
+.texte-bloc.nature-citation { padding-left: 12px; border-left: 3px solid var(--touche); }
+.nature-bloc { display: block; margin-bottom: 2px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--doux); }
+.phrase { border-radius: 4px; cursor: pointer; transition: background 0.15s; -webkit-tap-highlight-color: transparent; }
+.phrase:hover { background: var(--surface-2); }
+.phrase:focus-visible { outline: 2px solid var(--touche); outline-offset: 1px; }
+.phrase.choisie { background: var(--touche-doux); box-shadow: 0 0 0 2px var(--touche-doux); }
+.mini-outils { display: inline-flex; flex-wrap: wrap; gap: 6px; margin: 4px 6px; vertical-align: middle; white-space: normal; font-weight: 400; }
+.coupure { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+.coupure-ligne { flex: 1; border-top: 2px dashed var(--trait); }
+@media (max-width: 700px) { .groupe-corps { flex-direction: column; } }

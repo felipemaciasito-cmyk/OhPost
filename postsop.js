@@ -14,6 +14,7 @@
   const M = racine.PostsOPMoteur || require('./moteur.js');
   const S = racine.PostsOPSynchro || require('./synchro.js');
   const X = racine.PostsOPExport || require('./export.js');
+  const L = racine.PostsOPLiens || require('./liens.js');
   const { createElement: h, Fragment, Component, useState, useReducer, useEffect, useRef, useContext, createContext } = React;
 
   const NB = '\u00A0';
@@ -80,8 +81,8 @@
   const AIDES = {
     bibliotheque: { titre: 'Tes articles', textes: ['Trois sections : En cours, Publiés (validés par toi) et Corbeille, d’où tu peux restaurer un article.', 'Le menu « … » d’une carte permet de dupliquer, d’utiliser un article comme modèle pour un nouveau texte, de le marquer comme publié ou de le mettre à la corbeille.', 'Trie et affiche tes articles comme tu veux, en grille ou en liste. « Annuler » et ⌘Z (Ctrl+Z) reviennent en arrière à tout moment.'] },
     configuration: { titre: 'La configuration', textes: ['Charte : tes couleurs et tes tailles de texte. Tout changement s’applique à tous tes carrousels.', 'Ressources : tes polices, ton logo et tes fleurs, importés une fois et retrouvés sur tous tes appareils.', 'Réglages : le comportement de l’outil. Synchronisation : la liaison avec ton dépôt GitHub privé.'] },
-    texte: { titre: 'Étape 1 · Texte', textes: ['Tu relis et corriges ton article avant de le mettre en slides.', 'La vérification LanguageTool surligne les fautes dans ton texte. Pour chacune, choisis la bonne correction parmi celles proposées, ou ignore-la.', 'Les suggestions de style arriveront avec l’IA : tu sélectionneras un passage directement dans ton texte.'] },
-    structure: { titre: 'Étape 2 · Structure', textes: ['La répartition de ton texte en slides. Sans IA, l’outil remplit chaque slide de paragraphes tant qu’ils tiennent.', 'Tu peux réordonner, fusionner, scinder, ajouter ou supprimer des slides. Rien de ton texte ne peut disparaître sans que l’outil te le signale.'] },
+    texte: { titre: 'Étape 1 · Texte', textes: ['Ton texte est la référence du carrousel : chaque modification ici met les slides à jour, sans toucher à leur mise en page. Et un paragraphe modifié dans Design modifie aussi ce texte.', 'La vérification LanguageTool surligne les fautes dans ton texte. Pour chacune, choisis la bonne correction parmi celles proposées, ou ignore-la.', 'Les suggestions de style arriveront avec l’IA : tu sélectionneras un passage directement dans ton texte.'] },
+    structure: { titre: 'Étape 2 · Structure', textes: ['Tout ton texte, réparti en slides. Touche une phrase pour couper la slide avant ou après elle, même au milieu d’un paragraphe.', '« Retirer la coupure » réunit deux slides ; un paragraphe coupé en deux est recollé.', 'Les slides restent liées à ton texte : si tu le modifies à l’étape Texte, elles suivent.'] },
     design: { titre: 'Étape 3 · Design', textes: ['L’apparence du carrousel, puis chaque slide. Ce que tu vois ici est exactement ce qui sera exporté.', 'Changer de gabarit ne modifie jamais ton texte. Les natures de paragraphe proposées dépendent du gabarit choisi.', 'Les flèches d’un paragraphe le déplacent dans sa slide, ou vers la slide précédente ou suivante.'] },
     description: { titre: 'Étape 4 · Description', textes: ['Le texte qui accompagne le carrousel : légende Instagram et texte du post LinkedIn.', 'Pour l’instant tu l’écris toi-même ; l’IA pourra te proposer une version plus tard.'] },
     export: { titre: 'Étape 5 · Export', textes: ['Les fichiers à publier : des images PNG pour Instagram, un PDF pour LinkedIn, ou les deux.', 'S’il reste des alertes, l’outil te les rappelle avant d’exporter : à toi de décider.', 'Une fois publié sur le réseau, marque l’article comme publié : il rejoint la section Publiés.'] },
@@ -134,7 +135,7 @@
     switch (action.type) {
       case 'charger': {
         const projet = normaliserProjet(action.projet);
-        const articles = trierSelonOrdre(action.articles, projet.ordre || []);
+        const articles = trierSelonOrdre(action.articles.map(L.lierArticle), projet.ordre || []);
         const ouvert = articles.some((a) => a.id === etat.articleId);
         return { ...etat, pret: true, articles, projet, ...(ouvert ? {} : { ecran: etat.ecran === 'atelier' ? 'bibliotheque' : etat.ecran, articleId: null }) };
       }
@@ -276,6 +277,12 @@
     validerAlerte: (cle) => (a) => ({ ...a, alertesValidees: [...new Set([...(a.alertesValidees || []), cle])] }),
     reafficherAlertes: () => (a) => ({ ...a, alertesValidees: [] }),
     texte: (paragraphes) => (a) => ({ ...a, texte: paragraphes }),
+    source: (valeur) => (a) => L.appliquerEditionSource(a, valeur),
+    blocLie: (i, n, texte) => (a) => L.modifierBlocLie(a, i, n, texte),
+    couper: (i, n, position) => (a) => L.couperSlide(a, i, n, position),
+    retirerCoupure: (i) => (a) => L.retirerCoupure(a, i),
+    redecouper: (slides) => (a) => L.lierArticle({ ...a, slides }),
+    remplacerTexte: (texte, slides) => (a) => L.lierArticle({ ...a, texte, slides, alertesValidees: [] }),
     presentation: ({ fond, slides }) => (a) => ({ ...a, fond, slides }),
     description: (reseau, texte) => (a) => ({ ...a, descriptions: { ...a.descriptions, [reseau]: { ...(a.descriptions || DESCRIPTIONS_VIDES)[reseau], fr: texte } } }),
   };
@@ -611,7 +618,7 @@
       if (modele) slides = appliquerModele(slides, modele);
       dispatch({
         type: 'creer',
-        article: { id: nouvelId(), titre: premier.length > 48 ? premier.slice(0, 48) + '…' : premier, statut: 'Brouillon', reseau, format, fond, logo: modele ? modele.logo || 'auto' : 'auto', modifie: maintenant(), texte: paragraphes, slides, descriptions: DESCRIPTIONS_VIDES },
+        article: L.lierArticle({ id: nouvelId(), titre: premier.length > 48 ? premier.slice(0, 48) + '…' : premier, statut: 'Brouillon', reseau, format, fond, logo: modele ? modele.logo || 'auto' : 'auto', modifie: maintenant(), texte: paragraphes, slides, descriptions: DESCRIPTIONS_VIDES }),
       });
     }
     return h(Feuille, { titre: modele ? 'Nouvel article d’après un modèle' : 'Nouvel article', onAnnuler: () => dispatch({ type: 'feuille', feuille: null }), action: h(Bouton, { variante: 'principal', disabled: !paragraphes.length, onClick: creer }, 'Créer') },
@@ -687,7 +694,15 @@
     const zone = useRef(null);
     const [verification, setVerification] = useState({ etat: 'repos', erreurs: [], detail: '' });
     const [active, setActive] = useState(null);
+    const [remplacer, setRemplacer] = useState(null);
+    const { choisirPolice, charte, reglages } = useContext(Contexte);
     const texteComplet = article.texte.join('\n\n');
+    function remplacerTout() {
+      const paragraphes = remplacer.split(/\n\s*\n|\n/).map((p) => p.trim()).filter(Boolean);
+      const slides = appliquerModele(M.decouperMecaniquement(paragraphes, article.format, article.fond, choisirPolice, { charte, reglages }), article);
+      majA(OP.remplacerTexte(paragraphes, slides), null, 'Texte remplacé et redécoupé, avec la même mise en page.');
+      setRemplacer(null);
+    }
 
     function montrer(e) {
       setActive(e.offset);
@@ -714,16 +729,16 @@
     function corriger(erreur, remplacement) {
       const nouveau = texteComplet.slice(0, erreur.offset) + remplacement + texteComplet.slice(erreur.offset + erreur.length);
       const ecart = remplacement.length - erreur.length;
-      majA(OP.texte(nouveau.split('\n\n')));
+      majA(OP.source(nouveau));
       setVerification((v) => ({ ...v, erreurs: v.erreurs.filter((e) => e !== erreur).map((e) => (e.offset > erreur.offset ? { ...e, offset: e.offset + ecart } : e)) }));
     }
     const ignorer = (erreur) => setVerification((v) => ({ ...v, erreurs: v.erreurs.filter((e) => e !== erreur) }));
     // Si le texte change à la main, les positions des fautes ne sont plus fiables : on les efface.
-    const modifierTexte = (valeur) => { majA(OP.texte(valeur.split('\n\n')), 'texte'); if (verification.erreurs.length) setVerification({ etat: 'repos', erreurs: [], detail: '' }); };
+    const modifierTexte = (valeur) => { majA(OP.source(valeur), 'texte'); if (verification.erreurs.length) setVerification({ etat: 'repos', erreurs: [], detail: '' }); };
 
     return h('div', { className: 'deux-colonnes' },
       h('div', { className: 'colonne-principale' },
-        h(Carte, { titre: 'Texte de l’article', sousTitre: `${article.texte.length} paragraphes · ${M.compterMots(texteComplet)} mots. Une ligne vide sépare deux paragraphes.` },
+        h(Carte, { titre: 'Texte de l’article', info: 'Ton texte est la référence : les slides suivent chaque modification, sans changer leur mise en page.', sousTitre: `${article.texte.length} paragraphes · ${M.compterMots(texteComplet)} mots. Une ligne vide sépare deux paragraphes. Les slides se mettent à jour à chaque modification.`, actions: h(Bouton, { variante: 'petit', onClick: () => setRemplacer('') }, 'Remplacer tout le texte') },
           h(EditeurTexte, { valeur: texteComplet, onChange: modifierTexte, marques: verification.erreurs.map((e) => ({ debut: e.offset, fin: e.offset + e.length })), active, zoneRef: zone }))),
       h('aside', { className: 'panneau' },
         h(Carte, { titre: 'Orthographe et grammaire', info: 'Vérification par LanguageTool, un service gratuit. Rien n’est corrigé sans ton accord.', sousTitre: 'Les fautes sont surlignées dans ton texte.', actions: h(Bouton, { variante: 'principal', onClick: verifier, disabled: verification.etat === 'encours' }, verification.etat === 'encours' ? 'Vérification…' : 'Vérifier') },
@@ -742,36 +757,80 @@
           }),
           h('p', { className: 'mention' }, 'Correction fournie par ', h('a', { href: 'https://languagetool.org', target: '_blank', rel: 'noopener' }, 'LanguageTool'), '.')),
         h(Carte, { titre: 'Typographie', info: 'Ces règles ne changent jamais tes mots.', sousTitre: 'Règles françaises : espaces insécables avant : ; ! ?, guillemets « », apostrophes typographiques. Leur application automatique arrive en phase 3.' }),
-        h(Carte, { titre: 'Suggestions de style', sousTitre: 'Elles arriveront avec l’IA. Tu sélectionneras un passage directement dans ton texte, et un petit menu te proposera : clarifier, raccourcir, restructurer, rendre plus percutant.' })));
+        h(Carte, { titre: 'Suggestions de style', sousTitre: 'Elles arriveront avec l’IA. Tu sélectionneras un passage directement dans ton texte, et un petit menu te proposera : clarifier, raccourcir, restructurer, rendre plus percutant.' })),
+      remplacer !== null && h(Feuille, { titre: 'Remplacer tout le texte', onAnnuler: () => setRemplacer(null), action: h(Bouton, { variante: 'principal', disabled: !remplacer.trim(), onClick: remplacerTout }, 'Remplacer') },
+        h('p', { className: 'note' }, 'Le nouveau texte est redécoupé en slides avec la même mise en page : fond, format, gabarits et logo. Tu pourras l’annuler juste après.'),
+        h('textarea', { className: 'zone-texte', rows: 12, value: remplacer, placeholder: 'Colle ici le nouveau texte.', onChange: (e) => setRemplacer(e.target.value), 'aria-label': 'Nouveau texte' })));
   }
 
   /* ---------- Étape 2 : Structure ---------- */
 
   function EtapeStructure({ etat, dispatch, article, majA }) {
     const { choisirPolice, charte, reglages } = useContext(Contexte);
+    const [choix, setChoix] = useState(null);
     const limite = M.LIMITES_SLIDES[article.reseau];
     const n = article.slides.length;
+    const logo = article.logo || 'auto';
+    const compositions = article.slides.map((s, k) => M.composer(s, article.format, article.fond, choisirPolice, { index: k, total: n, reglages, charte, logo }));
+    const couper = (i, b, position, annonce) => { majA(OP.couper(i, b, position), null, annonce); setChoix(null); };
+    const NATURES_COURTES = { titre: 'Titre', contrepoint: 'Contrepoint', corps: 'Texte', emphase: 'Phrase-choc', citation: 'Citation' };
+
+    function texteDuBloc(s, i, b, bloc) {
+      if (!bloc.texte.trim()) return h('em', { className: 'doux' }, 'Paragraphe vide');
+      const liste = L.phrases(bloc.texte);
+      const morceaux = [];
+      let curseur = 0;
+      liste.forEach((p, k) => {
+        if (p.debut > curseur) morceaux.push(bloc.texte.slice(curseur, p.debut));
+        const choisie = choix && choix.i === i && choix.b === b && choix.debut === p.debut;
+        const debutSlide = b === 0 && k === 0;
+        const finSlide = b === s.blocs.length - 1 && k === liste.length - 1;
+        morceaux.push(h('span', {
+          key: 'p' + k, role: 'button', tabIndex: 0, className: cls('phrase', choisie && 'choisie'),
+          onClick: () => setChoix(choisie ? null : { i, b, debut: p.debut }),
+          onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setChoix(choisie ? null : { i, b, debut: p.debut }); } },
+        }, bloc.texte.slice(p.debut, p.fin)));
+        if (choisie) {
+          morceaux.push(h('span', { key: 'o' + k, className: 'mini-outils' },
+            h(Bouton, { variante: 'principal petit', disabled: debutSlide, onClick: () => couper(i, b, p.debut, `Slide ${i + 1} coupée avant cette phrase.`) }, h(Icone, { nom: 'ciseaux', taille: 16 }), 'Couper avant'),
+            h(Bouton, { variante: 'principal petit', disabled: finSlide, onClick: () => couper(i, b, k === liste.length - 1 ? bloc.texte.length : liste[k + 1].debut, `Slide ${i + 1} coupée après cette phrase.`) }, h(Icone, { nom: 'ciseaux', taille: 16 }), 'Couper après'),
+            h(Bouton, { variante: 'lien', onClick: () => setChoix(null) }, 'Fermer')));
+        }
+        curseur = p.fin;
+      });
+      if (curseur < bloc.texte.length) morceaux.push(bloc.texte.slice(curseur));
+      return morceaux;
+    }
+
     return h('div', { className: 'deux-colonnes' },
       h('div', { className: 'colonne-principale' },
         h('div', { className: 'resume-volume' }, h('strong', null, `${n} slides`), ` · limite ${article.reseau === 'instagram' ? 'Instagram' : 'LinkedIn'} : ${limite} · ${M.compterMots(article.texte.join(' '))} mots`),
-        h('ol', { className: 'liste-slides' },
-          article.slides.map((s, i) => h('li', { key: i, className: 'ligne-slide' },
-            h('button', { type: 'button', className: cls('item-slide', i === etat.slide && 'actif'), onClick: () => dispatch({ type: 'aller', etape: 'design', slide: i }), 'aria-label': `Ouvrir la slide ${i + 1} dans Design` },
-              h(SlideCanvas, { slide: s, formatId: article.format, fondId: article.fond, largeur: 104, index: i, total: n, logo: article.logo }),
-              h('span', { className: 'item-slide-texte' },
-                h('span', { className: 'item-slide-tete' }, h('span', { className: 'num' }, i + 1), h(Pastille, null, M.GABARITS[M.gabaritParDefaut(s, i)].nom), h('span', { className: 'doux petit' }, s.blocs.reduce((m, b) => m + M.compterMots(b.texte), 0) + ' mots')),
-                h('span', { className: 'extrait' }, s.blocs.map((b) => b.texte.replace(/\n/g, ' ')).join(' ') || 'Slide vide'))),
-            h('div', { className: 'outils-slide' },
-              h(Bouton, { variante: 'icone petit', etiquette: 'Monter la slide', disabled: i === 0, onClick: () => majA(OP.deplacerSlide(i, -1)) }, h(Icone, { nom: 'haut', taille: 18 })),
-              h(Bouton, { variante: 'icone petit', etiquette: 'Descendre la slide', disabled: i === n - 1, onClick: () => majA(OP.deplacerSlide(i, 1)) }, h(Icone, { nom: 'bas', taille: 18 })),
-              h(Bouton, { variante: 'icone petit', etiquette: 'Fusionner avec la slide suivante', titre: 'Fusionner avec la suivante', disabled: i === n - 1, onClick: () => majA(OP.fusionnerAvecSuivante(i), null, `Slides ${i + 1} et ${i + 2} fusionnées.`) }, h(Icone, { nom: 'fusion', taille: 18 })),
-              h(Bouton, { variante: 'icone petit', etiquette: 'Ajouter une slide après celle-ci', titre: 'Ajouter une slide après', onClick: () => majA(OP.ajouterSlide(i)) }, h(Icone, { nom: 'plus', taille: 18 })),
-              h(Bouton, { variante: 'icone petit danger', etiquette: 'Supprimer la slide', titre: 'Supprimer la slide', disabled: n <= 1, onClick: () => majA(OP.supprimerSlide(i), null, `Slide ${i + 1} supprimée.`) }, h(Icone, { nom: 'poubelle', taille: 18 }))))))),
+        h('p', { className: 'doux petit' }, 'Touche une phrase pour couper la slide avant ou après elle.'),
+        article.slides.map((s, i) => h(Fragment, { key: i },
+          h('section', { className: cls('groupe-slide', i === etat.slide && 'actif') },
+            h('div', { className: 'groupe-tete' },
+              h('span', { className: 'num' }, i + 1),
+              h(Pastille, null, M.GABARITS[M.gabaritParDefaut(s, i)].nom),
+              h('span', { className: 'doux petit' }, s.blocs.reduce((m, bl) => m + M.compterMots(bl.texte), 0) + ' mots'),
+              compositions[i].deborde && h(Pastille, { ton: 'erreur' }, 'Déborde'),
+              h('span', { className: 'outils-slide' },
+                h(Bouton, { variante: 'icone petit', etiquette: 'Monter la slide', disabled: i === 0, onClick: () => majA(OP.deplacerSlide(i, -1)) }, h(Icone, { nom: 'haut', taille: 18 })),
+                h(Bouton, { variante: 'icone petit', etiquette: 'Descendre la slide', disabled: i === n - 1, onClick: () => majA(OP.deplacerSlide(i, 1)) }, h(Icone, { nom: 'bas', taille: 18 })),
+                h(Bouton, { variante: 'icone petit', etiquette: 'Ajouter une slide vide après celle-ci', titre: 'Ajouter une slide vide après', onClick: () => majA(OP.ajouterSlide(i), null, 'Slide vide ajoutée.') }, h(Icone, { nom: 'plus', taille: 18 })),
+                h(Bouton, { variante: 'icone petit danger', etiquette: 'Supprimer la slide', titre: 'Supprimer la slide', disabled: n <= 1, onClick: () => majA(OP.supprimerSlide(i), null, `Slide ${i + 1} supprimée. Son texte reste dans l’article.`) }, h(Icone, { nom: 'poubelle', taille: 18 })))),
+            h('div', { className: 'groupe-corps' },
+              h(SlideCanvas, { slide: s, formatId: article.format, fondId: article.fond, largeur: 132, index: i, total: n, logo, onClick: () => dispatch({ type: 'aller', etape: 'design', slide: i }), etiquette: `Ouvrir la slide ${i + 1} dans Design` }),
+              h('div', { className: 'groupe-texte' }, s.blocs.map((bloc, b) => h('p', { key: b, className: 'texte-bloc nature-' + bloc.style },
+                h('span', { className: 'nature-bloc' }, NATURES_COURTES[bloc.style] || 'Texte', !bloc.lien && ' · ajouté'), texteDuBloc(s, i, b, bloc)))))),
+          i < n - 1 && h('div', { className: 'coupure' },
+            h('span', { className: 'coupure-ligne' }),
+            h(Bouton, { variante: 'petit', onClick: () => majA(OP.retirerCoupure(i), null, `Slides ${i + 1} et ${i + 2} réunies.`) }, 'Retirer la coupure'),
+            h('span', { className: 'coupure-ligne' }))))),
       h('aside', { className: 'panneau' },
-        h(Carte, { titre: 'Découpage', info: 'Sans IA, l’outil remplit chaque slide de paragraphes tant qu’ils tiennent dans les marges.' },
-          h('p', { className: 'petit' }, 'Redécouper repart de ton texte et remplace les slides actuelles. Tu peux l’annuler avec ⌘Z.'),
-          h(Bouton, { variante: 'principal large', onClick: () => majA(OP.champ('slides', M.decouperMecaniquement(article.texte, article.format, article.fond, choisirPolice, { charte, reglages })), null, 'Texte redécoupé.') }, 'Redécouper le texte'),
-          h('p', { className: 'doux petit' }, 'Pour scinder une slide à un paragraphe précis, utilise les ciseaux du paragraphe dans l’étape Design.')),
+        h(Carte, { titre: 'Découpage', info: 'Couper n’efface rien et ne change pas ton texte : il change seulement la répartition sur les slides.' },
+          h('p', { className: 'petit' }, 'Touche une phrase, puis « Couper avant » ou « Couper après ». Entre deux slides, « Retirer la coupure » les réunit.'),
+          h('p', { className: 'doux petit' }, 'Redécouper automatiquement repart de ton texte et remplace la répartition actuelle (tu peux l’annuler).'),
+          h(Bouton, { variante: 'principal large', onClick: () => majA(OP.redecouper(M.decouperMecaniquement(article.texte, article.format, article.fond, choisirPolice, { charte, reglages })), null, 'Texte redécoupé automatiquement.') }, 'Redécouper automatiquement')),
         h(Carte, { titre: 'Propositions de l’IA', sousTitre: 'Accroches de couverture, mises en valeur justifiées et fins de slide arriveront avec l’IA. Tu les accepteras, modifieras ou refuseras une à une.' })));
   }
 
@@ -848,7 +907,8 @@
             h(Bouton, { variante: 'icone petit', etiquette: 'Envoyer sur la slide suivante', disabled: i === total - 1, onClick: () => majA(OP.blocVersSlide(i, n, 1)) }, h(Icone, { nom: 'droite', taille: 18 })),
             h(Bouton, { variante: 'icone petit', etiquette: 'Couper la slide avant ce paragraphe', disabled: n === 0, onClick: () => majA(OP.scinder(i, n)) }, h(Icone, { nom: 'ciseaux', taille: 18 })),
             h(Bouton, { variante: 'icone petit danger', etiquette: 'Supprimer le paragraphe', onClick: () => majA(OP.supprimerBloc(i, n)) }, h(Icone, { nom: 'poubelle', taille: 18 }))),
-          h('textarea', { className: 'zone-texte', rows: 3, value: b.texte, 'aria-label': 'Texte du paragraphe ' + (n + 1), onChange: (e) => majA(OP.modifierBloc(i, n, { texte: e.target.value }), `bloc-${i}-${n}`) }))),
+          h('textarea', { className: 'zone-texte', rows: 3, value: b.texte, 'aria-label': 'Texte du paragraphe ' + (n + 1), onChange: (e) => majA(b.lien ? OP.blocLie(i, n, e.target.value) : OP.modifierBloc(i, n, { texte: e.target.value }), `bloc-${i}-${n}`) }),
+          h('div', { className: 'doux petit' }, b.lien ? 'Lié au texte de l’article : le modifier ici modifie aussi l’étape Texte. Un retour à la ligne ne change que la mise en page.' : 'Texte ajouté, absent de l’article.'))),
         h(Bouton, { variante: 'ajouter', onClick: () => majA(OP.ajouterBloc(i)) }, h(Icone, { nom: 'plus', taille: 18 }), 'Ajouter un paragraphe')),
         h(ControleQualite, { article, alertes, nbValidees, majA, dispatch, choisirPolice, contexteRendu })));
   }

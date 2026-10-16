@@ -238,7 +238,9 @@
     });
   }
 
-  function composer(slide, formatId, fondId, choisirPolice, contexte = {}) {
+  function composer(slideBrute, formatId, fondId, choisirPolice, contexte = {}) {
+    // Les blancs en bordure d'un paragraphe (en cours de frappe, par exemple) ne comptent pas dans la mise en page.
+    const slide = { ...slideBrute, blocs: slideBrute.blocs.map((b) => ({ ...b, texte: String(b.texte || '').trim() })) };
     const fmt = FORMATS[formatId];
     const charte = contexte.charte || CHARTE_DEFAUT;
     const fonds = fondsDe(charte.palette);
@@ -502,6 +504,25 @@
     return ajoutes;
   }
 
+  // Passages du texte absents des slides. Si les paragraphes sont liés au texte, on regarde exactement
+  // quels endroits du texte sont couverts : réordonner des slides ne crée alors aucune fausse alerte.
+  function passagesAbsents(article) {
+    const lies = article.slides.some((s) => s.blocs.some((b) => b.lien));
+    if (!lies) return passagesManquants(article.texte, article.slides);
+    const source = article.texte.join('\n\n');
+    const couvert = new Uint8Array(source.length);
+    for (const s of article.slides) for (const b of s.blocs) if (b.lien) couvert.fill(1, b.lien.debut, b.lien.fin);
+    const passages = [];
+    for (let k = 0; k < source.length;) {
+      if (couvert[k]) { k++; continue; }
+      let j = k;
+      while (j < source.length && !couvert[j]) j++;
+      for (const morceau of source.slice(k, j).split('\n\n')) if (morceau.trim()) passages.push(morceau.trim());
+      k = j;
+    }
+    return passages;
+  }
+
   function empreinte(texte) {
     let h = 2166136261;
     for (let i = 0; i < texte.length; i++) { h ^= texte.charCodeAt(i); h = Math.imul(h, 16777619); }
@@ -527,10 +548,10 @@
     if (article.slides.length > limite) {
       alertes.push({ type: 'limite', niveau: 'bloquant', slide: null, cible: 'structure', message: `${article.slides.length} slides : la limite ${article.reseau === 'instagram' ? 'd’Instagram' : 'de LinkedIn'} est de ${limite}.` });
     }
-    for (const passage of passagesManquants(article.texte, article.slides)) {
+    for (const passage of passagesAbsents(article)) {
       alertes.push({ type: 'manquant', niveau: 'bloquant', slide: null, cible: 'design', message: `Ce passage de l’article ne figure dans aucune slide : « ${passage.slice(0, 60)}${passage.length > 60 ? '…' : ''} ». Tout le texte doit être dans le carrousel : remets-le dans une slide, ou change l’accroche.` });
     }
-    for (const ajout of textesAjoutes(article.texte, article.slides)) {
+    for (const ajout of textesAjoutes(article.texte, article.slides.map((sl) => ({ ...sl, blocs: sl.blocs.filter((b) => !b.lien) })))) {
       alertes.push({ type: 'ajout', niveau: 'avertissement', slide: ajout.slide, cible: 'design', message: `Ce texte n’existe pas dans l’article : « ${ajout.texte.slice(0, 50)}${ajout.texte.length > 50 ? '…' : ''} ». Vérifie qu’il est voulu.` });
     }
     return alertes;

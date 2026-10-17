@@ -541,3 +541,123 @@ label.echantillon input[type="color"] { position: absolute; inset: 0; width: 100
 .champ-formate .editeur-fond mark.f-souligne { box-shadow: 0 2px 0 currentColor; }
 .champ-formate .editeur-fond mark.f-italique { box-shadow: 0 2px 0 rgba(201, 212, 32, 0.9); }
 .theme-sombre .champ-formate .editeur-fond mark.f-gras { background: rgba(255, 255, 255, 0.18); }
+
+/* ================================================================== */
+/* Étape Composition : menus classiques, slides en pages, édition directe */
+/* ================================================================== */
+
+.contenu.atelier.large { max-width: none; padding-left: 0; padding-right: 0; }
+.composition { position: relative; }
+
+/* Barre de menus, fixée sous l'en-tête pendant qu'on parcourt les slides */
+/* Au-dessus de la barre des étapes en bas d'écran, pour que les menus ne soient jamais recouverts. */
+.menus-composition {
+  position: sticky; top: 64px; z-index: 40; display: flex; flex-wrap: wrap; align-items: center; gap: 2px;
+  margin: 0 0 4px; padding: 4px 16px; background: var(--surface); border-top: 1px solid var(--trait); border-bottom: 1px solid var(--trait);
+}
+.menus-composition .espace { flex: 1; }
+.menu-racine { position: relative; display: inline-flex; }
+.titre-menu { min-height: 40px; padding: 0 12px; border: 0; border-radius: 9px; background: none; color: var(--texte); font: inherit; font-size: 15px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.titre-menu:hover, .titre-menu.ouvert { background: var(--surface-2); }
+.compteur { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--erreur); color: #FFFFFF; font-size: 12px; font-weight: 700; }
+.compteur.ok { background: var(--touche); color: #2E3300; }
+.historique-menus .position { color: var(--doux); font-size: 13px; padding: 0 8px; }
+
+/* Menus et sous-menus : placés en position fixe d'après les bords de l'écran */
+.popover-menu {
+  position: fixed; z-index: 60; min-width: 230px; max-width: min(420px, calc(100vw - 16px)); overflow-y: auto; padding: 6px;
+  border-radius: 14px; background: var(--surface); border: 1px solid var(--trait); box-shadow: 0 16px 40px rgba(0, 20, 26, 0.2);
+}
+.popover-menu.large { width: min(440px, calc(100vw - 16px)); max-width: none; }
+.item-menu {
+  width: 100%; display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 6px 10px; border: 0; border-radius: 9px;
+  background: none; color: var(--texte); font: inherit; font-size: 15px; text-align: left; cursor: pointer;
+}
+.item-menu:hover:not(:disabled), .item-menu:focus-visible, .item-menu[aria-expanded="true"] { background: var(--surface-2); }
+.item-menu:disabled { opacity: 0.4; cursor: default; }
+.item-menu.danger { color: var(--erreur); }
+.item-menu .libelle-item { flex: 1; display: inline-flex; align-items: center; gap: 10px; }
+.item-menu[aria-checked="true"]::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--touche); flex: none; }
+.item-menu .raccourci { color: var(--doux); font-size: 12.5px; white-space: nowrap; }
+.item-menu .fleche-droite { width: 14px; height: 14px; opacity: 0.55; margin-left: auto; flex: none; }
+.item-menu.retour { font-weight: 600; color: var(--action); border-bottom: 1px solid var(--trait); border-radius: 9px 9px 0 0; margin-bottom: 4px; }
+.theme-sombre .item-menu.retour { color: var(--touche); }
+.sous-menu { position: relative; }
+.trait-menu { height: 1px; background: var(--trait); margin: 5px 8px; }
+.titre-section { margin: 8px 10px 4px; font-size: 12px; font-weight: 600; color: var(--doux); }
+.note-menu { margin: 0 12px 6px; font-size: 12.5px; color: var(--doux); }
+.libre-menu { padding: 2px 4px; }
+.apercu-style { font-family: 'PostsOP Gill', 'Gill Sans', 'Gill Sans MT', sans-serif; }
+.apercu-style.titre, .apercu-style.contrepoint { font-weight: 700; font-size: 20px; }
+.apercu-style.contrepoint { color: #6F7600; }
+.theme-sombre .apercu-style.contrepoint { color: var(--touche); }
+.apercu-style.corps { font-weight: 300; font-size: 16px; }
+.apercu-style.emphase { font-weight: 700; font-size: 16px; }
+.apercu-style.citation { font-weight: 300; font-size: 16px; padding-left: 10px; border-left: 3px solid var(--touche); }
+.pastille-couleur { display: inline-block; width: 18px; height: 18px; border-radius: 5px; border: 1px solid var(--trait); flex: none; }
+.taille-libre { display: flex; gap: 6px; align-items: center; padding: 4px 6px 8px; }
+.taille-libre input { width: 90px; min-height: 40px; padding: 0 10px; border: 1px solid var(--trait); border-radius: 10px; background: var(--surface); color: var(--texte); font: inherit; }
+.galerie-menu { width: 320px; max-width: calc(100vw - 40px); }
+.grille-gabarits-menu { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 4px 6px 8px; }
+.gabarit-menu { border: 2px solid var(--trait); border-radius: 10px; background: var(--surface-2); padding: 6px 4px 4px; display: flex; flex-direction: column; align-items: center; gap: 4px; font: inherit; font-size: 11.5px; color: var(--texte); cursor: pointer; }
+.gabarit-menu.actif { border-color: var(--touche); }
+.gabarit-menu canvas.slide { box-shadow: none; }
+.nuancier-menu { display: grid; grid-template-columns: repeat(5, 46px); gap: 8px; padding: 8px; }
+.nuance-menu { width: 46px; height: 46px; border-radius: 12px; border: 2px solid var(--trait); cursor: pointer; }
+.nuance-menu.actif { border-color: var(--touche); box-shadow: 0 0 0 3px var(--touche-doux); }
+.panneau-verifier { padding: 6px; display: grid; gap: 8px; }
+.panneau-verifier .liste-alertes { margin: 0; }
+
+/* Slides en pages, avec leurs repères dans la marge */
+.pages-composition { display: flex; flex-direction: column; align-items: center; gap: 30px; padding: 24px 12px 160px; }
+.page-slide { display: flex; gap: 16px; align-items: flex-start; }
+.reperes { width: 112px; flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; padding-top: 4px; text-align: right; color: var(--doux); font-size: 12.5px; line-height: 1.3; cursor: pointer; }
+.reperes .num { font-size: 17px; font-weight: 700; color: var(--texte); font-variant-numeric: tabular-nums; }
+.page-slide:not(.active) .reperes .num { color: var(--doux); font-weight: 600; }
+.reperes .deborde { color: var(--erreur); font-weight: 700; }
+.reperes .reduit { color: var(--attention-texte); }
+.cadre-page { position: relative; flex: none; border-radius: 4px; outline: 3px solid transparent; outline-offset: 5px; transition: outline-color 0.15s; }
+.page-slide.active .cadre-page { outline-color: var(--touche-doux); }
+.cadre-page canvas.slide { width: 100%; height: 100%; }
+canvas.slide.editable { cursor: text; }
+.calque { position: absolute; inset: 0; pointer-events: none; }
+.echelle { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.repere-marges { position: absolute; border: 4px dashed rgba(201, 212, 32, 0.85); pointer-events: none; }
+/* Le paragraphe en cours d'édition, posé à sa place sur la slide (en pixels de slide) */
+.editeur-bloc {
+  position: absolute; pointer-events: auto; margin: 0; padding: 0; white-space: pre-wrap; overflow-wrap: break-word; letter-spacing: 0;
+  outline: 6px solid rgba(201, 212, 32, 0.5); outline-offset: 14px; border-radius: 2px; -webkit-user-select: text; user-select: text; cursor: text;
+  font-kerning: normal; text-rendering: optimizeLegibility;
+}
+.editeur-bloc::selection, .editeur-bloc *::selection { background: rgba(201, 212, 32, 0.45); }
+@media (max-width: 760px) {
+  .reperes { width: 40px; }
+  .reperes .gab, .reperes .mots, .reperes .reduit { display: none; }
+  .menus-composition { padding: 4px 8px; }
+}
+
+/* Barre flottante « dépliable », sans contour : elle se détache par son ombre */
+.barre-flottante {
+  position: fixed; z-index: 50; display: flex; flex-direction: column; gap: 4px; padding: 5px; border-radius: 16px; border: 0;
+  background: var(--surface); box-shadow: 0 1px 2px rgba(0, 20, 26, 0.06), 0 14px 36px rgba(0, 30, 40, 0.18);
+  animation: apparaitre-barre 0.14s ease-out;
+}
+.theme-sombre .barre-flottante { background: var(--surface-2); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 16px 40px rgba(0, 0, 0, 0.55); }
+@keyframes apparaitre-barre { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .barre-flottante { animation: none; } }
+.barre-flottante .rang { display: flex; align-items: center; gap: 2px; }
+.barre-flottante .rang.second { flex-wrap: wrap; padding: 3px; border-radius: 12px; background: var(--surface-2); }
+.theme-sombre .barre-flottante .rang.second { background: var(--surface-3); }
+.outil { min-width: 40px; min-height: 40px; padding: 0 10px; border: 0; border-radius: 10px; background: none; color: var(--texte); font: inherit; font-size: 16px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.outil:hover { background: var(--surface-2); }
+.rang.second .outil:hover { background: var(--surface-3); }
+.outil.actif { background: var(--touche-doux); color: var(--touche-texte); }
+.theme-sombre .outil.actif { background: rgba(201, 212, 32, 0.22); color: #E9F08A; }
+.outil.libelle { font-size: 14px; font-weight: 500; }
+.outil .serif { font-family: Georgia, 'Times New Roman', serif; }
+.outil.puce-taille { min-width: 36px; padding: 0 8px; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--doux); }
+.outil.puce-taille.actif { color: var(--touche-texte); }
+.chevron-bas { font-size: 11px; opacity: 0.6; }
+.separateur { width: 1px; align-self: stretch; margin: 6px 3px; background: var(--surface-3); }
+.filet-icone { display: inline-block; width: 4px; height: 18px; border-radius: 2px; background: currentColor; }
+.icone.retournee { transform: rotate(180deg); }

@@ -41,7 +41,7 @@
    * marques : [{ debut, fin, gras?, italique?, souligne?, taille? }], positions dans le texte affiché du paragraphe.
    * Une valeur null retire l'attribut ; false force l'absence (du gras sur un titre déjà gras, par exemple). */
 
-  const ATTRIBUTS = ['gras', 'italique', 'souligne', 'taille'];
+  const ATTRIBUTS = ['gras', 'italique', 'souligne', 'taille', 'couleur'];
 
   function normaliserMarques(marques, longueur) {
     const bornes = new Set([0, longueur]);
@@ -222,7 +222,8 @@
     const source = sourceDe(article);
     const plat = nouveau.replace(/\n/g, ' ');
     const nouvelle = source.slice(0, bloc.lien.debut) + plat + source.slice(bloc.lien.fin);
-    const recale = appliquerEditionSource(article, nouvelle, { garderVides: true });
+    // Position connue : les paragraphes suivants sont décalés exactement (fonction définie plus bas, hissée).
+    const recale = decalerApres(article, nouvelle, bloc.lien.fin, plat.length - (bloc.lien.fin - bloc.lien.debut), (k, m) => k === i && m === n);
     const lien = { debut: bloc.lien.debut, fin: bloc.lien.debut + plat.length, retours: [] };
     for (let k = 0; k < nouveau.length; k++) if (nouveau[k] === '\n') lien.retours.push(bloc.lien.debut + k);
     return {
@@ -320,7 +321,105 @@
     return passages;
   }
 
-  const api = { ATTRIBUTS, normaliserMarques, appliquerForme, partoutVrai, remapperMarques, extraireMarques, avecMarques, SEPARATEUR, sourceDe, materialiser, lierArticle, appliquerEditionSource, modifierBlocLie, couperSlide, retirerCoupure, phrases, passagesNonCouverts };
+  /* ---------- Gestes de traitement de texte, directement sur la slide ---------- */
+
+  // Insertion ou retrait à une position connue : les autres paragraphes sont décalés exactement,
+  // sans deviner où la modification a eu lieu (aucune ambiguïté aux limites de paragraphes).
+  function decalerApres(article, nouvelle, position, delta, sauf) {
+    return {
+      ...article,
+      texte: nouvelle.split(SEPARATEUR),
+      slides: article.slides.map((s, i) => ({
+        ...s,
+        blocs: s.blocs.map((b, n) => {
+          if (!b.lien || (sauf && sauf(i, n))) return b;
+          // Un paragraphe qui commence au point d'insertion est décalé ; un paragraphe qui s'y termine ne bouge pas.
+          const d = (x) => (x >= position ? x + delta : x);
+          const f = (x) => (x > position ? x + delta : x);
+          const lien = { debut: d(b.lien.debut), fin: Math.max(d(b.lien.debut), f(b.lien.fin)), retours: (b.lien.retours || []).map(d) };
+          return { ...b, lien, texte: materialiser(nouvelle, lien) };
+        }),
+      })),
+    };
+  }
+
+  // Entrée : le paragraphe est coupé en deux, dans la slide comme dans le texte de l'article.
+  function scinderBloc(article, i, n, position) {
+    const bloc = article.slides[i].blocs[n];
+    const longueur = bloc.texte.length;
+    const p = Math.max(0, Math.min(position, longueur));
+    let premier;
+    let second;
+    let recale = article;
+    if (bloc.lien) {
+      const source = sourceDe(article);
+      const coupe = bloc.lien.debut + p;
+      const nouvelle = source.slice(0, coupe) + SEPARATEUR + source.slice(coupe);
+      recale = decalerApres(article, nouvelle, coupe, 2, (k, m) => k === i && m === n);
+      const l1 = { debut: bloc.lien.debut, fin: coupe, retours: bloc.lien.retours.filter((r) => r < coupe) };
+      const l2 = { debut: coupe + 2, fin: bloc.lien.fin + 2, retours: bloc.lien.retours.filter((r) => r > coupe).map((r) => r + 2) };
+      premier = avecMarques({ ...bloc, lien: l1, texte: materialiser(nouvelle, l1) }, extraireMarques(bloc.marques, 0, p));
+      second = avecMarques({ ...bloc, lien: l2, texte: materialiser(nouvelle, l2) }, extraireMarques(bloc.marques, p, longueur));
+    } else {
+      premier = avecMarques({ ...bloc, texte: bloc.texte.slice(0, p) }, extraireMarques(bloc.marques, 0, p));
+      second = avecMarques({ ...bloc, texte: bloc.texte.slice(p) }, extraireMarques(bloc.marques, p, longueur));
+    }
+    if (second.style === 'titre') second.style = 'titre';
+    delete second.filet;
+    return { ...recale, slides: recale.slides.map((s, k) => (k !== i ? s : { ...s, blocs: [...s.blocs.slice(0, n), premier, second, ...s.blocs.slice(n + 1)] })) };
+  }
+
+  // ⌫ au début d'un paragraphe : il rejoint le précédent (et les deux paragraphes de l'article n'en font plus qu'un).
+  // Renvoie null si les deux paragraphes ne se suivent pas dans le texte.
+  function fusionnerBlocs(article, i, n) {
+    if (n <= 0) return null;
+    const blocs = article.slides[i].blocs;
+    const a = blocs[n - 1];
+    const b = blocs[n];
+    let fusion;
+    let jonction;
+    let recale = article;
+    if (a.lien && b.lien) {
+      const source = sourceDe(article);
+      if (b.lien.debut < a.lien.fin) return null;
+      const entre = source.slice(a.lien.fin, b.lien.debut);
+      if (entre.trim()) return null;
+      const sep = a.texte.length && b.texte.length ? ' ' : '';
+      const nouvelle = source.slice(0, a.lien.fin) + sep + source.slice(b.lien.debut);
+      const decalage = sep.length - entre.length;
+      recale = decalerApres(article, nouvelle, b.lien.debut, decalage, (k, m) => k === i && (m === n || m === n - 1));
+      const lien = { debut: a.lien.debut, fin: b.lien.fin + decalage, retours: [...a.lien.retours, ...b.lien.retours.map((r) => r + decalage)] };
+      jonction = a.texte.length;
+      fusion = avecMarques({ ...a, lien, texte: materialiser(nouvelle, lien) }, [...(a.marques || []), ...decalerMarques(b.marques, jonction + sep.length)]);
+    } else if (!a.lien && !b.lien) {
+      const sep = a.texte.length && b.texte.length ? ' ' : '';
+      jonction = a.texte.length;
+      fusion = avecMarques({ ...a, texte: a.texte + sep + b.texte }, [...(a.marques || []), ...decalerMarques(b.marques, jonction + sep.length)]);
+    } else return null;
+    return { article: { ...recale, slides: recale.slides.map((s, k) => (k !== i ? s : { ...s, blocs: [...s.blocs.slice(0, n - 1), fusion, ...s.blocs.slice(n + 1)] })) }, jonction };
+  }
+
+  // Nouveau paragraphe après le paragraphe n : ajouté aussi au texte de l'article, juste après.
+  function insererParagrapheApres(article, i, n, texte = 'Nouveau paragraphe') {
+    const bloc = article.slides[i].blocs[n];
+    if (!bloc || !bloc.lien) {
+      const nouveau = { style: 'corps', texte };
+      return { ...article, slides: article.slides.map((s, k) => (k !== i ? s : { ...s, blocs: [...s.blocs.slice(0, n + 1), nouveau, ...s.blocs.slice(n + 1)] })) };
+    }
+    const source = sourceDe(article);
+    const p = bloc.lien.fin;
+    const apres = source.slice(p);
+    const insertion = SEPARATEUR + texte + (apres.length && !apres.startsWith(SEPARATEUR) ? SEPARATEUR : '');
+    const espaces = apres.length - apres.replace(/^ +/, '').length;
+    const nouvelle = source.slice(0, p) + insertion + apres.slice(espaces);
+    const recale = decalerApres(article, nouvelle, p + espaces, insertion.length - espaces, (k, m) => k === i && m === n);
+    const lien = { debut: p + 2, fin: p + 2 + texte.length, retours: [] };
+    const nouveau = { style: 'corps', lien, texte: materialiser(nouvelle, lien) };
+    // Le paragraphe courant garde exactement ses bornes.
+    return { ...recale, slides: recale.slides.map((s, k) => (k !== i ? s : { ...s, blocs: [...s.blocs.slice(0, n), { ...s.blocs[n], lien: bloc.lien, texte: materialiser(nouvelle, bloc.lien) }, nouveau, ...s.blocs.slice(n + 1)] })) };
+  }
+
+  const api = { scinderBloc, fusionnerBlocs, insererParagrapheApres, ATTRIBUTS, normaliserMarques, appliquerForme, partoutVrai, remapperMarques, extraireMarques, avecMarques, SEPARATEUR, sourceDe, materialiser, lierArticle, appliquerEditionSource, modifierBlocLie, couperSlide, retirerCoupure, phrases, passagesNonCouverts };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else racine.PostsOPLiens = api;
 })(typeof window !== 'undefined' ? window : globalThis);

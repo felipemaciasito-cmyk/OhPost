@@ -181,18 +181,19 @@
     const texte = normaliserEspaces(s.texte);
     const baseGras = s.role === 'bold';
     const styleA = (k) => {
-      const st = { gras: baseGras, italique: false, souligne: false, taille: s.taille };
+      const st = { gras: baseGras, italique: false, souligne: false, taille: s.taille, couleur: s.couleur };
       for (const m of s.marques) {
         if (m.debut <= k && m.fin > k) {
           if ('gras' in m) st.gras = !!m.gras;
           if ('italique' in m) st.italique = !!m.italique;
           if ('souligne' in m) st.souligne = !!m.souligne;
           if (m.taille) st.taille = m.taille;
+          if (m.couleurHex) st.couleur = m.couleurHex;
         }
       }
       return st;
     };
-    const cle = (st) => `${+st.gras}${+st.italique}${+st.souligne}${st.taille}`;
+    const cle = (st) => `${+st.gras}${+st.italique}${+st.souligne}${st.taille}${st.couleur}`;
     const morceaux = (p, q) => {
       const sortie = [];
       let k = p;
@@ -203,7 +204,7 @@
         while (j < q && cle(styleA(j)) === c) j++;
         const t = texte.slice(k, j);
         const police = choisirPolice((st.gras ? 'bold' : 'light') + (st.italique ? 'Italic' : ''));
-        sortie.push({ texte: t, police, taille: st.taille, souligne: st.souligne, largeur: police.mesurer(t, st.taille) });
+        sortie.push({ texte: t, police, taille: st.taille, souligne: st.souligne, couleur: st.couleur, largeur: police.mesurer(t, st.taille) });
         k = j;
       }
       return sortie;
@@ -246,7 +247,7 @@
       if (s.carte) y += marge;
       if (s.decor) {
         // Guillemet géant posé juste au-dessus de la citation.
-        locaux.push({ type: 'ligne', texte: '«', x: zone.x - 19, y: y + 170, police: choisirPolice('bold'), taille: 380, couleur: s.decor });
+        locaux.push({ type: 'ligne', texte: '«', x: zone.x - 19, y: y + 170, police: choisirPolice('bold'), taille: 380, couleur: s.decor, decorGuillemet: true });
         y += 190;
       }
       const aligne = s.alignement || (zone.alignement === 'centre' ? 'centre' : 'gauche');
@@ -264,11 +265,11 @@
             locaux.push({ type: 'rect', x: x - 10, y: y + (hlL - hb) / 2, l: ligne.largeur + 20, h: hb, couleur: s.surligne });
           }
           for (const m of ligne.morceaux) {
-            locaux.push({ type: 'ligne', texte: m.texte, x, y: y + baseL, police: m.police, taille: m.taille, couleur: s.couleur });
+            locaux.push({ type: 'ligne', texte: m.texte, x, y: y + baseL, police: m.police, taille: m.taille, couleur: m.couleur || s.couleur });
             if (m.souligne && m.texte.trim()) {
               const debutTexte = m.police.mesurer(m.texte.slice(0, m.texte.length - m.texte.trimStart().length), m.taille);
               const finTexte = m.police.mesurer(m.texte.trimEnd(), m.taille);
-              locaux.push({ type: 'rect', x: x + debutTexte, y: y + baseL + m.taille * 0.11, l: finTexte - debutTexte, h: Math.max(2, Math.round(m.taille * 0.055)), couleur: s.couleur });
+              locaux.push({ type: 'rect', x: x + debutTexte, y: y + baseL + m.taille * 0.11, l: finTexte - debutTexte, h: Math.max(2, Math.round(m.taille * 0.055)), couleur: m.couleur || s.couleur });
             }
             x += m.largeur;
           }
@@ -294,6 +295,13 @@
       // Filet latéral : celui de la charte (citations), ou celui que tu ajoutes ou retires toi-même.
       const filet = s.filetPerso === undefined ? s.filet : s.filetPerso ? s.filet || s.couleurFilet : null;
       if (filet) locaux.push({ type: 'rect', x: zone.x - 30, y: debut + 8, l: 5, h: y - debut - 16, couleur: filet });
+      if (s.bloc !== undefined) {
+        // Les éléments de ce paragraphe sont marqués, et sa zone est mémorisée (jamais dessinée).
+        const debutTexte = s.decor ? debut + 190 : debut;
+        for (const e of locaux) if (!e.decorGuillemet) e.bloc = s.bloc;
+        locaux.push({ type: 'bloc', bloc: s.bloc, x: zone.x + marge, y: debutTexte + (s.carte ? marge : 0), l: largeur, h: Math.max(y - debutTexte - (s.carte ? 2 * marge : 0), s.taille * s.interligne),
+          taille: s.taille, interligne: s.interligne, role: s.role, couleur: s.couleur, alignement: aligne, ascendante: police.asc, descendante: police.desc });
+      }
       elements.push(...locaux);
       if (i < specs.length - 1) y += s.espaceApres || 0;
     });
@@ -360,9 +368,11 @@
     const riche = (b, retire = 0) => {
       const r = {};
       if (b.marques && b.marques.length) {
-        r.marques = b.marques.map((m) => ({ ...m, debut: m.debut - retire, fin: m.fin - retire, ...(m.taille ? { taille: Math.round(m.taille * echelle) } : {}) })).filter((m) => m.fin > 0);
+        r.marques = b.marques.map((m) => ({ ...m, debut: m.debut - retire, fin: m.fin - retire, ...(m.taille ? { taille: Math.round(m.taille * echelle) } : {}), ...(m.couleur ? { couleurHex: m.couleur === 'accent' ? fond.accent : fond.texte } : {}) })).filter((m) => m.fin > 0);
       }
       if (b.alignement) r.alignement = b.alignement;
+      const indice = slide.blocs.indexOf(b);
+      if (indice >= 0) r.bloc = indice;
       if (b.filet !== undefined) { r.filetPerso = b.filet; r.couleurFilet = fond.filet || fond.accent; }
       return r;
     };
@@ -426,8 +436,8 @@
         const morceau = (debut, texte) => {
           if (suite.length !== 1) return {};
           const r = riche(suite[0]);
-          if (!r.marques) return { alignement: r.alignement };
-          return { alignement: r.alignement, marques: r.marques.map((m) => ({ ...m, debut: m.debut - debut, fin: Math.min(texte.length, m.fin - debut) })).filter((m) => m.fin > 0 && m.debut < texte.length).map((m) => ({ ...m, debut: Math.max(0, m.debut) })) };
+          if (!r.marques) return { alignement: r.alignement, bloc: r.bloc };
+          return { alignement: r.alignement, bloc: r.bloc, marques: r.marques.map((m) => ({ ...m, debut: m.debut - debut, fin: Math.min(texte.length, m.fin - debut) })).filter((m) => m.fin > 0 && m.debut < texte.length).map((m) => ({ ...m, debut: Math.max(0, m.debut) })) };
         };
         const coupe = texteSuite.includes('\n') ? texteSuite.indexOf('\n') : (texteSuite.indexOf(' ') > 0 ? texteSuite.indexOf(' ') : texteSuite.length);
         const grand = texteSuite.slice(0, coupe).trim();
@@ -562,6 +572,8 @@
     ctx.fillStyle = fond.fond;
     ctx.fillRect(0, 0, fmt.l, fmt.h);
     for (const e of compo.elements) {
+      if (e.type === 'bloc') continue;
+      if (options.masquer !== undefined && e.bloc === options.masquer) continue;
       if (e.type === 'rect') {
         ctx.fillStyle = e.couleur;
         if (e.rayon) { rectArrondi(ctx, e.x, e.y, e.l, e.h, e.rayon); ctx.fill(); } else ctx.fillRect(e.x, e.y, e.l, e.h);

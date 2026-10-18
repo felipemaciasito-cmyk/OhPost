@@ -466,7 +466,7 @@
         g.depart = g.indices.map((n) => ({ n, pos: g.base.blocs[n] && g.base.blocs[n].pos ? { ...g.base.blocs[n].pos } : null, boite: boiteDe(g.i, n, cs) })).filter((d) => d.pos && d.boite);
         g.autres = cs[g.i].elements.filter((z) => z.type === 'bloc' && !g.indices.includes(z.bloc));
         g.k = vu.current.k;
-        setApercu({ i: g.i, slide: g.base });
+        setApercu({ i: g.i, slide: g.base, cote: g.type === 'redim' ? g.cote : null });
         setMenu(null); setBarre(null); setSurvol(null);
       }
       function pendantPointeur(e) {
@@ -514,7 +514,7 @@
         if (g.cote === 'd') l += a.ax; else { x += a.ax; l -= a.ax; }
         const slide = { ...g.base, blocs: g.base.blocs.map((b, n) => (n === d.n ? { ...b, pos: { ...b.pos, x: Math.round(x), l: Math.round(l) } } : b)) };
         g.final = slide;
-        setApercu({ i: g.i, slide });
+        setApercu({ i: g.i, slide, cote: g.cote });
         setGuides({ i: g.i, gx: a.gx, gy: null });
       }
       function tracerLasso(g) {
@@ -1001,6 +1001,7 @@
       ];
 
       /* ---------- Rendu ---------- */
+      const fondClair = (() => { const c = (fond.fond || '#003846').replace('#', ''); const v = [0, 2, 4].map((p) => parseInt(c.slice(p, p + 2), 16) / 255); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2] > 0.5; })();
       const zoneEdition = edition && compositions[edition.i] ? compositions[edition.i].elements.find((z) => z.type === 'bloc' && z.bloc === edition.n) : null;
       if (zoneEdition) zoneMemoire.current = zoneEdition;
       const zoneAffichee = zoneEdition || (edition && zoneMemoire.current) || null;
@@ -1026,18 +1027,18 @@
               h('div', { className: cls('cadre-page', cible === i && 'cible'), style: { width: largeurSlide + 'px', height: Math.round(largeurSlide * fmt.h / fmt.l) + 'px' } },
                 h(SlideCanvas, { slide: slidesVues[i], compo: c, formatId: article.format, fondId: article.fond, largeur: largeurSlide, index: i, total, logo, masquer: enEdition ? edition.n : undefined, etiquette: `Slide ${i + 1}` }),
                 h('div', {
-                  className: 'calque', 'data-index': i, role: 'group', 'aria-label': `Slide ${i + 1} : clique sur un bloc pour le sélectionner, clique à nouveau pour l’écrire`,
+                  className: cls('calque', fondClair && 'sur-clair'), 'data-index': i, role: 'group', 'aria-label': `Slide ${i + 1} : clique sur un bloc pour le sélectionner, clique à nouveau pour l’écrire`,
                   onPointerDown: (e) => debutPointeur(e, i),
                   onPointerMove: (e) => { if (geste.current || e.pointerType !== 'mouse') return; const n = blocAuPoint(i, coordonnees(e, i)); if (!survol || survol.i !== i || survol.n !== n) setSurvol(n === null ? null : { i, n }); },
                   onPointerLeave: () => setSurvol(null),
                 },
-                  h('div', { className: 'echelle', style: { width: fmt.l + 'px', height: fmt.h + 'px', transform: `scale(${k})` } },
+                  h('div', { className: 'echelle', style: { width: fmt.l + 'px', height: fmt.h + 'px', transform: `scale(${k})`, '--inv': 1 / k } },
                     (marges || (guides && guides.i === i)) && h('div', { className: 'repere-marges', style: { left: M.MARGES.gauche + 'px', top: M.MARGES.haute + 'px', width: fmt.l - M.MARGES.gauche - M.MARGES.droite + 'px', height: fmt.h - M.MARGES.haute - M.MARGES.basse + 'px' } }),
                     survol && survol.i === i && !(selection.i === i && selection.n.includes(survol.n)) && !(enEdition && edition.n === survol.n) && (() => { const b = boiteDe(i, survol.n); return b && h('div', { className: 'survol-bloc', style: { left: b.x - 8 + 'px', top: b.y - 8 + 'px', width: b.l + 16 + 'px', height: b.h + 16 + 'px' } }); })(),
                     selection.i === i && selection.n.map((n) => { const b = boiteDe(i, n); return b && h('div', { key: 'sel' + n, className: 'selection-bloc', style: { left: b.x - 8 + 'px', top: b.y - 8 + 'px', width: b.l + 16 + 'px', height: b.h + 16 + 'px' } }); }),
-                    selection.i === i && selection.n.length === 1 && !apercu && (() => { const b = boiteDe(i, selection.n[0]); return b && h(Fragment, null,
-                      h('div', { className: 'poignee-redim', 'data-cote': 'g', title: 'Largeur', style: { left: b.x - 8 - 22 + 'px', top: b.y + b.h / 2 - 50 + 'px' } }),
-                      h('div', { className: 'poignee-redim', 'data-cote': 'd', title: 'Largeur', style: { left: b.x + b.l + 8 - 22 + 'px', top: b.y + b.h / 2 - 50 + 'px' } })); })(),
+                    selection.i === i && selection.n.length === 1 && (!apercu || apercu.cote) && (() => { const b = boiteDe(i, selection.n[0]); return b && h(Fragment, null,
+                      h('div', { className: cls('poignee-redim', apercu && apercu.cote === 'g' && 'actif'), 'data-cote': 'g', title: 'Largeur', style: { left: b.x - 8 + 'px', top: b.y + b.h / 2 + 'px' } }),
+                      h('div', { className: cls('poignee-redim', apercu && apercu.cote === 'd' && 'actif'), 'data-cote': 'd', title: 'Largeur', style: { left: b.x + b.l + 8 + 'px', top: b.y + b.h / 2 + 'px' } })); })(),
                     lasso && lasso.i === i && h('div', { className: 'lasso-blocs', style: { left: lasso.x + 'px', top: lasso.y + 'px', width: lasso.l + 'px', height: lasso.h + 'px' } }),
                     guides && guides.i === i && guides.gx !== null && h('div', { className: 'guide-v', style: { left: guides.gx + 'px' } }),
                     guides && guides.i === i && guides.gy !== null && h('div', { className: 'guide-h', style: { top: guides.gy + 'px' } }),

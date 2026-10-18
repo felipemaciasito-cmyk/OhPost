@@ -666,9 +666,21 @@ canvas.slide.editable { cursor: text; }
 
 /* ---------- Composition : blocs manipulés comme des objets ---------- */
 .calque { pointer-events: auto; touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; cursor: default; }
-.survol-bloc { position: absolute; border: 4px solid rgba(201, 212, 32, 0.55); border-radius: 8px; pointer-events: none; }
-.selection-bloc { position: absolute; border: 7px solid #C9D420; border-radius: 8px; box-shadow: 0 0 0 3px rgba(0, 20, 26, 0.35); touch-action: none; cursor: move; }
-.poignee-redim { position: absolute; width: 44px; height: 100px; border-radius: 22px; background: #FFFFFF; border: 7px solid #1F2400; box-shadow: 0 0 0 5px #C9D420; cursor: ew-resize; touch-action: none; z-index: 2; }
+/* Contour et poignées gardent la même taille à l'écran, quelle que soit la taille d'affichage de la slide (--inv = 1 / échelle). */
+.calque { --vert-selection: #C9D420; }
+.calque.sur-clair { --vert-selection: #7F8A00; }
+.survol-bloc { position: absolute; border: calc(1px * var(--inv, 1)) solid var(--vert-selection); opacity: 0.6; border-radius: calc(4px * var(--inv, 1)); pointer-events: none; }
+.selection-bloc { position: absolute; border: calc(1.5px * var(--inv, 1)) solid var(--vert-selection); border-radius: calc(4px * var(--inv, 1)); touch-action: none; cursor: move; }
+/* Poignée « Trait » : un trait vert posé sur le contour ; zone de prise invisible de 32 × 56 px pour le doigt. */
+.poignee-redim { position: absolute; width: calc(32px * var(--inv, 1)); height: calc(56px * var(--inv, 1)); transform: translate(-50%, -50%); cursor: ew-resize; touch-action: none; z-index: 2; }
+.poignee-redim::after {
+  content: ""; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: calc(3px * var(--inv, 1)); height: calc(18px * var(--inv, 1)); border-radius: calc(2px * var(--inv, 1));
+  background: var(--vert-selection); box-shadow: 0 0 0 calc(1px * var(--inv, 1)) rgba(0, 0, 0, 0.18);
+  transition: width 0.15s ease, height 0.15s ease;
+}
+.poignee-redim:hover::after, .poignee-redim.actif::after { width: calc(4px * var(--inv, 1)); height: calc(26px * var(--inv, 1)); }
+@media (prefers-reduced-motion: reduce) { .poignee-redim::after { transition: none; } }
 .lasso-blocs { position: absolute; border: 4px solid #FF3D8B; background: rgba(255, 61, 139, 0.1); pointer-events: none; }
 .guide-v, .guide-h { position: absolute; background: #FF3D8B; pointer-events: none; z-index: 3; }
 .guide-v { top: 0; bottom: 0; width: 4px; margin-left: -2px; }

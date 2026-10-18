@@ -232,6 +232,7 @@
       const ancre = useRef(null);
       const pop = useRef(null);
       const minuterie = useRef(null);
+      const apresRetour = useRef(false); // après « Retour », le survol ne rouvre pas le sous-menu tant que le pointeur n'est pas reparti
       useMiseEnPage(() => { if (ouvert && pop.current && ancre.current && parentRef.current) { const r = placerSousMenu(pop.current, ancre.current, parentRef.current); if (r !== remplace) setRemplace(r); } }, [ouvert, remplace]);
       useEffect(() => () => clearTimeout(minuterie.current), []);
       if (el.type === 'trait') return h('div', { className: 'trait-menu', role: 'separator' });
@@ -241,13 +242,13 @@
       if (el.type === 'sous') {
         return h('div', {
           className: 'sous-menu',
-          onPointerEnter: (e) => { if (e.pointerType === 'touch') return; clearTimeout(minuterie.current); minuterie.current = setTimeout(() => setOuvert(true), 80); },
-          onPointerLeave: (e) => { if (e.pointerType !== 'touch') clearTimeout(minuterie.current); },
+          onPointerEnter: (e) => { if (e.pointerType === 'touch' || apresRetour.current) return; clearTimeout(minuterie.current); minuterie.current = setTimeout(() => setOuvert(true), 80); },
+          onPointerLeave: (e) => { if (e.pointerType !== 'touch') { clearTimeout(minuterie.current); apresRetour.current = false; } },
         },
         h('button', { ref: ancre, type: 'button', className: 'item-menu', role: 'menuitem', 'aria-haspopup': 'true', 'aria-expanded': ouvert, onMouseDown: garder, onClick: () => setOuvert(!ouvert) },
           h('span', null, el.libelle), h('svg', { className: 'fleche-droite', viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d: 'M9 6l6 6-6 6', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' }))),
         ouvert && h('div', { ref: pop, className: 'popover-menu sous', role: 'menu', 'data-sous': el.libelle },
-          remplace && h('button', { type: 'button', className: 'item-menu retour', onMouseDown: garder, onClick: () => setOuvert(false) },
+          remplace && h('button', { type: 'button', className: 'item-menu retour', onMouseDown: garder, onClick: () => { apresRetour.current = true; setOuvert(false); } },
             h('svg', { className: 'icone', width: 18, height: 18, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d: 'M15 6l-6 6 6 6', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' })), el.libelle),
           el.contenu().map((x, k) => h(ElementMenu, { key: k, el: x, fermer, parentRef: pop }))));
       }
@@ -304,8 +305,28 @@
       const fond = M.fondsDe(charte.palette)[article.fond] || M.fondsDe(charte.palette).bleu;
       const fmt = M.FORMATS[article.format];
       const active = Math.min(etat.slide || 0, total - 1);
-      const compositions = useMemo(() => article.slides.map((s, k) => M.composer(s, article.format, article.fond, choisirPolice, { index: k, total, reglages, charte, logo })),
-        [article.slides, article.format, article.fond, choisirPolice, reglages, charte, logo, total]);
+      const [selection, setSelection] = useState({ i: null, n: [] });
+      const [apercu, setApercu] = useState(null); // la slide telle qu'elle est pendant un glisser (rien n'est enregistré avant le lâcher)
+      const [lasso, setLasso] = useState(null);
+      const [guides, setGuides] = useState(null);
+      const [survol, setSurvol] = useState(null);
+      const [cible, setCible] = useState(null);
+      const geste = useRef(null);
+      const dernierTapVide = useRef(null);
+      // Compositions : seule la slide qui change est recalculée (pendant un glisser, à chaque mouvement).
+      const slidesVues = apercu ? article.slides.map((s, kk) => (kk === apercu.i ? apercu.slide : s)) : article.slides;
+      const cache = useRef(null);
+      const cleCompo = [article.format, article.fond, total, logo].join('|');
+      if (!cache.current || cache.current.cle !== cleCompo || cache.current.choisirPolice !== choisirPolice || cache.current.reglages !== reglages || cache.current.charte !== charte) {
+        cache.current = { cle: cleCompo, choisirPolice, reglages, charte, carte: new WeakMap() };
+      }
+      const compositions = slidesVues.map((s, kk) => {
+        const memo = cache.current.carte.get(s);
+        if (memo && memo.kk === kk) return memo.c;
+        const c = M.composer(s, article.format, article.fond, choisirPolice, { index: kk, total, reglages, charte, logo });
+        cache.current.carte.set(s, { kk, c });
+        return c;
+      });
       const validees = article.alertesValidees || [];
       const toutes = M.controler(article, compositions, reglages);
       const alertes = toutes.filter((a) => !validees.includes(a.cle));
@@ -361,9 +382,14 @@
           if (!t.closest) return;
           if (!t.closest('.menus-composition, .popover-menu')) setMenu(null);
           if (!t.closest('.barre-flottante, .popover-menu')) setSousBarre(null);
-          if (!t.closest('.editeur-bloc, .menus-composition, .popover-menu, .barre-flottante, canvas.slide, .barre')) setEdition(null);
+          if (!t.closest('.editeur-bloc, .menus-composition, .popover-menu, .barre-flottante, .barre-blocs, .calque, .barre')) { setEdition(null); setSelection({ i: null, n: [] }); }
         };
-        const echap = (e) => { if (e.key === 'Escape') { if (menu || sousBarre) { setMenu(null); setSousBarre(null); } else setEdition(null); } };
+        const echap = (e) => {
+          if (e.key !== 'Escape') return;
+          if (menu || sousBarre) { setMenu(null); setSousBarre(null); return; }
+          const ed = vu.current.edition;
+          if (ed) { setEdition(null); setSelection({ i: ed.i, n: [ed.n] }); }
+        };
         racine.addEventListener('scroll', defiler, { passive: true });
         document.addEventListener('pointerdown', exterieur);
         document.addEventListener('keydown', echap);
@@ -371,15 +397,333 @@
       }, [menu, sousBarre]);
 
       /* ---------- Édition ---------- */
-      const ouvrirBloc = (i, n, depart) => { selRef.current = depart && depart.sel ? depart.sel : { debut: 0, fin: 0 }; setBarre(null); setEdition({ i, n, depart, cle: Date.now() }); dispatch({ type: 'slide', index: i }); };
-      function cliquer(i, x, y, e) {
-        dispatch({ type: 'slide', index: i });
-        const zones = compositions[i].elements.filter((z) => z.type === 'bloc');
-        const tol = 14;
-        const z = zones.find((b) => x >= b.x - tol && x <= b.x + b.l + tol && y >= b.y - tol && y <= b.y + b.h + tol);
-        if (z) ouvrirBloc(i, z.bloc, { point: { x: e.clientX, y: e.clientY } });
-        else setEdition(null);
+      const ouvrirBloc = (i, n, depart) => { selRef.current = depart && depart.sel ? depart.sel : { debut: 0, fin: 0 }; setBarre(null); setSelection({ i: null, n: [] }); setEdition({ i, n, depart, cle: Date.now() }); dispatch({ type: 'slide', index: i }); };
+      const vu = useRef({});
+      vu.current = { article, compositions, selection, k, fmt, edition };
+      const coordonnees = (e, i) => {
+        const cal = pagesRef.current && pagesRef.current.querySelector(`.page-slide[data-index="${i}"] .calque`);
+        const r = cal.getBoundingClientRect();
+        return { x: (e.clientX - r.left) / vu.current.k, y: (e.clientY - r.top) / vu.current.k };
+      };
+      const zonesDe = (i) => ((vu.current.compositions[i] || { elements: [] }).elements.filter((z) => z.type === 'bloc'));
+      const boiteDe = (i, n, cs) => {
+        const zs = (cs ? cs[i].elements.filter((z) => z.type === 'bloc') : zonesDe(i)).filter((z) => z.bloc === n);
+        if (!zs.length) return null;
+        const x = Math.min(...zs.map((z) => z.x)); const y = Math.min(...zs.map((z) => z.y));
+        return { x, y, l: Math.max(...zs.map((z) => z.x + z.l)) - x, h: Math.max(...zs.map((z) => z.y + z.h)) - y };
+      };
+      // Le bloc sous le pointeur ; s'il y en a plusieurs (superposés), le plus petit.
+      const blocAuPoint = (i, p) => {
+        let meilleur = null;
+        for (const z of zonesDe(i)) {
+          if (p.x >= z.x - 10 && p.x <= z.x + z.l + 10 && p.y >= z.y - 10 && p.y <= z.y + z.h + 10 && (!meilleur || z.l * z.h < meilleur.aire)) meilleur = { n: z.bloc, aire: z.l * z.h };
+        }
+        return meilleur ? meilleur.n : null;
+      };
+      const basculerSelection = (i, n) => setSelection((sel) => (sel.i === i ? { i, n: sel.n.includes(n) ? sel.n.filter((x) => x !== n) : [...sel.n, n] } : { i, n: [n] }));
+      // Repères magnétiques : marges de la charte, centre de la slide, bords et centres des autres blocs.
+      function aimanter(boite, autres) {
+        const { fmt: f } = vu.current;
+        const vx = [M.MARGES.gauche, f.l / 2, f.l - M.MARGES.droite, ...autres.flatMap((o) => [o.x, o.x + o.l, o.x + o.l / 2])];
+        const hy = [M.MARGES.haute, f.h / 2, f.h - M.MARGES.basse, ...autres.flatMap((o) => [o.y, o.y + o.h, o.y + o.h / 2])];
+        const seuil = 12;
+        let ax = 0; let ay = 0; let gx = null; let gy = null; let mx = seuil + 1; let my = seuil + 1;
+        for (const bord of [boite.x, boite.x + boite.l / 2, boite.x + boite.l]) for (const v of vx) if (Math.abs(v - bord) < Math.abs(mx)) { mx = v - bord; gx = v; }
+        for (const bord of [boite.y, boite.y + boite.h / 2, boite.y + boite.h]) for (const v of hy) if (Math.abs(v - bord) < Math.abs(my)) { my = v - bord; gy = v; }
+        if (Math.abs(mx) <= seuil) ax = mx; else gx = null;
+        if (Math.abs(my) <= seuil) ay = my; else gy = null;
+        return { ax, ay, gx, gy };
       }
+      // Écouteurs du document : des fonctions stables qui appellent toujours la version à jour des gestionnaires
+      // (sinon un écouteur d'un rendu précédent resterait branché et traiterait le geste à la place du bon).
+      const gestionnaires = useRef({});
+      gestionnaires.current = { pendant: (e) => pendantPointeur(e), fin: (e) => finPointeur(e), annuler: () => annulerPointeur() };
+      const stables = useRef(null);
+      if (!stables.current) stables.current = { pendant: (e) => gestionnaires.current.pendant(e), fin: (e) => gestionnaires.current.fin(e), annuler: () => gestionnaires.current.annuler() };
+      const ecouter = () => { document.addEventListener('pointermove', stables.current.pendant); document.addEventListener('pointerup', stables.current.fin); document.addEventListener('pointercancel', stables.current.annuler); };
+      const arreter = () => { document.removeEventListener('pointermove', stables.current.pendant); document.removeEventListener('pointerup', stables.current.fin); document.removeEventListener('pointercancel', stables.current.annuler); };
+      useEffect(() => () => arreter(), []);
+      function debutPointeur(e, i) {
+        if (e.target.closest('.editeur-bloc')) return;
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        const p = coordonnees(e, i);
+        const cote = e.target.dataset ? e.target.dataset.cote : undefined;
+        const n = cote ? selection.n[0] : blocAuPoint(i, p);
+        const tactile = e.pointerType === 'touch';
+        if (n !== null || cote) e.preventDefault(); // pas de sélection de texte par le navigateur
+        if (edition && !(edition.i === i && edition.n === n)) setEdition(null);
+        const g = { type: cote ? 'redim' : n !== null ? 'bloc' : 'vide', i, n, cote, x0: e.clientX, y0: e.clientY, p0: p, bouge: false, tactile, mod: e.shiftKey || e.metaKey || e.ctrlKey };
+        // Au doigt : un appui long ajoute le bloc à la sélection.
+        if (tactile && n !== null && !cote) g.minuterie = setTimeout(() => { if (!g.bouge && geste.current === g) { g.appuiLong = true; basculerSelection(i, n); if (navigator.vibrate) navigator.vibrate(10); } }, 450);
+        geste.current = g;
+        ecouter();
+      }
+      function commencerGlisser(g) {
+        const { article: a, compositions: cs, selection: sel } = vu.current;
+        const slide = a.slides[g.i];
+        if (g.type === 'bloc' && !(sel.i === g.i && sel.n.includes(g.n))) { setSelection({ i: g.i, n: [g.n] }); g.indices = [g.n]; } else g.indices = g.type === 'redim' ? [g.n] : sel.n.slice();
+        g.base = slide.libre ? slide : M.figerSlide(slide, cs[g.i]);
+        g.depart = g.indices.map((n) => ({ n, pos: g.base.blocs[n] && g.base.blocs[n].pos ? { ...g.base.blocs[n].pos } : null, boite: boiteDe(g.i, n, cs) })).filter((d) => d.pos && d.boite);
+        g.autres = cs[g.i].elements.filter((z) => z.type === 'bloc' && !g.indices.includes(z.bloc));
+        g.k = vu.current.k;
+        setApercu({ i: g.i, slide: g.base });
+        setMenu(null); setBarre(null); setSurvol(null);
+      }
+      function pendantPointeur(e) {
+        const g = geste.current;
+        if (!g) return;
+        if (!g.bouge) {
+          if (Math.hypot(e.clientX - g.x0, e.clientY - g.y0) < 5) return;
+          const sel = vu.current.selection;
+          // Au doigt, glisser sur le vide ou sur un bloc non sélectionné fait défiler la page.
+          if (g.tactile && (g.type === 'vide' || (g.type === 'bloc' && !(sel.i === g.i && sel.n.includes(g.n))))) { clearTimeout(g.minuterie); arreter(); geste.current = null; return; }
+          g.bouge = true;
+          clearTimeout(g.minuterie);
+          if (g.type === 'bloc' || g.type === 'redim') commencerGlisser(g);
+        }
+        g.dernier = { clientX: e.clientX, clientY: e.clientY };
+        if (g.type === 'bloc') { glisser(g); defilerAuBord(g); } else if (g.type === 'redim') redimensionner(g); else if (g.type === 'vide') tracerLasso(g);
+      }
+      function glisser(g) {
+        if (!g.depart.length) return;
+        const dx = (g.dernier.clientX - g.x0) / g.k;
+        const dy = (g.dernier.clientY - g.y0) / g.k;
+        const sous = document.elementsFromPoint(g.dernier.clientX, g.dernier.clientY).find((x) => x.classList && x.classList.contains('calque'));
+        const ici = sous ? Number(sous.closest('.page-slide').dataset.index) : g.i;
+        g.cible = ici;
+        if (ici !== g.i) { setGuides(null); setCible(ici); setApercu({ i: g.i, slide: g.base }); g.final = null; return; }
+        setCible(null);
+        const bs = g.depart.map((d) => d.boite);
+        const x0 = Math.min(...bs.map((b) => b.x)); const y0 = Math.min(...bs.map((b) => b.y));
+        const boite = { x: x0 + dx, y: y0 + dy, l: Math.max(...bs.map((b) => b.x + b.l)) - x0, h: Math.max(...bs.map((b) => b.y + b.h)) - y0 };
+        const a = aimanter(boite, g.autres);
+        const mx = Math.round(dx + a.ax); const my = Math.round(dy + a.ay);
+        const slide = { ...g.base, blocs: g.base.blocs.map((b, n) => { const d = g.depart.find((x) => x.n === n); return d ? { ...b, pos: { ...d.pos, x: d.pos.x + mx, y: d.pos.y + my } } : b; }) };
+        g.final = slide;
+        setApercu({ i: g.i, slide });
+        setGuides({ i: g.i, gx: a.gx, gy: a.gy });
+      }
+      function redimensionner(g) {
+        const d = g.depart[0];
+        if (!d) return;
+        const dx = (g.dernier.clientX - g.x0) / g.k;
+        let x = d.pos.x; let l = d.pos.l;
+        if (g.cote === 'd') l = Math.max(160, d.pos.l + dx);
+        else { l = Math.max(160, d.pos.l - dx); x = d.pos.x + d.pos.l - l; }
+        const a = aimanter(g.cote === 'd' ? { x: x + l, y: -999, l: 0, h: 0 } : { x, y: -999, l: 0, h: 0 }, g.autres);
+        if (g.cote === 'd') l += a.ax; else { x += a.ax; l -= a.ax; }
+        const slide = { ...g.base, blocs: g.base.blocs.map((b, n) => (n === d.n ? { ...b, pos: { ...b.pos, x: Math.round(x), l: Math.round(l) } } : b)) };
+        g.final = slide;
+        setApercu({ i: g.i, slide });
+        setGuides({ i: g.i, gx: a.gx, gy: null });
+      }
+      function tracerLasso(g) {
+        const p = coordonnees(g.dernier, g.i);
+        const x = Math.min(p.x, g.p0.x); const y = Math.min(p.y, g.p0.y);
+        g.boite = { x, y, l: Math.abs(p.x - g.p0.x), h: Math.abs(p.y - g.p0.y) };
+        setLasso({ i: g.i, ...g.boite });
+      }
+      // En glissant un bloc près du bord de l'écran, la page défile (pour l'emmener sur une autre slide).
+      function defilerAuBord(g) {
+        if (g.boucle) return;
+        const pas = () => {
+          if (geste.current !== g || !g.bouge || !g.dernier) { g.boucle = null; return; }
+          const y = g.dernier.clientY;
+          const haut = 140;
+          const v = y > racine.innerHeight - 70 ? Math.min(26, (y - (racine.innerHeight - 70)) / 2 + 6) : y < haut ? -Math.min(26, (haut - y) / 2 + 6) : 0;
+          if (!v) { g.boucle = null; return; }
+          racine.scrollBy(0, v);
+          g.y0 -= v;
+          glisser(g);
+          g.boucle = racine.requestAnimationFrame(pas);
+        };
+        g.boucle = racine.requestAnimationFrame(pas);
+      }
+      function finPointeur(e) {
+        const g = geste.current;
+        arreter();
+        geste.current = null;
+        if (!g) return;
+        clearTimeout(g.minuterie);
+        setGuides(null); setCible(null);
+        if (!g.bouge) {
+          if (g.type === 'bloc') {
+            if (g.appuiLong) return;
+            const sel = vu.current.selection;
+            if (g.mod) { basculerSelection(g.i, g.n); dispatch({ type: 'slide', index: g.i }); return; }
+            // Un bloc déjà sélectionné, touché à nouveau : il s'ouvre en écriture, curseur à l'endroit touché.
+            if (sel.i === g.i && sel.n.length === 1 && sel.n[0] === g.n) { ouvrirBloc(g.i, g.n, { point: { x: e.clientX, y: e.clientY } }); return; }
+            setSelection({ i: g.i, n: [g.n] });
+            dispatch({ type: 'slide', index: g.i });
+            return;
+          }
+          if (g.type === 'vide') {
+            // Deux clics (ou deux touchers) rapprochés sur le vide : un nouveau bloc à cet endroit.
+            const t = Date.now();
+            const d = dernierTapVide.current;
+            if (d && d.i === g.i && t - d.t < 380 && Math.hypot(d.p.x - g.p0.x, d.p.y - g.p0.y) < 40) { dernierTapVide.current = null; creerBlocAuPoint(g.i, g.p0); return; }
+            dernierTapVide.current = { t, i: g.i, p: g.p0 };
+            setSelection({ i: null, n: [] });
+            setEdition(null);
+            dispatch({ type: 'slide', index: g.i });
+          }
+          return;
+        }
+        if (g.type === 'bloc') {
+          if (g.cible !== undefined && g.cible !== g.i) poserSurSlide(g, e);
+          else if (g.final) majA(OP.slide(g.i, g.final), null, g.indices.length > 1 ? `${g.indices.length} blocs déplacés.` : 'Bloc déplacé.');
+          setApercu(null);
+          return;
+        }
+        if (g.type === 'redim') { if (g.final) majA(OP.slide(g.i, g.final), null, 'Largeur du bloc modifiée.'); setApercu(null); return; }
+        if (g.type === 'vide') {
+          setLasso(null);
+          const b = g.boite;
+          if (!b) return;
+          const choisis = [...new Set(zonesDe(g.i).filter((z) => z.x < b.x + b.l && z.x + z.l > b.x && z.y < b.y + b.h && z.y + z.h > b.y).map((z) => z.bloc))];
+          setSelection(choisis.length ? { i: g.i, n: choisis } : { i: null, n: [] });
+          dispatch({ type: 'slide', index: g.i });
+        }
+      }
+      function annulerPointeur() {
+        const g = geste.current;
+        arreter();
+        geste.current = null;
+        if (g) clearTimeout(g.minuterie);
+        setApercu(null); setGuides(null); setLasso(null); setCible(null);
+      }
+      // Lâcher sur une autre slide : le groupe y est posé à l'endroit visé (elle passe en mise en page libre).
+      function poserSurSlide(g, e) {
+        const { article: a, compositions: cs } = vu.current;
+        const j = g.cible;
+        const baseJ = a.slides[j].libre ? a.slides[j] : M.figerSlide(a.slides[j], cs[j]);
+        const pj = coordonnees(e, j);
+        const x0 = Math.min(...g.depart.map((d) => d.pos.x)); const y0 = Math.min(...g.depart.map((d) => d.pos.y));
+        const prise = { x: g.p0.x - x0, y: g.p0.y - y0 };
+        const positions = g.depart.map((d) => ({ ...d.pos, x: Math.round(pj.x - prise.x + d.pos.x - x0), y: Math.round(pj.y - prise.y + d.pos.y - y0) }));
+        const indices = g.depart.map((d) => d.n);
+        const nbAvant = baseJ.blocs.length;
+        majA(OP.envoyerSurSlide(g.i, indices, j, positions, g.base, baseJ), null, `${indices.length > 1 ? indices.length + ' blocs envoyés' : 'Bloc envoyé'} sur la slide ${j + 1}.`);
+        const resteDansSource = a.slides[g.i].blocs.length - indices.length;
+        const jFinal = resteDansSource === 0 && j > g.i ? j - 1 : j;
+        setSelection({ i: jFinal, n: indices.map((_, q) => nbAvant + q) });
+        dispatch({ type: 'slide', index: jFinal });
+      }
+      function creerBlocAuPoint(i, p) {
+        const { compositions: cs, fmt: f } = vu.current;
+        const nb = article.slides[i].blocs.length;
+        const l = Math.max(240, Math.min(620, f.l - M.MARGES.droite - p.x));
+        majA((a) => {
+          let x = a;
+          if (!x.slides[i].libre) x = OP.slide(i, M.figerSlide(x.slides[i], cs[i]))(x);
+          x = L.insererParagrapheApres(x, i, nb - 1, 'Nouveau texte');
+          return { ...x, slides: x.slides.map((sl, kk) => (kk !== i ? sl : { ...sl, blocs: sl.blocs.map((b, n) => (n === nb ? { ...b, pos: { x: Math.round(p.x), y: Math.round(p.y), l: Math.round(l) } } : b)) })) };
+        }, null, 'Nouveau bloc : écris ton texte.');
+        ouvrirBloc(i, nb, { sel: { debut: 0, fin: 'Nouveau texte'.length } });
+      }
+
+      /* ---------- Actions sur les blocs sélectionnés ---------- */
+      const ordreDeLecture = (i, indices) => [...indices].sort((p, q) => { const a = boiteDe(i, p) || { x: 0, y: 0 }; const b = boiteDe(i, q) || { x: 0, y: 0 }; return a.y - b.y || a.x - b.x; });
+      const figeeOuActuelle = (i) => (article.slides[i].libre ? article.slides[i] : M.figerSlide(article.slides[i], compositions[i]));
+      const actionsBlocs = {
+        fusionner() {
+          const { i, n } = selection;
+          if (n.length < 2) return;
+          const ordre = ordreDeLecture(i, n);
+          majA(OP.fusionnerPlusieurs(i, ordre), null, `${n.length} blocs fusionnés en un seul paragraphe, aussi dans le texte de l’article.`);
+          setSelection({ i, n: [Math.min(...n)] });
+        },
+        dupliquer() {
+          const { i, n } = selection;
+          const tries = [...n].sort((p, q) => p - q);
+          majA(OP.dupliquerBlocs(i, tries), null, n.length > 1 ? `${n.length} blocs dupliqués.` : 'Bloc dupliqué.');
+          setSelection({ i, n: tries.map((x, q) => x + 1 + q) });
+        },
+        nouveau() {
+          const i = selection.i !== null ? selection.i : active;
+          const apres = selection.n.length ? Math.max(...selection.n) : article.slides[i].blocs.length - 1;
+          const boite = boiteDe(i, apres);
+          majA((a) => {
+            let x = L.insererParagrapheApres(a, i, apres, 'Nouveau texte');
+            const s = x.slides[i];
+            if (s.libre && boite) x = { ...x, slides: x.slides.map((sl, kk) => (kk !== i ? sl : { ...sl, blocs: sl.blocs.map((b, m) => (m === apres + 1 ? { ...b, pos: { x: Math.round(boite.x), y: Math.round(boite.y + boite.h + 40), l: Math.round(boite.l) } } : b)) })) };
+            return x;
+          }, null, 'Nouveau bloc, aussi dans le texte de l’article.');
+          ouvrirBloc(i, apres + 1, { sel: { debut: 0, fin: 'Nouveau texte'.length } });
+        },
+        supprimer() {
+          const { i, n } = selection;
+          if (!n.length) return;
+          const vide = article.slides[i].blocs.length === n.length && total > 1;
+          majA((a) => { const x = OP.supprimerBlocs(i, n)(a); return vide ? { ...x, slides: x.slides.filter((_, kk) => kk !== i) } : x; }, null,
+            `${n.length > 1 ? n.length + ' blocs supprimés' : 'Bloc supprimé'}, avec leur texte dans l’article.${vide ? ' La slide, vide, a été retirée.' : ''}`);
+          setSelection({ i: null, n: [] });
+        },
+        aligner(mode) {
+          const { i, n } = selection;
+          if (!n.length) return;
+          const base = figeeOuActuelle(i);
+          const boites = Object.fromEntries(n.map((x) => [x, boiteDe(i, x)]));
+          const gauche = Math.min(...n.map((x) => base.blocs[x].pos.x));
+          let blocs = base.blocs.map((b, m) => {
+            if (!n.includes(m) || !b.pos) return b;
+            const p = { ...b.pos };
+            if (mode === 'marge') p.x = M.MARGES.gauche;
+            else if (mode === 'centre') p.x = Math.round((fmt.l - p.l) / 2);
+            else if (mode === 'droite') p.x = fmt.l - M.MARGES.droite - p.l;
+            else if (mode === 'entre') p.x = gauche;
+            return { ...b, pos: p };
+          });
+          if (mode === 'repartir' && n.length > 2) {
+            const tries = [...n].sort((p, q) => blocs[p].pos.y - blocs[q].pos.y);
+            const hauteurs = tries.map((x) => (boites[x] ? boites[x].h : 0));
+            const debut = blocs[tries[0]].pos.y;
+            const fin = blocs[tries[tries.length - 1]].pos.y + hauteurs[hauteurs.length - 1];
+            const vide = (fin - debut - hauteurs.reduce((a, b) => a + b, 0)) / (tries.length - 1);
+            let y = debut;
+            const nouvellesY = {};
+            tries.forEach((x, q) => { nouvellesY[x] = Math.round(y); y += hauteurs[q] + vide; });
+            blocs = blocs.map((b, m) => (nouvellesY[m] !== undefined ? { ...b, pos: { ...b.pos, y: nouvellesY[m] } } : b));
+          }
+          majA(OP.slide(i, { ...base, blocs }), null, 'Blocs alignés.');
+        },
+        revenir(i) {
+          majA(OP.slide(i, M.revenirAuGabarit(article.slides[i])), null, `Slide ${i + 1} : mise en page du gabarit rétablie.`);
+          setSelection({ i: null, n: [] });
+        },
+        pousser(dx, dy) {
+          const { i, n } = selection;
+          const base = figeeOuActuelle(i);
+          majA(OP.slide(i, { ...base, blocs: base.blocs.map((b, m) => (n.includes(m) && b.pos ? { ...b, pos: { ...b.pos, x: b.pos.x + dx, y: b.pos.y + dy } } : b)) }), `pousser-${i}`);
+        },
+        toutSelectionner(i) { setEdition(null); setSelection({ i, n: article.slides[i].blocs.map((_, m) => m).filter((m) => article.slides[i].blocs[m].texte.trim()) }); },
+      };
+      // La sélection ne survit pas à une slide qui change de nombre de blocs (annulation, synchronisation…).
+      useEffect(() => {
+        if (selection.i === null) return;
+        const s = article.slides[selection.i];
+        if (!s || selection.n.some((n) => n >= s.blocs.length)) setSelection({ i: null, n: [] });
+      }, [article.slides]);
+      // Clavier, hors écriture : ⌫ supprime, flèches déplacent (⇧ : de 10), ↩ écrit, ⌘A sélectionne tout, Échap désélectionne.
+      useEffect(() => {
+        const touche = (e) => {
+          if (edition || (e.target.closest && e.target.closest('input, textarea, select, [contenteditable="true"]'))) return;
+          const mod = e.metaKey || e.ctrlKey;
+          if (mod && e.key.toLowerCase() === 'a') { e.preventDefault(); actionsBlocs.toutSelectionner(selection.i !== null ? selection.i : active); return; }
+          if (!selection.n.length) return;
+          if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); actionsBlocs.supprimer(); }
+          else if (e.key === 'Escape') setSelection({ i: null, n: [] });
+          else if (e.key === 'Enter' && selection.n.length === 1) { e.preventDefault(); const b = article.slides[selection.i].blocs[selection.n[0]]; ouvrirBloc(selection.i, selection.n[0], { sel: { debut: b.texte.length, fin: b.texte.length } }); }
+          else if (e.key.startsWith('Arrow') && !mod) {
+            e.preventDefault();
+            const pas = e.shiftKey ? 10 : 1;
+            actionsBlocs.pousser(e.key === 'ArrowLeft' ? -pas : e.key === 'ArrowRight' ? pas : 0, e.key === 'ArrowUp' ? -pas : e.key === 'ArrowDown' ? pas : 0);
+          }
+        };
+        document.addEventListener('keydown', touche);
+        return () => document.removeEventListener('keydown', touche);
+      });
+
       const ecrire = (texte) => {
         if (!edition || !blocCourant) return;
         const { i, n } = edition;
@@ -444,35 +788,36 @@
         precedente.current = edition;
         if (p && (!edition || edition.i !== p.i || edition.n !== p.n)) {
           const b = article.slides[p.i] && article.slides[p.i].blocs[p.n];
-          if (b && !b.texte.trim() && article.slides[p.i].blocs.length > 1) majA(OP.supprimerBloc(p.i, p.n));
+          if (b && !b.texte.trim() && article.slides[p.i].blocs.length > 1) majA(OP.supprimerBlocs(p.i, [p.n]));
         }
       }, [edition]);
 
       /* ---------- Mise en forme ---------- */
-      const exigerBloc = () => { if (!blocCourant) { dispatch({ type: 'message', message: 'Clique d’abord dans un paragraphe d’une slide.' }); return false; } return true; };
       const plage = () => { const { debut, fin } = selRef.current; return fin > debut ? [debut, Math.min(fin, blocCourant.texte.length)] : [0, blocCourant.texte.length]; };
+      // Les cibles d'une mise en forme : le passage sélectionné dans le paragraphe en écriture, sinon les blocs sélectionnés, entiers.
+      const cibles = () => {
+        if (edition && blocCourant) { const [d, f] = plage(); return [{ i: edition.i, n: edition.n, d, f, b: blocCourant }]; }
+        if (selection.i !== null && article.slides[selection.i]) return selection.n.map((n) => article.slides[selection.i].blocs[n]).map((b, q) => (b ? { i: selection.i, n: selection.n[q], d: 0, f: b.texte.length, b } : null)).filter(Boolean);
+        return [];
+      };
+      const exigerBloc = () => { if (!cibles().length) { dispatch({ type: 'message', message: 'Sélectionne un bloc, ou clique dans un paragraphe d’une slide.' }); return false; } return true; };
       const apresForme = () => setVersion((v) => v + 1);
+      const appliquer = (fabriquer, annonce, groupe) => { const cs = cibles(); majA((a) => cs.reduce((x, c) => fabriquer(c)(x), a), groupe || null, annonce); apresForme(); };
       function basculer(cle) {
         if (!exigerBloc()) return;
-        const base = cle === 'gras' ? NATURES_GRASSES.includes(blocCourant.style) : false;
-        const [debut, fin] = plage();
-        const actif = L.partoutVrai(blocCourant.marques, debut, fin, cle, base);
-        majA(OP.formater(edition.i, edition.n, debut, fin, { [cle]: !actif === base ? null : !actif }));
-        apresForme();
+        const cs = cibles();
+        const base = (b) => (cle === 'gras' ? NATURES_GRASSES.includes(b.style) : false);
+        const actif = cs.every((c) => L.partoutVrai(c.b.marques, c.d, c.f, cle, base(c.b)));
+        appliquer((c) => OP.formater(c.i, c.n, c.d, c.f, { [cle]: !actif === base(c.b) ? null : !actif }));
       }
-      function formater(changement, annonce) {
-        if (!exigerBloc()) return;
-        const [debut, fin] = plage();
-        majA(OP.formater(edition.i, edition.n, debut, fin, changement), null, annonce);
-        apresForme();
-      }
-      function paragraphe(champs) {
-        if (!exigerBloc()) return;
-        majA(OP.paragraphe(edition.i, edition.n, champs));
-        apresForme();
-      }
+      function formater(changement, annonce) { if (exigerBloc()) appliquer((c) => OP.formater(c.i, c.n, c.d, c.f, changement), annonce); }
+      function paragraphe(champs) { if (exigerBloc()) appliquer((c) => OP.paragraphe(c.i, c.n, typeof champs === 'function' ? champs(c) : champs)); }
       const etatSel = () => {
-        if (!blocCourant) return {};
+        if (!blocCourant) {
+          const c = cibles()[0];
+          if (!c) return {};
+          return { gras: L.partoutVrai(c.b.marques, 0, c.f, 'gras', NATURES_GRASSES.includes(c.b.style)), italique: L.partoutVrai(c.b.marques, 0, c.f, 'italique', false), souligne: L.partoutVrai(c.b.marques, 0, c.f, 'souligne', false), style: c.b.style, alignement: c.b.alignement, filet: c.b.filet };
+        }
         const [debut, fin] = plage();
         const base = NATURES_GRASSES.includes(blocCourant.style);
         const tailles = [...new Set((blocCourant.marques || []).filter((m) => m.debut < fin && m.fin > debut).map((m) => m.taille || 0))];
@@ -485,10 +830,17 @@
       };
       const st = etatSel();
       const presets = [['Petit', Math.round(charte.tailleTexte * 0.85)], ['Texte', charte.tailleTexte], ['Moyen', Math.round(charte.tailleTexte * 1.5)], ['Grand', Math.round(charte.tailleTitre * 0.75)], ['Titre', charte.tailleTitre]];
-      const aligner = (a) => paragraphe({ alignement: a === (M.gabaritParDefaut(article.slides[edition.i], edition.i) === 'F1' ? 'centre' : 'gauche') ? null : a });
-      const basculerFilet = () => { const parDefaut = blocCourant.style === 'citation' && !!fond.filet && ['T1', 'T3', 'T5'].includes(M.gabaritParDefaut(article.slides[edition.i], edition.i)); paragraphe({ filet: !st.filet === parDefaut ? null : !st.filet }); };
-      const effacer = () => { const { debut, fin } = selRef.current; formater({ gras: null, italique: null, souligne: null, taille: null, couleur: null }); if (fin <= debut) paragraphe({ alignement: null, filet: null }); };
-      const natureDe = (n) => { if (!exigerBloc()) return; majA(OP.modifierBloc(edition.i, edition.n, { style: n })); apresForme(); };
+      const parDefautF1 = (c) => (M.gabaritParDefaut(article.slides[c.i], c.i) === 'F1' ? 'centre' : 'gauche');
+      const filetParDefaut = (c) => c.b.style === 'citation' && !!fond.filet && ['T1', 'T3', 'T5'].includes(M.gabaritParDefaut(article.slides[c.i], c.i));
+      const aligner = (a) => paragraphe((c) => ({ alignement: a === parDefautF1(c) ? null : a }));
+      const basculerFilet = () => {
+        if (!exigerBloc()) return;
+        const actuel = (c) => (c.b.filet !== undefined ? c.b.filet : filetParDefaut(c));
+        const tous = cibles().every(actuel);
+        paragraphe((c) => ({ filet: !tous === filetParDefaut(c) ? null : !tous }));
+      };
+      const effacer = () => { const enEcriture = !!blocCourant; const { debut, fin } = selRef.current; formater({ gras: null, italique: null, souligne: null, taille: null, couleur: null }); if (!enEcriture || fin <= debut) paragraphe({ alignement: null, filet: null }); };
+      const natureDe = (n) => { if (exigerBloc()) appliquer((c) => OP.modifierBloc(c.i, c.n, { style: n })); };
 
       /* ---------- Contenus des menus ---------- */
       const item = (libelle, action, extra = {}) => ({ type: 'action', libelle, action, ...extra });
@@ -567,6 +919,7 @@
           item('Couper', presse('cut'), { raccourci: '⌘X', desactive: !blocCourant }), item('Copier', presse('copy'), { raccourci: '⌘C', desactive: !blocCourant }), item('Coller', presse('coller'), { raccourci: '⌘V', desactive: !blocCourant }),
           trait,
           item('Tout sélectionner dans le paragraphe', presse('tout'), { raccourci: '⌘A', desactive: !blocCourant }),
+          item('Sélectionner tous les blocs de la slide', () => actionsBlocs.toutSelectionner(active), { raccourci: blocCourant ? '' : '⌘A' }),
         ] },
         { nom: 'Affichage', contenu: () => [
           { type: 'sous', libelle: 'Taille des slides', contenu: () => [['petites', 'Petites'], ['moyennes', 'Moyennes'], ['grandes', 'Grandes']].map(([v, nom]) => item(nom, () => { setTailleEcran(v); ecrirePref('postsop-taille-slides', v); }, coche(tailleEcran === v))) },
@@ -575,6 +928,8 @@
           { type: 'sous', libelle: 'Aller à la slide', contenu: () => article.slides.map((s, i) => item(`Slide ${i + 1}`, () => allerA(i), { raccourci: nomGabarit(M.gabaritParDefaut(s, i)), coche: active === i })) },
         ] },
         { nom: 'Insertion', contenu: () => [
+          item('Bloc de texte', actionsBlocs.nouveau),
+          { type: 'note', texte: 'Ou double-clique sur le vide d’une slide pour créer un bloc à cet endroit.' },
           item('Nouveau paragraphe', nouveauParagraphe, { raccourci: '↩' }),
           item('Saut de slide', sautDeSlide, { raccourci: '⌘↩' }),
           { type: 'note', texte: 'Le texte qui suit le curseur part sur une nouvelle slide.' },
@@ -595,7 +950,28 @@
           trait,
           item('Effacer la mise en forme', () => (blocCourant ? effacer() : exigerBloc())),
         ] },
+        { nom: 'Bloc', contenu: () => {
+          const n = selection.n.length;
+          const ici = selection.i !== null ? selection.i : active;
+          return [
+            ...(n ? [] : [{ type: 'note', texte: 'Clique sur un bloc pour le sélectionner ; ⇧ ou ⌘ + clic, ou un rectangle tracé sur le vide, pour en prendre plusieurs.' }]),
+            item('Fusionner', actionsBlocs.fusionner, { desactive: n < 2 }),
+            item('Dupliquer', actionsBlocs.dupliquer, { desactive: !n }),
+            item('Nouveau bloc après', actionsBlocs.nouveau),
+            { type: 'sous', libelle: 'Aligner', contenu: () => [
+              { type: 'titre', libelle: 'Sur la slide' },
+              item('Sur la marge de gauche', () => actionsBlocs.aligner('marge'), { desactive: !n }), item('Centrer sur la slide', () => actionsBlocs.aligner('centre'), { desactive: !n }), item('Sur la marge de droite', () => actionsBlocs.aligner('droite'), { desactive: !n }),
+              { type: 'titre', libelle: 'Entre les blocs sélectionnés' },
+              item('Aligner leurs bords gauches', () => actionsBlocs.aligner('entre'), { desactive: n < 2 }), item('Répartir verticalement', () => actionsBlocs.aligner('repartir'), { desactive: n < 3 }),
+            ] },
+            trait,
+            item('Supprimer', actionsBlocs.supprimer, { raccourci: '⌫', danger: true, desactive: !n }),
+            trait,
+            item('Revenir au gabarit', () => actionsBlocs.revenir(ici), { desactive: !article.slides[ici].libre }),
+          ];
+        } },
         { nom: 'Slide', titre: `Slide ${active + 1}`, contenu: () => [
+          ...(article.slides[active].libre ? [item('Revenir au gabarit', () => actionsBlocs.revenir(active)), { type: 'note', texte: 'La slide reprend sa mise en page automatique : marges, espacements et alignements de la charte.' }, trait] : []),
           { type: 'sous', libelle: 'Gabarit', contenu: () => [{ type: 'libre', rendu: (fermer) => h(GalerieGabarits, { slide: article.slides[active], index: active, total, article, choisir: (g) => { fermer(); majA(OP.gabarit(active, g), null, `Gabarit « ${nomGabarit(g)} ».`); setEdition(null); } }) }] },
           trait,
           item('Dupliquer la slide', () => { majA(OP.dupliquerSlide(active), null, `Slide ${active + 1} dupliquée.`); dispatch({ type: 'slide', index: active + 1 }); }),
@@ -643,18 +1019,34 @@
                 h('span', { className: 'num' }, i + 1),
                 h('span', { className: 'gab' }, nomGabarit(g)),
                 h('span', { className: 'mots' }, `${mots} mots`),
-                c.deborde && h('span', { className: 'deborde' }, 'Déborde'),
-                s.echelle && s.echelle < 1 && h('span', { className: 'reduit' }, `Texte à ${Math.round(s.echelle * 100)} %`)),
-              h('div', { className: 'cadre-page', style: { width: largeurSlide + 'px', height: Math.round(largeurSlide * fmt.h / fmt.l) + 'px' } },
-                h(SlideCanvas, { slide: s, compo: c, formatId: article.format, fondId: article.fond, largeur: largeurSlide, index: i, total, logo, masquer: enEdition ? edition.n : undefined, onPointer: (x, y, e) => cliquer(i, x, y, e), etiquette: `Slide ${i + 1} : clique dans un paragraphe pour l’écrire` }),
-                h('div', { className: 'calque' },
+                c.deborde && h('span', { className: 'deborde' }, c.libre ? 'Texte coupé' : 'Déborde'),
+                s.echelle && s.echelle < 1 && h('span', { className: 'reduit' }, `Texte à ${Math.round(s.echelle * 100)} %`),
+                s.libre && h('span', { className: 'libre' }, 'Mise en page libre'),
+                s.libre && h('button', { type: 'button', className: 'lien-repere', onClick: (e) => { e.stopPropagation(); actionsBlocs.revenir(i); } }, 'Revenir au gabarit')),
+              h('div', { className: cls('cadre-page', cible === i && 'cible'), style: { width: largeurSlide + 'px', height: Math.round(largeurSlide * fmt.h / fmt.l) + 'px' } },
+                h(SlideCanvas, { slide: slidesVues[i], compo: c, formatId: article.format, fondId: article.fond, largeur: largeurSlide, index: i, total, logo, masquer: enEdition ? edition.n : undefined, etiquette: `Slide ${i + 1}` }),
+                h('div', {
+                  className: 'calque', 'data-index': i, role: 'group', 'aria-label': `Slide ${i + 1} : clique sur un bloc pour le sélectionner, clique à nouveau pour l’écrire`,
+                  onPointerDown: (e) => debutPointeur(e, i),
+                  onPointerMove: (e) => { if (geste.current || e.pointerType !== 'mouse') return; const n = blocAuPoint(i, coordonnees(e, i)); if (!survol || survol.i !== i || survol.n !== n) setSurvol(n === null ? null : { i, n }); },
+                  onPointerLeave: () => setSurvol(null),
+                },
                   h('div', { className: 'echelle', style: { width: fmt.l + 'px', height: fmt.h + 'px', transform: `scale(${k})` } },
-                    marges && h('div', { className: 'repere-marges', style: { left: M.MARGES.gauche + 'px', top: M.MARGES.haute + 'px', width: fmt.l - M.MARGES.gauche - M.MARGES.droite + 'px', height: fmt.h - M.MARGES.haute - M.MARGES.basse + 'px' } }),
+                    (marges || (guides && guides.i === i)) && h('div', { className: 'repere-marges', style: { left: M.MARGES.gauche + 'px', top: M.MARGES.haute + 'px', width: fmt.l - M.MARGES.gauche - M.MARGES.droite + 'px', height: fmt.h - M.MARGES.haute - M.MARGES.basse + 'px' } }),
+                    survol && survol.i === i && !(selection.i === i && selection.n.includes(survol.n)) && !(enEdition && edition.n === survol.n) && (() => { const b = boiteDe(i, survol.n); return b && h('div', { className: 'survol-bloc', style: { left: b.x - 8 + 'px', top: b.y - 8 + 'px', width: b.l + 16 + 'px', height: b.h + 16 + 'px' } }); })(),
+                    selection.i === i && selection.n.map((n) => { const b = boiteDe(i, n); return b && h('div', { key: 'sel' + n, className: 'selection-bloc', style: { left: b.x - 8 + 'px', top: b.y - 8 + 'px', width: b.l + 16 + 'px', height: b.h + 16 + 'px' } }); }),
+                    selection.i === i && selection.n.length === 1 && !apercu && (() => { const b = boiteDe(i, selection.n[0]); return b && h(Fragment, null,
+                      h('div', { className: 'poignee-redim', 'data-cote': 'g', title: 'Largeur', style: { left: b.x - 8 - 22 + 'px', top: b.y + b.h / 2 - 50 + 'px' } }),
+                      h('div', { className: 'poignee-redim', 'data-cote': 'd', title: 'Largeur', style: { left: b.x + b.l + 8 - 22 + 'px', top: b.y + b.h / 2 - 50 + 'px' } })); })(),
+                    lasso && lasso.i === i && h('div', { className: 'lasso-blocs', style: { left: lasso.x + 'px', top: lasso.y + 'px', width: lasso.l + 'px', height: lasso.h + 'px' } }),
+                    guides && guides.i === i && guides.gx !== null && h('div', { className: 'guide-v', style: { left: guides.gx + 'px' } }),
+                    guides && guides.i === i && guides.gy !== null && h('div', { className: 'guide-h', style: { top: guides.gy + 'px' } }),
                     enEdition && blocCourant && zoneAffichee && h(EditeurBloc, {
                       key: edition.cle, bloc: blocCourant, zone: zoneAffichee, fond, echelleSlide: s.echelle || 1, depart: edition.depart, version, refExterne: editeurRef,
                       onTexte: ecrire, onTouche: toucher,
                     })))));
           })),
+        selection.n.length > 0 && !apercu && !menu && !edition && h(BarreBlocs, { selection, boites: selection.n.map((n) => boiteDe(selection.i, n)).filter(Boolean), k, pagesRef, libre: !!(article.slides[selection.i] && article.slides[selection.i].libre), actions: actionsBlocs }),
         barre && blocCourant && !menu && h(BarreFlottante, {
           position: barre, st, deplie, setDeplie: (v) => { setDeplie(v); ecrirePref('postsop-barre-depliee', v ? 'oui' : 'non'); },
           presets, fond, natures: natures(), sous: sousBarre, setSous: setSousBarre,
@@ -666,6 +1058,53 @@
     /* ================================================================ */
     /* Petits composants                                                */
     /* ================================================================ */
+
+    // Barre d'actions des blocs sélectionnés : au-dessus de la sélection, sans contour (comme la barre de texte).
+    function BarreBlocs({ selection, boites, k, pagesRef, libre, actions }) {
+      const ref = useRef(null);
+      const refAligner = useRef(null);
+      const [aligner, setAligner] = useState(false);
+      const [pos, setPos] = useState({ left: -9999, top: -9999 });
+      const [, rafraichir] = useState(0);
+      useEffect(() => { const f = () => rafraichir((x) => x + 1); racine.addEventListener('scroll', f, { passive: true }); racine.addEventListener('resize', f); return () => { racine.removeEventListener('scroll', f); racine.removeEventListener('resize', f); }; }, []);
+      useMiseEnPage(() => {
+        const el = ref.current;
+        const cal = pagesRef.current && pagesRef.current.querySelector(`.page-slide[data-index="${selection.i}"] .calque`);
+        if (!el || !cal || !boites.length) return;
+        const r = cal.getBoundingClientRect();
+        const haut = r.top + Math.min(...boites.map((b) => b.y)) * k - 8 * k;
+        const bas = r.top + Math.max(...boites.map((b) => b.y + b.h)) * k + 8 * k;
+        const gauche = r.left + Math.min(...boites.map((b) => b.x)) * k;
+        const droite = r.left + Math.max(...boites.map((b) => b.x + b.l)) * k;
+        const l = el.offsetWidth; const hh = el.offsetHeight;
+        let top = haut - hh - 12;
+        if (top < 120) top = bas + 12; // pas assez de place au-dessus (sous la barre de menus) : en dessous
+        const left = Math.max(8, Math.min((gauche + droite) / 2 - l / 2, document.documentElement.clientWidth - l - 8));
+        if (Math.abs(left - pos.left) > 0.5 || Math.abs(top - pos.top) > 0.5) setPos({ left, top });
+      });
+      const n = selection.n.length;
+      const b = (contenu, action, titre, extra = {}) => h('button', { type: 'button', className: cls('outil', extra.classe), title: titre, 'aria-label': titre, disabled: extra.desactive, onMouseDown: garder, onClick: action, ref: extra.ref }, contenu);
+      const ico = (d) => h('svg', { className: 'icone', width: 18, height: 18, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }));
+      return h('div', { ref, className: 'barre-blocs', role: 'toolbar', 'aria-label': 'Actions sur les blocs sélectionnés', style: pos },
+        h('span', { className: 'nb-blocs' }, n > 1 ? `${n} blocs` : '1 bloc'),
+        h('span', { className: 'separateur', 'aria-hidden': 'true' }),
+        b(h(Fragment, null, ico('M8 4v6a4 4 0 004 4 4 4 0 014 4v2M16 4v6a4 4 0 01-4 4'), 'Fusionner'), actions.fusionner, 'Réunir les blocs sélectionnés en un seul paragraphe', { desactive: n < 2, classe: 'avec-texte' }),
+        b(h(Fragment, null, ico('M8 8h12v12H8zM16 8V4H4v12h4'), 'Dupliquer'), actions.dupliquer, 'Dupliquer', { classe: 'avec-texte' }),
+        b(h(Fragment, null, ico('M12 5v14M5 12h14'), 'Nouveau'), actions.nouveau, 'Nouveau bloc après', { classe: 'avec-texte' }),
+        b(h(Fragment, null, ico('M4 4v16M8 7h12M8 12h8M8 17h10'), 'Aligner'), () => setAligner(!aligner), 'Aligner', { classe: 'avec-texte', ref: refAligner }),
+        h('span', { className: 'separateur', 'aria-hidden': 'true' }),
+        b(ico('M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3'), actions.supprimer, 'Supprimer (⌫)', { classe: 'danger' }),
+        libre && b(h(Fragment, null, ico('M4 4h16v16H4zM4 9h16'), 'Revenir au gabarit'), () => actions.revenir(selection.i), 'La slide reprend sa mise en page automatique', { classe: 'avec-texte' }),
+        aligner && h(Popover, { ancre: refAligner, fermer: () => setAligner(false), etiquette: 'Aligner', contenu: () => [
+          { type: 'titre', libelle: 'Sur la slide' },
+          { type: 'action', libelle: 'Sur la marge de gauche', action: () => actions.aligner('marge') },
+          { type: 'action', libelle: 'Centrer sur la slide', action: () => actions.aligner('centre') },
+          { type: 'action', libelle: 'Sur la marge de droite', action: () => actions.aligner('droite') },
+          { type: 'titre', libelle: 'Entre les blocs sélectionnés' },
+          { type: 'action', libelle: 'Aligner leurs bords gauches', action: () => actions.aligner('entre'), desactive: n < 2 },
+          { type: 'action', libelle: 'Répartir verticalement', action: () => actions.aligner('repartir'), desactive: n < 3 },
+        ] }));
+    }
 
     function TailleLibre({ appliquer }) {
       const [v, setV] = useState('');

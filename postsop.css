@@ -213,9 +213,11 @@ input[type="range"] { width: 220px; accent-color: var(--action); }
 .carte-tete p { margin: 4px 0 0; font-size: 14px; }
 .carte-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .note { background: var(--info-fond); color: var(--info-texte); border-radius: 12px; padding: 12px 16px; font-size: 14px; margin-bottom: 16px; }
+/* Message flottant, en bas : il ne pousse jamais le contenu (sinon les slides sauteraient sous le doigt, sur iPad). */
 .message {
-  position: sticky; top: 72px; z-index: 15; display: flex; justify-content: space-between; align-items: center; gap: 12px;
-  margin: 8px auto 0; max-width: 1230px; padding: 12px 18px; background: var(--texte); color: var(--fond); border-radius: 14px; font-size: 15px;
+  position: fixed; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 45;
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  width: max-content; max-width: min(680px, calc(100vw - 24px)); padding: 12px 18px; background: var(--texte); color: var(--fond); border-radius: 14px; font-size: 15px;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
 }
 .message .lien { color: var(--touche); }
@@ -661,3 +663,24 @@ canvas.slide.editable { cursor: text; }
 .separateur { width: 1px; align-self: stretch; margin: 6px 3px; background: var(--surface-3); }
 .filet-icone { display: inline-block; width: 4px; height: 18px; border-radius: 2px; background: currentColor; }
 .icone.retournee { transform: rotate(180deg); }
+
+/* ---------- Composition : blocs manipulés comme des objets ---------- */
+.calque { pointer-events: auto; touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; cursor: default; }
+.survol-bloc { position: absolute; border: 4px solid rgba(201, 212, 32, 0.55); border-radius: 8px; pointer-events: none; }
+.selection-bloc { position: absolute; border: 7px solid #C9D420; border-radius: 8px; box-shadow: 0 0 0 3px rgba(0, 20, 26, 0.35); touch-action: none; cursor: move; }
+.poignee-redim { position: absolute; width: 44px; height: 100px; border-radius: 22px; background: #FFFFFF; border: 7px solid #1F2400; box-shadow: 0 0 0 5px #C9D420; cursor: ew-resize; touch-action: none; z-index: 2; }
+.lasso-blocs { position: absolute; border: 4px solid #FF3D8B; background: rgba(255, 61, 139, 0.1); pointer-events: none; }
+.guide-v, .guide-h { position: absolute; background: #FF3D8B; pointer-events: none; z-index: 3; }
+.guide-v { top: 0; bottom: 0; width: 4px; margin-left: -2px; }
+.guide-h { left: 0; right: 0; height: 4px; margin-top: -2px; }
+.cadre-page.cible { outline-color: #FF3D8B; }
+.reperes .libre { color: var(--touche-texte); background: var(--touche-doux); border-radius: 6px; padding: 1px 6px; font-weight: 600; }
+.lien-repere { border: 0; background: none; padding: 2px 0; color: var(--action); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.theme-sombre .lien-repere { color: var(--touche); }
+/* Barre d'actions des blocs : sans contour, comme la barre de texte */
+.barre-blocs { position: fixed; z-index: 50; display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 5px; border-radius: 16px; background: var(--surface); box-shadow: 0 1px 2px rgba(0, 20, 26, 0.06), 0 14px 36px rgba(0, 30, 40, 0.2); max-width: calc(100vw - 16px); }
+.theme-sombre .barre-blocs { background: var(--surface-2); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 16px 40px rgba(0, 0, 0, 0.55); }
+.barre-blocs .outil.avec-texte { font-size: 14px; }
+.barre-blocs .outil.danger { color: var(--erreur); }
+.barre-blocs .outil:disabled { opacity: 0.38; cursor: default; background: none; }
+.nb-blocs { font-size: 13px; color: var(--doux); padding: 0 8px; }

@@ -298,9 +298,11 @@
       if (s.bloc !== undefined) {
         // Les éléments de ce paragraphe sont marqués, et sa zone est mémorisée (jamais dessinée).
         const debutTexte = s.decor ? debut + 190 : debut;
-        for (const e of locaux) if (!e.decorGuillemet) e.bloc = s.bloc;
+        for (const e of locaux) { if (e.decorGuillemet) e.decorDe = s.bloc; else e.bloc = s.bloc; }
         locaux.push({ type: 'bloc', bloc: s.bloc, x: zone.x + marge, y: debutTexte + (s.carte ? marge : 0), l: largeur, h: Math.max(y - debutTexte - (s.carte ? 2 * marge : 0), s.taille * s.interligne),
-          taille: s.taille, interligne: s.interligne, role: s.role, couleur: s.couleur, alignement: aligne, ascendante: police.asc, descendante: police.desc });
+          taille: s.taille, interligne: s.interligne, role: s.role, couleur: s.couleur, alignement: aligne, ascendante: police.asc, descendante: police.desc,
+          style: { role: s.role, taille: s.taille, interligne: s.interligne, couleur: s.couleur, surligne: s.surligne, carte: s.carte, decor: s.decor, filet: s.filet, alignement: aligne, sansRetours: s.sansRetours }, partie: s.partie,
+          decalage: { dx: marge, dy: debutTexte - debut + (s.carte ? marge : 0), dl: -2 * marge } });
       }
       elements.push(...locaux);
       if (i < specs.length - 1) y += s.espaceApres || 0;
@@ -436,8 +438,9 @@
         const morceau = (debut, texte) => {
           if (suite.length !== 1) return {};
           const r = riche(suite[0]);
-          if (!r.marques) return { alignement: r.alignement, bloc: r.bloc };
-          return { alignement: r.alignement, bloc: r.bloc, marques: r.marques.map((m) => ({ ...m, debut: m.debut - debut, fin: Math.min(texte.length, m.fin - debut) })).filter((m) => m.fin > 0 && m.debut < texte.length).map((m) => ({ ...m, debut: Math.max(0, m.debut) })) };
+          const partie = { debut, longueur: texte.length };
+          if (!r.marques) return { alignement: r.alignement, bloc: r.bloc, partie };
+          return { alignement: r.alignement, bloc: r.bloc, partie, marques: r.marques.map((m) => ({ ...m, debut: m.debut - debut, fin: Math.min(texte.length, m.fin - debut) })).filter((m) => m.fin > 0 && m.debut < texte.length).map((m) => ({ ...m, debut: Math.max(0, m.debut) })) };
         };
         const coupe = texteSuite.includes('\n') ? texteSuite.indexOf('\n') : (texteSuite.indexOf(' ') > 0 ? texteSuite.indexOf(' ') : texteSuite.length);
         const grand = texteSuite.slice(0, coupe).trim();
@@ -447,7 +450,7 @@
         let tailleGrand = C(230);
         while (tailleGrand > C(120) && police.mesurer(grand, tailleGrand) > zoneLarge.largeur) tailleGrand -= 10;
         const specs = [
-          ...(titre ? [{ ...riche(titre), texte: titre.texte.replace(/\n/g, ' '), role: 'light', taille: C(52), interligne: 1.2, couleur: fond.texte, espaceApres: 36 }] : []),
+          ...(titre ? [{ ...riche(titre), texte: titre.texte.replace(/\n/g, ' '), sansRetours: true, role: 'light', taille: C(52), interligne: 1.2, couleur: fond.texte, espaceApres: 36 }] : []),
           { ...morceau(0, grand), texte: grand, role: 'bold', taille: tailleGrand, interligne: 1, couleur: fond.accent, espaceApres: 36 },
           ...(reste ? [{ ...morceau(texteSuite.length - texteSuite.slice(coupe).trimStart().length, reste), texte: reste, role: 'bold', taille: C(84), interligne: 1.1, couleur: fond.texte }] : []),
         ];
@@ -543,8 +546,51 @@
     }
     if (reglages.glisser && index < total - 1) elements.push({ type: 'fleche', x: L - 64, y: H / 2, couleur: gab === 'V4' && H / 2 > H * 0.556 ? couleurPied : fond.texte });
 
+    if (slideBrute.libre) {
+      elements = elements.filter((e) => e.bloc === undefined && e.decorDe === undefined && e.type !== 'bloc');
+      deborde = false;
+      tropLarge = false;
+      const styleParDefaut = (b) => {
+        if (b.style === 'titre' || b.style === 'contrepoint') return { role: 'bold', taille: C(110), interligne: 1.08, couleur: b.style === 'contrepoint' ? fond.accent : fond.texte };
+        if (b.style === 'citation') return { role: 'light', taille: T(39), interligne: 1.25, couleur: fond.accent, filet: fond.filet };
+        return { role: b.style === 'emphase' ? 'bold' : 'light', taille: T(39), interligne: 1.25, couleur: fond.texte };
+      };
+      let bas = MARGES.haute - 40;
+      slide.blocs.forEach((b, n) => {
+        if (!b.texte) return;
+        const f = b.fige || {};
+        const pos = b.pos || { x: MARGES.gauche, y: bas + 40, l: fmt.l - MARGES.gauche - MARGES.droite };
+        const r = riche(b);
+        // Un paragraphe peut être fait de plusieurs morceaux (le grand mot et sa suite) : chacun garde son style et sa place.
+        const parties = f.parties || [{ style: f.style || styleParDefaut(b), decalage: f.decalage, dx: 0, dy: 0, l: pos.l }];
+        for (const p of parties) {
+          let texte = b.texte;
+          let marques = r.marques;
+          if (p.longueur !== undefined) {
+            texte = b.texte.slice(p.debut, p.debut + p.longueur).replace(/\n/g, ' ');
+            marques = (r.marques || []).map((m) => ({ ...m, debut: Math.max(0, m.debut - p.debut), fin: Math.min(texte.length, m.fin - p.debut) })).filter((m) => m.fin > m.debut);
+          }
+          if (p.style && p.style.sansRetours) texte = texte.replace(/\n/g, ' ');
+          let retire = 0;
+          if (p.style && p.style.decor) { const sans = texte.replace(/^«\s*/, ''); retire = texte.length - sans.length; texte = sans; }
+          if (retire && marques) marques = marques.map((m) => ({ ...m, debut: Math.max(0, m.debut - retire), fin: m.fin - retire })).filter((m) => m.fin > m.debut);
+          const dec = p.decalage || { dx: 0, dy: 0, dl: 0 };
+          const spec = { ...(p.style || styleParDefaut(b)), ...r, marques, texte, bloc: n, espaceApres: 0 };
+          const pile = empiler([spec], { x: pos.x + p.dx - dec.dx, largeur: (p.longueur !== undefined ? p.l : pos.l) - dec.dl, alignement: 'gauche' }, choisirPolice);
+          const poses = decaler(pile.elements, pos.y + p.dy - dec.dy);
+          elements.push(...poses);
+          if (pile.tropLarge) tropLarge = true;
+          const z = poses.find((e) => e.type === 'bloc');
+          if (z) {
+            bas = Math.max(bas, z.y + z.h);
+            if (z.x < -1 || z.y < -1 || z.x + z.l > fmt.l + 1 || z.y + z.h > fmt.h + 1) deborde = true; // texte coupé par le bord de la slide
+          }
+        }
+      });
+    }
+
     return {
-      fmt, fond, gabarit: gab, elements, tailleTexte: T(39),
+      fmt, fond, gabarit: gab, elements, tailleTexte: T(39), libre: !!slideBrute.libre,
       italiqueSimule: elements.some((e) => e.type === 'ligne' && e.police && e.police.simulee),
       deborde: deborde || tropLarge,
       exacte: elements.every((e) => e.type !== 'ligne' || e.police.exacte),
@@ -675,7 +721,19 @@
   function controlerBrut(article, compositions, reglages) {
     const alertes = [];
     compositions.forEach((compo, i) => {
-      if (compo.deborde) alertes.push({ type: 'deborde', niveau: 'bloquant', slide: i, cible: 'design', message: 'Le texte dépasse les marges. Raccourcis-le, déplace un paragraphe ou essaie un autre gabarit.' });
+      if (compo.libre) {
+        const zones = compo.elements.filter((e) => e.type === 'bloc');
+        const { l: Ls, h: Hs } = compo.fmt;
+        if (compo.deborde) alertes.push({ type: 'hors-slide', niveau: 'bloquant', slide: i, cible: 'design', message: 'Un bloc sort de la slide : une partie de son texte serait coupée à l’export.' });
+        else if (zones.some((z) => z.x < MARGES.gauche - 1 || z.x + z.l > Ls - MARGES.droite + 1 || z.y < MARGES.haute - 1 || z.y + z.h > Hs - MARGES.basse + 1)) alertes.push({ type: 'hors-marges', niveau: 'avertissement', slide: i, cible: 'design', message: 'Un bloc sort des marges de la charte.' });
+        let superposes = false;
+        for (let a = 0; a < zones.length && !superposes; a++) for (let c = a + 1; c < zones.length; c++) {
+          const p = zones[a]; const q = zones[c];
+          if (p.x < q.x + q.l && q.x < p.x + p.l && p.y < q.y + q.h && q.y < p.y + p.h) { superposes = true; break; }
+        }
+        if (superposes) alertes.push({ type: 'superposes', niveau: 'avertissement', slide: i, cible: 'design', message: 'Des blocs se superposent.' });
+      }
+      if (compo.deborde && !compo.libre) alertes.push({ type: 'deborde', niveau: 'bloquant', slide: i, cible: 'design', message: 'Le texte dépasse les marges. Raccourcis-le, déplace un paragraphe ou essaie un autre gabarit.' });
       const mots = article.slides[i].blocs.reduce((n, b) => n + compterMots(b.texte), 0);
       const petites = article.slides[i].blocs.some((b) => (b.marques || []).some((m) => m.taille && m.taille * (article.slides[i].echelle || 1) < 34));
       if (petites) alertes.push({ type: 'petite', niveau: 'avertissement', slide: i, cible: 'design', message: 'Une partie du texte est en dessous de 34 px : la lecture sur téléphone devient difficile.' });
@@ -751,6 +809,31 @@
     return { fond, slides };
   }
 
+  // Passe une slide en mise en page libre : chaque paragraphe garde exactement sa place et son style.
+  function figerSlide(slide, compo) {
+    const zones = compo.elements.filter((e) => e.type === 'bloc');
+    return {
+      ...slide, libre: true,
+      blocs: slide.blocs.map((b, n) => {
+        if (b.pos) return b;
+        const siens = zones.filter((z) => z.bloc === n).sort((p, q) => p.y - q.y);
+        if (!siens.length) return b;
+        const z0 = siens[0];
+        const largeurTotale = Math.max(...siens.map((z) => z.x + z.l)) - Math.min(...siens.map((z) => z.x));
+        if (siens.length > 1 && siens.every((z) => z.partie)) {
+          return { ...b, pos: { x: z0.x, y: z0.y, l: largeurTotale }, fige: { parties: siens.map((z) => ({ style: z.style, decalage: z.decalage, dx: z.x - z0.x, dy: z.y - z0.y, l: z.l, debut: z.partie.debut, longueur: z.partie.longueur })) } };
+        }
+        // Positions exactes (non arrondies) : la slide ne bouge pas d'un pixel en passant en mise en page libre.
+        return { ...b, pos: { x: z0.x, y: z0.y, l: z0.l }, fige: { style: z0.style, decalage: z0.decalage } };
+      }),
+    };
+  }
+  function revenirAuGabarit(slide) {
+    const copie = { ...slide, blocs: slide.blocs.map((b) => { const c = { ...b }; delete c.pos; delete c.fige; return c; }) };
+    delete copie.libre;
+    return copie;
+  }
+
   // Cherche, pour une slide qui déborde, les corrections possibles en un geste.
   function solutionsDebordement(article, i, choisirPolice, contexte = {}) {
     const s = article.slides[i];
@@ -775,7 +858,7 @@
   const api = {
     PALETTE, FONDS, CHARTE_DEFAUT, construireFonds, fondsDe, naturesUtiles, natureAffichee, FORMATS, MARGES, NATURES, GABARITS, LIMITES_SLIDES,
     policeExacte, policeSysteme, fondFonce, cleLogo, couperLignes, composer, dessiner, gabaritParDefaut,
-    compterMots, passagesManquants, textesAjoutes, controler, solutionsDebordement, decouperMecaniquement, proposerPresentation,
+    compterMots, passagesManquants, textesAjoutes, controler, solutionsDebordement, figerSlide, revenirAuGabarit, decouperMecaniquement, proposerPresentation,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else racine.PostsOPMoteur = api;

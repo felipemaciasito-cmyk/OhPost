@@ -249,7 +249,27 @@
       if (a.slides[i].signature) slides[slides.length - 1] = { ...slides[slides.length - 1], signature: true };
       return { ...a, slides };
     },
-    gabarit: (i, gabarit) => majSlide(i, (s) => ({ ...s, gabarit })),
+    // Choisir un gabarit rend la mise en page automatique à la slide (fin de la mise en page libre).
+    gabarit: (i, gabarit) => majSlide(i, (s) => ({ ...M.revenirAuGabarit(s), gabarit })),
+    slide: (i, slide) => (a) => ({ ...a, slides: a.slides.map((s, k) => (k === i ? slide : s)) }),
+    supprimerBlocs: (i, indices) => (a) => L.supprimerBlocs(a, i, indices),
+    dupliquerBlocs: (i, indices) => (a) => [...indices].sort((p, q) => q - p).reduce((x, n) => L.dupliquerBloc(x, i, n), a),
+    fusionnerPlusieurs: (i, ordre) => (a) => L.fusionnerPlusieurs(a, i, ordre),
+    // Envoyer des blocs sur une autre slide, posés à l'endroit visé ; une slide d'origine vidée est retirée.
+    envoyerSurSlide: (i, indices, j, positions, baseI, baseJ) => (a) => {
+      const deplaces = indices.map((n, q) => ({ ...a.slides[i].blocs[n], fige: baseI.blocs[n] && baseI.blocs[n].fige, pos: positions[q] }));
+      let slides = a.slides.map((s, k) => {
+        if (k === i) return { ...s, blocs: s.blocs.filter((_, m) => !indices.includes(m)) };
+        if (k === j) return { ...baseJ, libre: true, blocs: [...baseJ.blocs, ...deplaces] };
+        return s;
+      });
+      if (!slides[i].blocs.length && slides.length > 1) {
+        const signee = slides[i].signature;
+        slides = slides.filter((_, k) => k !== i);
+        if (signee) slides[slides.length - 1] = { ...slides[slides.length - 1], signature: true };
+      }
+      return { ...a, slides };
+    },
     modifierBloc: (i, b, champs) => majSlide(i, (s) => ({ ...s, blocs: s.blocs.map((bloc, n) => {
       if (n !== b) return bloc;
       if (champs.texte === undefined) return { ...bloc, ...champs };
@@ -487,12 +507,23 @@
   }
 
   function Message({ etat, dispatch }) {
+    const arme = useRef(false);
+    // Le message flotte en bas de l'écran et s'efface tout seul après quelques secondes.
+    useEffect(() => {
+      arme.current = false;
+      if (!etat.message) return undefined;
+      const t = setTimeout(() => dispatch({ type: 'message', message: null }), 6000);
+      return () => clearTimeout(t);
+    }, [etat.message]);
     if (!etat.message) return null;
     const m = typeof etat.message === 'string' ? { texte: etat.message } : etat.message;
+    // Le message peut apparaître sous le doigt juste après un toucher : son « clic fantôme » ne doit rien déclencher.
+    // Un bouton n'agit que s'il a été pressé lui-même (ou activé au clavier).
+    const voulu = (e) => e.detail === 0 || arme.current;
     return h('div', { className: 'message', role: 'status' }, h('span', null, m.texte),
       h('span', { className: 'actions-ligne' },
-        m.annulable && h('button', { type: 'button', className: 'lien fort', onClick: () => { dispatch({ type: 'annuler' }); dispatch({ type: 'message', message: null }); } }, 'Annuler'),
-        h('button', { type: 'button', className: 'lien', onClick: () => dispatch({ type: 'message', message: null }) }, 'Fermer')));
+        m.annulable && h('button', { type: 'button', className: 'lien fort', onPointerDown: () => { arme.current = true; }, onClick: (e) => { if (!voulu(e)) return; arme.current = false; dispatch({ type: 'annuler' }); dispatch({ type: 'message', message: null }); } }, 'Annuler'),
+        h('button', { type: 'button', className: 'lien', onPointerDown: () => { arme.current = true; }, onClick: (e) => { if (!voulu(e)) return; arme.current = false; dispatch({ type: 'message', message: null }); } }, 'Fermer')));
   }
 
   function Feuille({ titre, onAnnuler, action, children }) {

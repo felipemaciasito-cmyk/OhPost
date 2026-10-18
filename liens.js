@@ -384,6 +384,9 @@
       if (b.lien.debut < a.lien.fin) return null;
       const entre = source.slice(a.lien.fin, b.lien.debut);
       if (entre.trim()) return null;
+      // Un autre paragraphe (même vide) se trouve entre les deux : ils ne se suivent pas vraiment.
+      const intercale = article.slides.some((s, k) => s.blocs.some((x, m) => x.lien && !(k === i && (m === n || m === n - 1)) && x.lien.debut >= a.lien.fin && x.lien.debut <= b.lien.debut && (x.lien.debut > a.lien.fin || x.lien.fin > x.lien.debut || x.lien.debut < b.lien.debut)));
+      if (intercale) return null;
       const sep = a.texte.length && b.texte.length ? ' ' : '';
       const nouvelle = source.slice(0, a.lien.fin) + sep + source.slice(b.lien.debut);
       const decalage = sep.length - entre.length;
@@ -419,7 +422,119 @@
     return { ...recale, slides: recale.slides.map((s, k) => (k !== i ? s : { ...s, blocs: [...s.blocs.slice(0, n), { ...s.blocs[n], lien: bloc.lien, texte: materialiser(nouvelle, bloc.lien) }, nouveau, ...s.blocs.slice(n + 1)] })) };
   }
 
-  const api = { scinderBloc, fusionnerBlocs, insererParagrapheApres, ATTRIBUTS, normaliserMarques, appliquerForme, partoutVrai, remapperMarques, extraireMarques, avecMarques, SEPARATEUR, sourceDe, materialiser, lierArticle, appliquerEditionSource, modifierBlocLie, couperSlide, retirerCoupure, phrases, passagesNonCouverts };
+  /* ---------- Plusieurs blocs à la fois (sélection d'objets dans Composition) ---------- */
+
+  // Retire du texte de l'article le passage d'un bloc (et la séparation de paragraphe qui devient inutile).
+  function retirerTexte(article, i, n) {
+    const bloc = article.slides[i].blocs[n];
+    if (!bloc.lien) return article;
+    const source = sourceDe(article);
+    let a = bloc.lien.debut;
+    let b = bloc.lien.fin;
+    const avant = source.slice(0, a);
+    const apres = source.slice(b);
+    const debutPar = a === 0 || avant.endsWith(SEPARATEUR);
+    const finPar = b === source.length || apres.startsWith(SEPARATEUR);
+    if (debutPar && finPar) { if (apres.startsWith(SEPARATEUR)) b += 2; else if (avant.endsWith(SEPARATEUR)) a -= 2; }
+    else if (apres.startsWith(' ')) b += 1;
+    const nouvelle = source.slice(0, a) + source.slice(b);
+    // Après le passage retiré : décalé ; dans le passage retiré (paragraphe vide voisin, par exemple) : ramené à son début.
+    const d = (x) => (x >= b ? x - (b - a) : x > a ? a : x);
+    return {
+      ...article,
+      texte: nouvelle.split(SEPARATEUR),
+      slides: article.slides.map((s, k) => ({
+        ...s,
+        blocs: s.blocs.map((x, m) => {
+          if (k === i && m === n) return { ...x, lien: null };
+          if (!x.lien) return x;
+          const lien = { debut: d(x.lien.debut), fin: Math.max(d(x.lien.debut), d(x.lien.fin)), retours: (x.lien.retours || []).map(d) };
+          return { ...x, lien, texte: materialiser(nouvelle, lien) };
+        }),
+      })),
+    };
+  }
+
+  // Supprimer des blocs : ils disparaissent de la slide et leur texte de l'article.
+  function supprimerBlocs(article, i, indices) {
+    let a = article;
+    for (const n of [...indices].sort((p, q) => q - p)) {
+      a = retirerTexte(a, i, n);
+      a = { ...a, slides: a.slides.map((s, k) => (k !== i ? s : { ...s, blocs: s.blocs.filter((_, m) => m !== n) })) };
+    }
+    return a;
+  }
+
+  // Dupliquer un bloc : une copie de son texte est ajoutée à l'article, juste après ; la copie garde style et mise en forme.
+  function dupliquerBloc(article, i, n, decalage = 30) {
+    const bloc = article.slides[i].blocs[n];
+    let a = insererParagrapheApres(article, i, n, bloc.texte.replace(/\n/g, ' '));
+    const copie = { ...a.slides[i].blocs[n + 1] };
+    for (const cle of ['style', 'marques', 'alignement', 'filet', 'fige']) if (bloc[cle] !== undefined) copie[cle] = bloc[cle];
+    if (bloc.pos) copie.pos = { ...bloc.pos, x: bloc.pos.x + decalage, y: bloc.pos.y + decalage };
+    a = { ...a, slides: a.slides.map((s, k) => (k !== i ? s : { ...s, blocs: s.blocs.map((x, m) => (m === n + 1 ? copie : x)) })) };
+    return a;
+  }
+
+  // Déplace, dans le texte de l'article, le passage du bloc n juste après celui du bloc p (pour pouvoir les réunir).
+  function rapprocherTexte(article, i, p, n) {
+    const bloc = article.slides[i].blocs[n];
+    if (!bloc.lien || !article.slides[i].blocs[p].lien) return article;
+    const texte = sourceDe(article).slice(bloc.lien.debut, bloc.lien.fin);
+    const retours = bloc.lien.retours.map((r) => r - bloc.lien.debut);
+    let a = retirerTexte(article, i, n);
+    const cible = a.slides[i].blocs[p].lien.fin;
+    const source = sourceDe(a);
+    const nouvelle = source.slice(0, cible) + SEPARATEUR + texte + source.slice(cible);
+    a = decalerApres(a, nouvelle, cible, texte.length + 2, (k, m) => (k === i && (m === p || m === n)));
+    const lien = { debut: cible + 2, fin: cible + 2 + texte.length, retours: retours.map((r) => r + cible + 2) };
+    return { ...a, slides: a.slides.map((s, k) => (k !== i ? s : { ...s, blocs: s.blocs.map((x, m) => (m === n ? { ...x, lien, texte: materialiser(nouvelle, lien) } : x)) })) };
+  }
+
+  // Fusionner plusieurs blocs d'une slide, dans l'ordre de lecture donné : un seul paragraphe, dans la slide et dans l'article.
+  function fusionnerPlusieurs(article, i, ordre) {
+    if (ordre.length < 2) return article;
+    const blocs = article.slides[i].blocs;
+    const premier = Math.min(...ordre);
+    const choisis = ordre.map((n) => blocs[n]);
+    const autres = blocs.filter((_, m) => !ordre.includes(m));
+    const place = autres.filter((_, m) => blocs.indexOf(autres[m]) < premier).length;
+    let a = { ...article, slides: article.slides.map((s, k) => (k !== i ? s : { ...s, blocs: [...autres.slice(0, place), ...choisis, ...autres.slice(place)] })) };
+    for (let k = 1; k < ordre.length; k++) {
+      let r = fusionnerBlocs(a, i, place + 1);
+      if (!r) {
+        a = rapprocherTexte(a, i, place, place + 1);
+        r = fusionnerBlocs(a, i, place + 1);
+      }
+      if (!r) {
+        // Bloc sans lien avec le texte (copie de slide) : les textes sont simplement réunis.
+        const x = a.slides[i].blocs[place];
+        const y = a.slides[i].blocs[place + 1];
+        const fusion = avecMarques({ ...x, texte: x.texte + ' ' + y.texte }, [...(x.marques || []), ...decalerMarques(y.marques, x.texte.length + 1)]);
+        if (y.lien) Object.assign(fusion, {}); // le texte de y reste dans l'article ; Vérifier le signalera
+        a = { ...a, slides: a.slides.map((s, kk) => (kk !== i ? s : { ...s, blocs: [...s.blocs.slice(0, place), fusion, ...s.blocs.slice(place + 2)] })) };
+        continue;
+      }
+      a = r.article;
+    }
+    return a;
+  }
+
+  // Envoyer des blocs sur une autre slide, à des positions données (mise en page libre).
+  function deplacerBlocsVersSlide(article, i, indices, j, positions) {
+    const blocs = indices.map((n, k) => ({ ...article.slides[i].blocs[n], pos: positions[k] }));
+    return {
+      ...article,
+      slides: article.slides.map((s, k) => {
+        if (k === i && k === j) return s;
+        if (k === i) return { ...s, blocs: s.blocs.filter((_, m) => !indices.includes(m)) };
+        if (k === j) return { ...s, libre: true, blocs: [...s.blocs, ...blocs] };
+        return s;
+      }),
+    };
+  }
+
+  const api = { supprimerBlocs, dupliquerBloc, fusionnerPlusieurs, deplacerBlocsVersSlide, retirerTexte, scinderBloc, fusionnerBlocs, insererParagrapheApres, ATTRIBUTS, normaliserMarques, appliquerForme, partoutVrai, remapperMarques, extraireMarques, avecMarques, SEPARATEUR, sourceDe, materialiser, lierArticle, appliquerEditionSource, modifierBlocLie, couperSlide, retirerCoupure, phrases, passagesNonCouverts };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else racine.PostsOPLiens = api;
 })(typeof window !== 'undefined' ? window : globalThis);

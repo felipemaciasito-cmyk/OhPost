@@ -4,7 +4,7 @@
  * Tout est enregistré sur l'appareil et synchronisé avec ton dépôt GitHub privé :
  * articles, charte, réglages, polices, logo et fleurs.
  * Réel : rendu, 11 gabarits, contrôles qualité, découpage sans IA, LanguageTool, annulation,
- * synchronisation. À venir : import Word et export (phase 3), propositions de l'IA (phases 4 à 6),
+ * synchronisation. À venir : export (phase 3), propositions de l'IA (phases 4 à 6),
  * traduction (phase 7).
  */
 (function (racine) {
@@ -15,7 +15,9 @@
   const S = racine.PostsOPSynchro || require('./synchro.js');
   const X = racine.PostsOPExport || require('./export.js');
   const L = racine.PostsOPLiens || require('./liens.js');
-  const { createElement: h, Fragment, Component, useState, useReducer, useEffect, useRef, useContext, createContext } = React;
+  const T = racine.PostsOPTypographie || require('./typographie.js');
+  const { createElement: h, Fragment, Component, useState, useReducer, useEffect, useLayoutEffect, useMemo, useRef, useContext, createContext } = React;
+  const useApresRendu = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
   const NB = '\u00A0';
   const cls = (...noms) => noms.filter(Boolean).join(' ');
@@ -82,7 +84,7 @@
   const AIDES = {
     bibliotheque: { titre: 'Tes articles', textes: ['Trois sections : En cours, Publiés (validés par toi) et Corbeille, d’où tu peux restaurer un article.', 'Le menu « … » d’une carte permet de dupliquer, d’utiliser un article comme modèle pour un nouveau texte, de le marquer comme publié ou de le mettre à la corbeille.', 'Trie et affiche tes articles comme tu veux, en grille ou en liste. « Annuler » et ⌘Z (Ctrl+Z) reviennent en arrière à tout moment.'] },
     configuration: { titre: 'La configuration', textes: ['Charte : tes couleurs et tes tailles de texte. Tout changement s’applique à tous tes carrousels.', 'Ressources : tes polices, ton logo et tes fleurs, importés une fois et retrouvés sur tous tes appareils.', 'Réglages : le comportement de l’outil. Synchronisation : la liaison avec ton dépôt GitHub privé.'] },
-    texte: { titre: 'Étape 1 · Texte', textes: ['Ton texte est la référence du carrousel : chaque modification ici met les slides à jour, sans toucher à leur mise en page. Et un paragraphe modifié dans Design modifie aussi ce texte.', 'La vérification LanguageTool surligne les fautes dans ton texte. Pour chacune, choisis la bonne correction parmi celles proposées, ou ignore-la.', 'Les suggestions de style arriveront avec l’IA : tu sélectionneras un passage directement dans ton texte.'] },
+    texte: { titre: 'Étape 1 · Texte', textes: ['Ton texte est la référence du carrousel : chaque modification ici met les slides à jour, sans toucher à leur mise en page. Et un paragraphe modifié dans Design modifie aussi ce texte.', 'La vérification LanguageTool surligne les fautes dans ton texte. Pour chacune, choisis la bonne correction parmi celles proposées, ou ignore-la.', 'La typographie française se corrige toute seule quand tu tapes ou colles du texte, ici comme sur les slides : un message montre chaque correction, avec « Annuler ».', 'Les suggestions de style arriveront avec l’IA : tu sélectionneras un passage directement dans ton texte.'] },
     composition: { titre: 'Étape 2 · Composition', textes: ['Tes slides, les unes sous les autres, exactement comme elles seront exportées. Clique dans un paragraphe pour l’écrire à sa place ; sélectionne des mots pour les mettre en forme avec la petite barre qui apparaît.', 'Entrée crée un nouveau paragraphe, ⇧Entrée un retour à la ligne, ⌘↩ (Ctrl+↩) un saut de slide. ⌫ au début d’un paragraphe le réunit au précédent ; au début d’une slide, avec la slide précédente.', 'Les menus en haut regroupent tout le reste : gabarits, fond, logo, redécoupage, et Vérifier pour les points à regarder. Ton texte reste la référence : chaque modification ici le met à jour.'] },
     description: { titre: 'Étape 4 · Description', textes: ['Le texte qui accompagne le carrousel : légende Instagram et texte du post LinkedIn.', 'Pour l’instant tu l’écris toi-même ; l’IA pourra te proposer une version plus tard.'] },
     export: { titre: 'Étape 5 · Export', textes: ['Les fichiers à publier : des images PNG pour Instagram, un PDF pour LinkedIn, ou les deux.', 'S’il reste des alertes, l’outil te les rappelle avant d’exporter : à toi de décider.', 'Une fois publié sur le réseau, marque l’article comme publié : il rejoint la section Publiés.'] },
@@ -522,7 +524,9 @@
     const voulu = (e) => e.detail === 0 || arme.current;
     return h('div', { className: 'message', role: 'status' }, h('span', null, m.texte),
       h('span', { className: 'actions-ligne' },
-        m.annulable && h('button', { type: 'button', className: 'lien fort', onPointerDown: () => { arme.current = true; }, onClick: (e) => { if (!voulu(e)) return; arme.current = false; dispatch({ type: 'annuler' }); dispatch({ type: 'message', message: null }); } }, 'Annuler'),
+        // « annulation » : une action précise à défaire (une correction typographique, même si l'on a continué d'écrire) ;
+        // « annulable » : la dernière étape de l'historique.
+        (m.annulable || m.annulation) && h('button', { type: 'button', className: 'lien fort', onPointerDown: () => { arme.current = true; }, onClick: (e) => { if (!voulu(e)) return; arme.current = false; dispatch(m.annulation || { type: 'annuler' }); dispatch({ type: 'message', message: null }); } }, 'Annuler'),
         h('button', { type: 'button', className: 'lien', onPointerDown: () => { arme.current = true; }, onClick: (e) => { if (!voulu(e)) return; arme.current = false; dispatch({ type: 'message', message: null }); } }, 'Fermer')));
   }
 
@@ -666,6 +670,51 @@
     });
   }
 
+  // Sélection juste avant une saisie (frappe ou collage) : avec le curseur juste après, elle dit exactement ce qui vient
+  // d'être tapé ou collé, même quand on recolle un texte presque identique.
+  function useAvantSaisie(zone) {
+    const avant = useRef(null);
+    useEffect(() => {
+      const el = zone.current;
+      if (!el) return undefined;
+      const noter = () => { avant.current = { debut: el.selectionStart, fin: el.selectionEnd }; };
+      el.addEventListener('beforeinput', noter);
+      return () => el.removeEventListener('beforeinput', noter);
+    }, []);
+    return () => { const a = avant.current; avant.current = null; return a; };
+  }
+
+  // Zone de texte où l'on colle un article : la typographie française y est corrigée au collage et à la frappe,
+  // et la dernière correction s'annonce juste dessous, avec « Annuler ».
+  function ZoneTexteTypo({ valeur, onValeur, ...attributs }) {
+    const zone = useRef(null);
+    const curseur = useRef(null);
+    const avantSaisie = useAvantSaisie(zone);
+    const [note, setNote] = useState(null);
+    useApresRendu(() => {
+      if (curseur.current === null || !zone.current) return;
+      zone.current.setSelectionRange(curseur.current, curseur.current);
+      curseur.current = null;
+    }, [valeur]);
+    function changer(e) {
+      const a = avantSaisie();
+      const r = T.corrigerSaisie(valeur, e.target.value, { curseur: e.target.selectionEnd, zone: a ? [a.debut, e.target.selectionEnd] : null });
+      if (r.remplacements.length) {
+        curseur.current = r.curseur;
+        setNote({ texte: T.resume(r.remplacements), base: r.texte, inverses: T.inverser(r.remplacements) });
+      }
+      onValeur(r.texte);
+    }
+    function annuler() {
+      onValeur(T.appliquer(valeur, T.retablir(valeur, note.base, note.inverses)));
+      setNote(null);
+    }
+    return h(Fragment, null,
+      h('textarea', { ...attributs, ref: zone, value: valeur, onChange: changer }),
+      note && h('p', { className: 'doux petit', role: 'status' }, 'Typographie corrigée : ' + note.texte + '. ',
+        h('button', { type: 'button', className: 'lien fort', onClick: annuler }, 'Annuler')));
+  }
+
   function FeuilleNouvelArticle({ etat, dispatch }) {
     const r = etat.projet.reglages;
     const modele = etat.feuille && etat.feuille.modele ? etat.articles.find((a) => a.id === etat.feuille.modele) : null;
@@ -687,8 +736,8 @@
     return h(Feuille, { titre: modele ? 'Nouvel article d’après un modèle' : 'Nouvel article', onAnnuler: () => dispatch({ type: 'feuille', feuille: null }), action: h(Bouton, { variante: 'principal', disabled: !paragraphes.length, onClick: creer }, 'Créer') },
       modele && h('p', { className: 'note' }, `Mise en page reprise de « ${modele.titre} » : fond, format, réseau, gabarits et logo. Colle ton nouveau texte.`),
       h('label', { className: 'etiquette', htmlFor: 'texte-nouvel' }, 'Texte de l’article'),
-      h('textarea', { id: 'texte-nouvel', className: 'zone-texte', rows: 9, value: texte, placeholder: 'Colle ici le texte de ton article Word.', onChange: (e) => setTexte(e.target.value) }),
-      h('p', { className: 'doux petit' }, paragraphes.length ? `${paragraphes.length} paragraphe(s) · ${M.compterMots(texte)} mots. Le découpage en slides se fera sans IA, paragraphe par paragraphe.` : 'L’import direct d’un fichier Word arrivera à l’étape suivante.'),
+      h(ZoneTexteTypo, { id: 'texte-nouvel', className: 'zone-texte', rows: 9, valeur: texte, onValeur: setTexte, placeholder: 'Colle ici le texte de ton article Word.' }),
+      h('p', { className: 'doux petit' }, paragraphes.length ? `${paragraphes.length} paragraphe(s) · ${M.compterMots(texte)} mots. Le découpage en slides se fera sans IA, paragraphe par paragraphe.` : 'Colle le texte de ton article : la typographie française est corrigée au passage.'),
       h(Ligne, { etiquette: 'Réseau', aide: 'Fixe le format d’export : images pour Instagram, PDF pour LinkedIn.' }, h(Segmente, { valeur: reseau, onChange: setReseau, options: [{ valeur: 'instagram', libelle: 'Instagram' }, { valeur: 'linkedin', libelle: 'LinkedIn' }] })),
       h(Ligne, { etiquette: 'Format', aide: '1:1 comme tes carrousels actuels, 4:5 pour plus de place.' }, h(Segmente, { valeur: format, onChange: setFormat, options: [{ valeur: 'carre', libelle: '1:1' }, { valeur: 'portrait', libelle: '4:5' }] })),
       h(Ligne, { etiquette: 'Fond', aide: 'Il pourra changer ensuite.' }, h(SelecteurFond, { valeur: fond, onChange: setFond })));
@@ -744,7 +793,7 @@
     morceaux.push(valeur.slice(curseur) + '\n');
     return h('div', { className: 'editeur' },
       h('div', { className: 'editeur-fond', ref: fond, 'aria-hidden': 'true' }, morceaux),
-      h('textarea', { ref: zoneRef, className: 'editeur-zone', value: valeur, spellCheck: true, lang: 'fr', 'aria-label': 'Texte de l’article', onChange: (e) => onChange(e.target.value) }));
+      h('textarea', { ref: zoneRef, className: 'editeur-zone', value: valeur, spellCheck: true, lang: 'fr', 'aria-label': 'Texte de l’article', onChange: (e) => onChange(e.target.value, e.target) }));
   }
 
   function extraitAvecMarque(texte, debut, longueur) {
@@ -753,13 +802,22 @@
     return [(debut > 40 ? '…' : '') + avant, texte.slice(debut, fin), texte.slice(fin, fin + 40) + (fin + 40 < texte.length ? '…' : '')];
   }
 
-  function EtapeTexte({ article, majA }) {
+  function EtapeTexte({ dispatch, article, majA }) {
     const zone = useRef(null);
+    const curseur = useRef(null);
+    const avantSaisie = useAvantSaisie(zone);
     const [verification, setVerification] = useState({ etat: 'repos', erreurs: [], detail: '' });
     const [active, setActive] = useState(null);
     const [remplacer, setRemplacer] = useState(null);
     const { choisirPolice, charte, reglages } = useContext(Contexte);
     const texteComplet = article.texte.join('\n\n');
+    const typo = useMemo(() => T.correctionsArticle(article), [article.texte, article.slides, article.langue]);
+    // Après une correction typographique, le curseur reste juste après ce que tu viens de taper.
+    useApresRendu(() => {
+      if (curseur.current === null || !zone.current) return;
+      if (document.activeElement === zone.current) zone.current.setSelectionRange(curseur.current, curseur.current);
+      curseur.current = null;
+    }, [texteComplet]);
     function remplacerTout() {
       const paragraphes = remplacer.split(/\n\s*\n|\n/).map((p) => p.trim()).filter(Boolean);
       const slides = appliquerModele(M.decouperMecaniquement(paragraphes, article.format, article.fond, choisirPolice, { charte, reglages }), article);
@@ -797,7 +855,21 @@
     }
     const ignorer = (erreur) => setVerification((v) => ({ ...v, erreurs: v.erreurs.filter((e) => e !== erreur) }));
     // Si le texte change à la main, les positions des fautes ne sont plus fiables : on les efface.
-    const modifierTexte = (valeur) => { majA(OP.source(valeur), 'texte'); if (verification.erreurs.length) setVerification({ etat: 'repos', erreurs: [], detail: '' }); };
+    const modifierTexte = (valeur, el) => {
+      if (verification.erreurs.length) setVerification({ etat: 'repos', erreurs: [], detail: '' });
+      // Typographie : seulement autour de ce qui vient d'être tapé ou collé, jamais sur un retour à la ligne
+      // de mise en page ni à cheval sur deux paragraphes de slides.
+      const brut = L.appliquerEditionSource(article, valeur);
+      const a = avantSaisie();
+      const r = T.enFrancais(article)
+        ? T.corrigerSaisie(texteComplet, valeur, { curseur: el ? el.selectionEnd : valeur.length, zone: a && el ? [a.debut, el.selectionEnd] : null, permis: (debut, fin) => L.passagesPermis(brut, [{ debut, fin }]).length === 1 })
+        : { remplacements: [] };
+      if (!r.remplacements.length) { majA(OP.source(valeur), 'texte'); return; }
+      majA((a) => L.remplacerPassages(L.appliquerEditionSource(a, valeur), r.remplacements), 'texte');
+      curseur.current = r.curseur;
+      const trace = { base: r.texte, inverses: T.inverser(r.remplacements) };
+      dispatch({ type: 'message', message: { texte: 'Typographie corrigée : ' + T.resume(r.remplacements) + '.', annulation: { type: 'article', id: article.id, maj: (a) => T.annulerTrace(a, trace) } } });
+    };
 
     return h('div', { className: 'deux-colonnes' },
       h('div', { className: 'colonne-principale' },
@@ -819,18 +891,23 @@
                 h(Bouton, { variante: 'lien', onClick: () => ignorer(e) }, 'Ignorer')));
           }),
           h('p', { className: 'mention' }, 'Correction fournie par ', h('a', { href: 'https://languagetool.org', target: '_blank', rel: 'noopener' }, 'LanguageTool'), '.')),
-        h(Carte, { titre: 'Typographie', info: 'Ces règles ne changent jamais tes mots.', sousTitre: 'Règles françaises : espaces insécables avant : ; ! ?, guillemets « », apostrophes typographiques. Leur application automatique arrive en phase 3.' }),
+        h(Carte, { titre: 'Typographie', info: 'Ces règles ne changent jamais tes mots. Les adresses web, les heures (14:30) et les nombres ne sont pas touchés.', sousTitre: 'Corrigée toute seule quand tu tapes ou colles : espace insécable avant : ; ! ? et dans « », guillemets « », apostrophe ’, points de suspension …' },
+          typo.total
+            ? h(Fragment, null,
+              h('p', { className: 'petit' }, typo.total === 1 ? 'Reste 1 correction : ' + T.resume(typo.liste) + '.' : 'Restent ' + T.resume(typo.liste) + '.'),
+              h(Bouton, { variante: 'principal', onClick: () => majA(T.corrigerArticle, null, 'Typographie corrigée : ' + T.resume(typo.liste) + '.') }, 'Corriger la typographie'))
+            : h('p', { className: 'ok petit' }, 'Ton article respecte ces règles.')),
         h(Carte, { titre: 'Suggestions de style', sousTitre: 'Elles arriveront avec l’IA. Tu sélectionneras un passage directement dans ton texte, et un petit menu te proposera : clarifier, raccourcir, restructurer, rendre plus percutant.' })),
       remplacer !== null && h(Feuille, { titre: 'Remplacer tout le texte', onAnnuler: () => setRemplacer(null), action: h(Bouton, { variante: 'principal', disabled: !remplacer.trim(), onClick: remplacerTout }, 'Remplacer') },
         h('p', { className: 'note' }, 'Le nouveau texte est redécoupé en slides avec la même mise en page : fond, format, gabarits et logo. Tu pourras l’annuler juste après.'),
-        h('textarea', { className: 'zone-texte', rows: 12, value: remplacer, placeholder: 'Colle ici le nouveau texte.', onChange: (e) => setRemplacer(e.target.value), 'aria-label': 'Nouveau texte' })));
+        h(ZoneTexteTypo, { className: 'zone-texte', rows: 12, valeur: remplacer, onValeur: setRemplacer, placeholder: 'Colle ici le nouveau texte.', 'aria-label': 'Nouveau texte' })));
   }
 
   const FAMILLES = [['Couverture', ['V1', 'V2', 'V3', 'V4', 'V5']], ['Texte', ['T1', 'T2', 'T3', 'T4', 'T5']], ['Fin', ['F1']]];
 
   /* ---------- Étape 2 : Composition (fichier composition.js) ---------- */
 
-  const { EtapeComposition } = (racine.PostsOPComposition || require('./composition.js'))({ React, M, L, OP, Contexte, Icone, Bouton, SlideCanvas, cls });
+  const { EtapeComposition } = (racine.PostsOPComposition || require('./composition.js'))({ React, M, L, T, OP, Contexte, Icone, Bouton, SlideCanvas, cls });
 
   /* ---------- Étapes 4 et 5 ---------- */
 

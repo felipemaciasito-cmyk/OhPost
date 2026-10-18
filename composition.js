@@ -12,7 +12,7 @@
   'use strict';
 
   function fabriquer(d) {
-    const { React, M, L, OP, Contexte, Icone, Bouton, SlideCanvas, cls, partager } = d;
+    const { React, M, L, T, OP, Contexte, Icone, Bouton, SlideCanvas, cls, partager } = d;
     const { createElement: h, Fragment, useState, useEffect, useLayoutEffect, useRef, useContext, useMemo } = React;
     const useMiseEnPage = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
     const FAMILLE = "'PostsOP Gill', 'Gill Sans', 'Gill Sans MT', 'Helvetica Neue', sans-serif";
@@ -120,6 +120,8 @@
       const ref = useRef(null);
       const rendu = useRef({ texte: null, marques: null, version: -1 });
       const attendu = useRef(null);
+      const curseurVoulu = useRef(null); // après une correction typographique : où remettre le curseur
+      const avantSaisie = useRef(null); // sélection juste avant une frappe ou un collage
       const saisieEnCours = useRef(false);
       const marquesJSON = JSON.stringify(bloc.marques || []);
 
@@ -153,15 +155,31 @@
           placerSelection(el, bloc.texte.length);
           return;
         }
-        if (avant) placerSelection(el, borne(avant.debut), borne(avant.fin));
+        const voulu = curseurVoulu.current;
+        curseurVoulu.current = null;
+        if (avant && voulu !== null) placerSelection(el, borne(voulu));
+        else if (avant) placerSelection(el, borne(avant.debut), borne(avant.fin));
       });
+
+      useEffect(() => {
+        const el = ref.current;
+        if (!el) return undefined;
+        const noter = () => { avantSaisie.current = selectionDans(el); };
+        el.addEventListener('beforeinput', noter);
+        return () => el.removeEventListener('beforeinput', noter);
+      }, []);
 
       const lire = () => {
         const el = ref.current;
         if (!el || saisieEnCours.current) return;
         const texte = lireTexte(el);
         attendu.current = texte;
-        onTexte(texte);
+        const sel = selectionDans(el);
+        const av = avantSaisie.current;
+        avantSaisie.current = null;
+        // Si la typographie a été corrigée, le paragraphe est réécrit et le curseur replacé juste après la frappe.
+        const corrige = onTexte(texte, sel, av && sel ? [av.debut, sel.fin] : null);
+        if (corrige) { attendu.current = null; curseurVoulu.current = corrige.curseur; }
       };
       return h('div', {
         ref, className: 'editeur-bloc', contentEditable: true, suppressContentEditableWarning: true, spellCheck: true, lang: 'fr',
@@ -175,7 +193,7 @@
         onCompositionStart: () => { saisieEnCours.current = true; },
         onCompositionEnd: () => { saisieEnCours.current = false; lire(); },
         onKeyDown: (e) => onTouche(e, ref.current),
-        onPaste: (e) => { e.preventDefault(); const t = (e.clipboardData || racine.clipboardData).getData('text/plain'); document.execCommand('insertText', false, t.replace(/\r\n?/g, '\n')); },
+        onPaste: (e) => { e.preventDefault(); const t = (e.clipboardData || racine.clipboardData).getData('text/plain'); avantSaisie.current = selectionDans(e.currentTarget); document.execCommand('insertText', false, t.replace(/\r\n?/g, '\n')); },
       });
     }
 
@@ -724,10 +742,24 @@
         return () => document.removeEventListener('keydown', touche);
       });
 
-      const ecrire = (texte) => {
-        if (!edition || !blocCourant) return;
+      const ecrire = (texte, sel, zoneSaisie) => {
+        if (!edition || !blocCourant) return null;
         const { i, n } = edition;
-        majA(blocCourant.lien ? OP.blocLie(i, n, texte) : OP.modifierBloc(i, n, { texte }), `edition-${i}-${n}`);
+        // Typographie française : seulement autour de ce qui vient d'être tapé ou collé dans ce paragraphe.
+        const r = T && T.enFrancais(article) ? T.corrigerSaisie(blocCourant.texte, texte, { curseur: sel ? sel.fin : texte.length, zone: zoneSaisie }) : null;
+        const corrige = r && r.remplacements.length > 0;
+        const final = corrige ? r.texte : texte;
+        majA(blocCourant.lien ? OP.blocLie(i, n, final) : OP.modifierBloc(i, n, { texte: final }), `edition-${i}-${n}`);
+        if (!corrige) return null;
+        // De quoi annuler cette correction plus tard, même si l'on a continué d'écrire.
+        const inverses = T.inverser(r.remplacements);
+        let trace;
+        if (blocCourant.lien) {
+          const d0 = blocCourant.lien.debut;
+          trace = { base: L.sourceDe(L.modifierBlocLie(article, i, n, final)), inverses: inverses.map((x) => ({ ...x, debut: x.debut + d0, fin: x.fin + d0 })) };
+        } else trace = { i, n, base: final, inverses };
+        dispatch({ type: 'message', message: { texte: 'Typographie corrigée : ' + T.resume(r.remplacements) + '.', annulation: { type: 'article', id: article.id, maj: (a) => T.annulerTrace(a, trace) } } });
+        return { curseur: r.curseur };
       };
       function toucher(e, el) {
         if (!edition) return;

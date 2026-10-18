@@ -534,7 +534,60 @@
     };
   }
 
-  const api = { supprimerBlocs, dupliquerBloc, fusionnerPlusieurs, deplacerBlocsVersSlide, retirerTexte, scinderBloc, fusionnerBlocs, insererParagrapheApres, ATTRIBUTS, normaliserMarques, appliquerForme, partoutVrai, remapperMarques, extraireMarques, avecMarques, SEPARATEUR, sourceDe, materialiser, lierArticle, appliquerEditionSource, modifierBlocLie, couperSlide, retirerCoupure, phrases, passagesNonCouverts };
+  /* ---------- Remplacements à plusieurs endroits du texte (typographie) ----------
+   * remplacements : [{ debut, fin, texte, ancien? }], triés, sans chevauchement, positions dans le texte complet.
+   * Contrairement à une modification ordinaire, chaque passage est recalé exactement : des corrections
+   * éparpillées dans tout l'article ne déplacent aucun paragraphe de slide. */
+
+  // Garde les remplacements sans danger : texte attendu présent, aucun retour à la ligne de mise en page touché,
+  // aucune limite entre deux paragraphes de slides traversée.
+  function passagesPermis(article, remplacements) {
+    const source = sourceDe(article);
+    const bornes = [];
+    const retours = [];
+    for (const s of article.slides) for (const b of s.blocs) if (b.lien) { bornes.push(b.lien.debut, b.lien.fin); retours.push(...(b.lien.retours || [])); }
+    return remplacements.filter((r) => r.fin > r.debut && r.fin <= source.length
+      && (r.ancien === undefined || source.slice(r.debut, r.fin) === r.ancien)
+      && !retours.some((x) => x >= r.debut && x < r.fin)
+      && !bornes.some((x) => x > r.debut && x < r.fin));
+  }
+
+  function remplacerPassages(article, remplacements) {
+    const liste = passagesPermis(article, remplacements);
+    if (!liste.length) return article;
+    const source = sourceDe(article);
+    let nouvelle = '';
+    let curseur = 0;
+    for (const r of liste) { nouvelle += source.slice(curseur, r.debut) + r.texte; curseur = r.fin; }
+    nouvelle += source.slice(curseur);
+    // Position après remplacement ; « interieur » : où va une position prise dans un passage remplacé.
+    const placer = (x, interieur) => {
+      let ecart = 0;
+      for (const r of liste) {
+        if (x >= r.fin) ecart += r.texte.length - (r.fin - r.debut);
+        else if (x > r.debut) return r.debut + ecart + (interieur === 'fin' ? r.texte.length : 0);
+        else break;
+      }
+      return x + ecart;
+    };
+    return {
+      ...article,
+      texte: nouvelle.split(SEPARATEUR),
+      slides: article.slides.map((s) => ({
+        ...s,
+        blocs: s.blocs.map((b) => {
+          if (!b.lien) return b;
+          const debut = placer(b.lien.debut, 'debut');
+          const lien = { debut, fin: Math.max(debut, placer(b.lien.fin, 'fin')), retours: (b.lien.retours || []).map((x) => placer(x, 'debut')) };
+          const texte = materialiser(nouvelle, lien);
+          const marques = (b.marques || []).map((m) => ({ ...m, debut: placer(b.lien.debut + m.debut, 'debut') - debut, fin: placer(b.lien.debut + m.fin, 'fin') - debut }));
+          return avecMarques({ ...b, lien, texte }, marques);
+        }),
+      })),
+    };
+  }
+
+  const api = { passagesPermis, remplacerPassages, supprimerBlocs, dupliquerBloc, fusionnerPlusieurs, deplacerBlocsVersSlide, retirerTexte, scinderBloc, fusionnerBlocs, insererParagrapheApres, ATTRIBUTS, normaliserMarques, appliquerForme, partoutVrai, remapperMarques, extraireMarques, avecMarques, SEPARATEUR, sourceDe, materialiser, lierArticle, appliquerEditionSource, modifierBlocLie, couperSlide, retirerCoupure, phrases, passagesNonCouverts };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else racine.PostsOPLiens = api;
 })(typeof window !== 'undefined' ? window : globalThis);

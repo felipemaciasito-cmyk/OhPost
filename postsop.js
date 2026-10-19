@@ -17,6 +17,7 @@
   const L = racine.PostsOPLiens || require('./liens.js');
   const T = racine.PostsOPTypographie || require('./typographie.js');
   const IA = racine.PostsOPIA || require('./ia.js');
+  const R = racine.PostsOPRelecture || require('./relecture.js');
   const { createElement: h, Fragment, Component, useState, useReducer, useEffect, useLayoutEffect, useMemo, useRef, useContext, createContext } = React;
   const useApresRendu = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
@@ -85,7 +86,7 @@
   const AIDES = {
     bibliotheque: { titre: 'Tes articles', textes: ['Trois sections : En cours, Publiés (validés par toi) et Corbeille, d’où tu peux restaurer un article.', 'Le menu « … » d’une carte permet de dupliquer, d’utiliser un article comme modèle pour un nouveau texte, de le marquer comme publié ou de le mettre à la corbeille.', 'Trie et affiche tes articles comme tu veux, en grille ou en liste. « Annuler » et ⌘Z (Ctrl+Z) reviennent en arrière à tout moment.'] },
     configuration: { titre: 'La configuration', textes: ['Charte : tes couleurs et tes tailles de texte. Tout changement s’applique à tous tes carrousels.', 'Ressources : tes polices, ton logo et tes fleurs, importés une fois et retrouvés sur tous tes appareils.', 'Réglages : le comportement de l’outil. Synchronisation : la liaison avec ton dépôt GitHub privé.', 'IA : le fournisseur d’intelligence artificielle et sa clé. Comme la clé GitHub, elle reste sur l’appareil : à saisir une fois sur chacun.'] },
-    texte: { titre: 'Étape 1 · Texte', textes: ['Ton texte est la référence du carrousel : chaque modification ici met les slides à jour, sans toucher à leur mise en page. Et un paragraphe modifié dans Design modifie aussi ce texte.', 'La vérification LanguageTool surligne les fautes dans ton texte. Pour chacune, choisis la bonne correction parmi celles proposées, ou ignore-la.', 'La typographie française se corrige toute seule quand tu tapes ou colles du texte, ici comme sur les slides : un message montre chaque correction, avec « Annuler ».', 'Les suggestions de style arriveront avec l’IA : tu sélectionneras un passage directement dans ton texte.'] },
+    texte: { titre: 'Étape 1 · Texte', textes: ['Ton texte est la référence du carrousel : chaque modification ici met les slides à jour, sans toucher à leur mise en page. Et un paragraphe modifié dans Design modifie aussi ce texte.', 'Avec une IA active (Configuration, onglet IA), « Relire avec Claude » propose des corrections sous forme de cartes : accepte, modifie ou refuse chacune ; rien n’est appliqué sans toi. Sans IA, la vérification LanguageTool surligne les fautes ; pour chacune, choisis la bonne correction ou ignore-la.', 'La typographie française se corrige toute seule quand tu tapes ou colles du texte, ici comme sur les slides : un message montre chaque correction, avec « Annuler ».', 'Les suggestions de style arriveront avec l’IA : tu sélectionneras un passage directement dans ton texte.'] },
     composition: { titre: 'Étape 2 · Composition', textes: ['Tes slides, les unes sous les autres, exactement comme elles seront exportées. Clique dans un paragraphe pour l’écrire à sa place ; sélectionne des mots pour les mettre en forme avec la petite barre qui apparaît.', 'Entrée crée un nouveau paragraphe, ⇧Entrée un retour à la ligne, ⌘↩ (Ctrl+↩) un saut de slide. ⌫ au début d’un paragraphe le réunit au précédent ; au début d’une slide, avec la slide précédente.', 'Les menus en haut regroupent tout le reste : gabarits, fond, logo, redécoupage, et Vérifier pour les points à regarder. Ton texte reste la référence : chaque modification ici le met à jour.'] },
     description: { titre: 'Étape 4 · Description', textes: ['Le texte qui accompagne le carrousel : légende Instagram et texte du post LinkedIn.', 'Pour l’instant tu l’écris toi-même ; l’IA pourra te proposer une version plus tard.'] },
     export: { titre: 'Étape 5 · Export', textes: ['Les fichiers à publier : des images PNG pour Instagram, un PDF pour LinkedIn, ou les deux.', 'S’il reste des alertes, l’outil te les rappelle avant d’exporter : à toi de décider.', 'Une fois publié sur le réseau, marque l’article comme publié : il rejoint la section Publiés.'] },
@@ -774,7 +775,7 @@
 
   // Zone de texte qui surligne les fautes directement dans ton texte.
   // Le texte est affiché deux fois, exactement superposé : derrière, avec les surlignages ; devant, modifiable.
-  function EditeurTexte({ valeur, onChange, marques, active, zoneRef }) {
+  function EditeurTexte({ valeur, onChange, marques, active, zoneRef, onCurseur }) {
     const fond = useRef(null);
     const ajuster = () => {
       const el = zoneRef.current;
@@ -794,13 +795,156 @@
     morceaux.push(valeur.slice(curseur) + '\n');
     return h('div', { className: 'editeur' },
       h('div', { className: 'editeur-fond', ref: fond, 'aria-hidden': 'true' }, morceaux),
-      h('textarea', { ref: zoneRef, className: 'editeur-zone', value: valeur, spellCheck: true, lang: 'fr', 'aria-label': 'Texte de l’article', onChange: (e) => onChange(e.target.value, e.target) }));
+      h('textarea', { ref: zoneRef, className: 'editeur-zone', value: valeur, spellCheck: true, lang: 'fr', 'aria-label': 'Texte de l’article', onChange: (e) => onChange(e.target.value, e.target), onSelect: onCurseur ? (e) => onCurseur(e.target.selectionStart) : undefined }));
   }
 
   function extraitAvecMarque(texte, debut, longueur) {
     const avant = texte.slice(Math.max(0, debut - 40), debut);
     const fin = debut + longueur;
     return [(debut > 40 ? '…' : '') + avant, texte.slice(debut, fin), texte.slice(fin, fin + 40) + (fin + 40 < texte.length ? '…' : '')];
+  }
+
+  /* ---------- Relecture par l'IA (phase 4) : cartes dans le panneau de droite ---------- */
+
+  const RELECTURES = new Map(); // id d'article → état de sa relecture, le temps de la session
+
+  function useRelecture(article, texteComplet, majA) {
+    const [r, setR] = useState(() => RELECTURES.get(article.id) || { source: texteComplet, props: [], actif: null, etat: 'repos', detail: '', ecartees: 0, edition: null, brouillon: '' });
+    const maj = (f) => setR((x) => { const y = typeof f === 'function' ? f(x) : { ...x, ...f }; RELECTURES.set(article.id, y); return y; });
+    // Dernier état connu, pour les actions (y compris après l'attente de la réponse de l'IA).
+    const dernier = useRef(r);
+    dernier.current = r;
+    const remplacer = (y) => { dernier.current = y; RELECTURES.set(article.id, y); setR(y); };
+    // Le texte a changé ailleurs (frappe, Annuler, slides) : chaque proposition est recalée, ou retirée si son passage a été touché.
+    useEffect(() => { maj((x) => (x.source === texteComplet ? x : { ...x, source: texteComplet, props: R.recaler(x.source, texteComplet, x.props) })); }, [texteComplet]);
+    const position = (p) => (p.applique ? p.applique.debut : p.debut);
+    const trier = (props) => props.slice().sort((a, b) => position(a) - position(b));
+    const prochaine = (props, depuis) => {
+      const i = props.findIndex((p) => p.id === depuis);
+      const ordre = props.slice(i + 1).concat(props.slice(0, Math.max(0, i)));
+      const p = ordre.find((q) => q.statut === 'attente');
+      return p ? p.id : null;
+    };
+    const montrer = (id, ouvrir = { texte: true, carte: true }) => racine.requestAnimationFrame(() => {
+      if (!id) return;
+      if (ouvrir.carte) { const c = document.getElementById('proposition-' + id); if (c) c.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+      if (ouvrir.texte) { const m = document.querySelector('.editeur-fond mark.active'); if (m) m.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+    });
+    async function relire() {
+      const config = IA.active();
+      if (!config) return;
+      const source = texteComplet;
+      maj({ etat: 'encours', detail: '' });
+      try {
+        const reponse = await IA.demander(config, { systeme: R.SYSTEME, texte: R.consigne(source), maxJetons: 6000, delai: 150000 });
+        const { retenues, ecartees } = R.localiser(source, R.lireReponse(reponse));
+        const x = dernier.current; // le texte a pu changer pendant l'attente : on recale
+        const props = R.recaler(source, x.source, retenues.map((p) => ({ ...p, statut: 'attente', apercu: R.apercu(source, p) })));
+        const premier = props.length ? props[0].id : null;
+        remplacer({ ...x, props, ecartees, etat: 'fait', detail: '', actif: premier, edition: null, brouillon: '' });
+        montrer(premier);
+      } catch (erreur) {
+        maj({ etat: 'erreur', detail: erreur.message });
+      }
+    }
+    function accepter(p, texte) {
+      const source = texteComplet;
+      if (source.slice(p.debut, p.fin) !== p.avant) { maj((x) => ({ ...x, props: x.props.filter((q) => q.id !== p.id) })); return; }
+      const remplacement = texte == null ? p.apres : texte;
+      const a = R.appliquer(source, p.debut, p.fin, remplacement);
+      majA(OP.source(a.texte), null);
+      const x = dernier.current;
+      const autres = R.recaler(source, a.texte, x.props.filter((q) => q.id !== p.id));
+      const traitee = { ...p, statut: texte == null || texte === p.apres ? 'acceptee' : 'modifiee', texteFinal: a.insere, applique: { debut: a.debut, longueur: a.longueur, insere: a.insere, ancien: p.avant } };
+      const props = trier(autres.concat([traitee]));
+      const suivante = prochaine(props, p.id);
+      remplacer({ ...x, source: a.texte, props, actif: suivante, edition: null, brouillon: '' });
+      montrer(suivante);
+    }
+    function refuser(p) {
+      const x = dernier.current;
+      const props = x.props.map((q) => (q.id === p.id ? { ...q, statut: 'refusee' } : q));
+      const suivante = prochaine(props, p.id);
+      remplacer({ ...x, props, actif: suivante, edition: null, brouillon: '' });
+      montrer(suivante);
+    }
+    function annuler(p) {
+      if (p.statut === 'refusee') { maj((x) => ({ ...x, props: x.props.map((q) => (q.id === p.id ? { ...q, statut: 'attente' } : q)), actif: p.id })); montrer(p.id); return; }
+      const source = texteComplet;
+      const ap = p.applique;
+      if (!ap || ap.perdu || source.slice(ap.debut, ap.debut + ap.longueur) !== ap.insere) { maj((x) => ({ ...x, props: x.props.map((q) => (q.id === p.id ? { ...q, applique: { ...q.applique, perdu: true } } : q)) })); return; }
+      const texte = source.slice(0, ap.debut) + ap.ancien + source.slice(ap.debut + ap.longueur);
+      majA(OP.source(texte), null);
+      const x = dernier.current;
+      const autres = R.recaler(source, texte, x.props.filter((q) => q.id !== p.id));
+      const remise = { ...p, statut: 'attente', debut: ap.debut, fin: ap.debut + ap.ancien.length, applique: undefined, texteFinal: undefined };
+      remplacer({ ...x, source: texte, props: trier(autres.concat([remise])), actif: p.id, edition: null, brouillon: '' });
+      montrer(p.id);
+    }
+    const choisir = (id, depuis) => { maj({ actif: id }); montrer(id, { texte: depuis !== 'texte', carte: depuis !== 'carte' }); };
+    return {
+      ...r, relire, accepter, refuser, annuler, choisir,
+      modifier: (p) => maj({ edition: p.id, brouillon: p.apres, actif: p.id }),
+      saisir: (v) => maj({ brouillon: v }),
+      abandonner: () => maj({ edition: null, brouillon: '' }),
+      valider: (p) => { const t = r.brouillon.trim(); if (t) accepter(p, t); },
+      // Toucher un passage surligné dans le texte fait apparaître sa carte.
+      curseur: (pos) => { const p = r.props.find((q) => q.statut === 'attente' && pos >= q.debut && pos <= q.fin); if (p && p.id !== r.actif) choisir(p.id, 'texte'); },
+    };
+  }
+
+  const LIBELLES_PROPOSITION = { acceptee: 'Acceptée', modifiee: 'Modifiée', refusee: 'Refusée' };
+
+  function CarteProposition({ p, rel }) {
+    const traitee = p.statut !== 'attente';
+    const actif = rel.actif === p.id;
+    if (traitee) {
+      return h('section', { id: 'proposition-' + p.id, className: cls('carte proposition traitee', actif && 'active') },
+        h('span', { className: 'badge-type' }, p.type),
+        h(Pastille, { ton: p.statut === 'refusee' ? 'neutre' : 'ok' }, LIBELLES_PROPOSITION[p.statut]),
+        p.statut === 'modifiee' && h('span', { className: 'doux petit' }, '« ' + p.texteFinal + ' »'),
+        p.applique && p.applique.perdu
+          ? h('span', { className: 'doux petit' }, 'Plus annulable : le passage a changé depuis.')
+          : h(Bouton, { variante: 'lien', onClick: () => rel.annuler(p) }, 'Annuler ce choix'));
+    }
+    const enEdition = rel.edition === p.id;
+    return h('section', { id: 'proposition-' + p.id, className: cls('carte proposition', actif && 'active') },
+      h('div', { className: 'proposition-tete' },
+        h('span', { className: 'badge-type' }, p.type),
+        h(Bouton, { variante: 'lien', onClick: () => rel.choisir(p.id, 'carte') }, 'Voir dans le texte')),
+      h('div', { className: 'avant-apres' },
+        h('div', { className: 'etiquette-mini' }, 'Avant'),
+        h('p', null, p.contexteAvant, h('span', { className: 'retire' }, p.avant), p.contexteApres),
+        h('div', { className: 'etiquette-mini' }, 'Après'),
+        h('p', null, p.contexteAvant, h('span', { className: 'ajoute' }, p.apercu || p.apres), p.contexteApres)),
+      p.pourquoi && h('div', null, h('div', { className: 'etiquette-mini' }, 'Pourquoi'), h('p', { className: 'pourquoi' }, p.pourquoi)),
+      p.vigilance && h('div', { className: 'vigilance' }, h('strong', null, 'Point de vigilance. '), p.vigilance),
+      enEdition
+        ? h(Fragment, null,
+          h('textarea', { className: 'zone-texte', rows: 3, value: rel.brouillon, onChange: (e) => rel.saisir(e.target.value), 'aria-label': 'Ta version du passage' }),
+          h('div', { className: 'actions-ligne' },
+            h(Bouton, { variante: 'principal', disabled: !rel.brouillon.trim(), onClick: () => rel.valider(p) }, 'Valider ma version'),
+            h(Bouton, { variante: 'lien', onClick: rel.abandonner }, 'Abandonner')))
+        : h('div', { className: 'actions-ligne' },
+          h(Bouton, { variante: 'principal', onClick: () => rel.accepter(p) }, 'Accepter'),
+          h(Bouton, { onClick: () => rel.modifier(p) }, 'Modifier'),
+          h(Bouton, { variante: 'contour', onClick: () => rel.refuser(p) }, 'Refuser')));
+  }
+
+  function PanneauRelecture({ rel, nomIA, onSecours }) {
+    const encours = rel.etat === 'encours';
+    const attente = rel.props.filter((p) => p.statut === 'attente').length;
+    const pluriel = (n, mot) => n + ' ' + mot + (n > 1 ? 's' : '');
+    return h(Fragment, null,
+      h(Carte, { titre: 'Relecture', info: `${nomIA} relit l’orthographe, la grammaire, la ponctuation, le vocabulaire et la clarté. La typographie reste corrigée automatiquement. Chaque relecture utilise un peu de crédit sur ton compte.`, sousTitre: 'Rien n’est appliqué sans ton accord.', actions: h(Bouton, { variante: 'principal', onClick: rel.relire, disabled: encours }, encours ? 'Relecture…' : rel.props.length ? 'Relire à nouveau' : 'Relire avec ' + nomIA) },
+        encours && h('p', { className: 'doux petit', role: 'status' }, `${nomIA} relit ton article. Cela peut prendre jusqu’à une minute.`),
+        rel.etat === 'erreur' && h(Fragment, null,
+          h('p', { className: 'erreur petit', role: 'status' }, rel.detail),
+          h(Bouton, { variante: 'lien', onClick: onSecours }, 'Vérifier avec LanguageTool à la place')),
+        rel.etat === 'fait' && h('p', { className: rel.props.length ? 'petit' : 'ok petit', role: 'status' },
+          rel.props.length ? `${pluriel(rel.props.length, 'proposition')}, dont ${attente} en attente.` : `${nomIA} n’a rien relevé dans ton article.`),
+        rel.etat === 'fait' && rel.ecartees > 0 && h('p', { className: 'doux petit' }, `${pluriel(rel.ecartees, 'proposition')} ${rel.ecartees > 1 ? 'écartées' : 'écartée'} : leur passage est introuvable tel quel dans ton texte.`)),
+      rel.props.map((p) => h(CarteProposition, { key: p.id, p, rel })));
   }
 
   function EtapeTexte({ dispatch, article, majA }) {
@@ -831,6 +975,12 @@
     const [remplacer, setRemplacer] = useState(null);
     const { choisirPolice, charte, reglages } = useContext(Contexte);
     const texteComplet = article.texte.join('\n\n');
+    const rel = useRelecture(article, texteComplet, majA);
+    const configIA = IA.active();
+    const [secours, setSecours] = useState(false);
+    const relectureIA = !!configIA && !secours;
+    const marquesRelecture = relectureIA ? rel.props.filter((p) => p.statut === 'attente').map((p) => ({ debut: p.debut, fin: p.fin })) : [];
+    const actifRelecture = relectureIA && rel.actif ? (rel.props.find((p) => p.id === rel.actif) || {}).debut : undefined;
     const typo = useMemo(() => T.correctionsArticle(article), [article.texte, article.slides, article.langue]);
     // Après une correction typographique, le curseur reste juste après ce que tu viens de taper.
     useApresRendu(() => {
@@ -896,9 +1046,10 @@
     return h('div', { className: 'deux-colonnes defilement-separe', ref: cadre, style: hauteur ? { '--hauteur-texte': hauteur + 'px' } : undefined },
       h('div', { className: 'colonne-principale' },
         h(Carte, { titre: 'Texte de l’article', info: 'Ton texte est la référence : les slides suivent chaque modification, sans changer leur mise en page.', sousTitre: `${article.texte.length} paragraphes · ${M.compterMots(texteComplet)} mots. Une ligne vide sépare deux paragraphes. Les slides se mettent à jour à chaque modification.`, actions: h(Bouton, { variante: 'petit', onClick: () => setRemplacer('') }, 'Remplacer tout le texte') },
-          h(EditeurTexte, { valeur: texteComplet, onChange: modifierTexte, marques: verification.erreurs.map((e) => ({ debut: e.offset, fin: e.offset + e.length })), active, zoneRef: zone }))),
+          h(EditeurTexte, { valeur: texteComplet, onChange: modifierTexte, marques: marquesRelecture.concat(verification.erreurs.map((e) => ({ debut: e.offset, fin: e.offset + e.length }))), active: actifRelecture !== undefined ? actifRelecture : active, zoneRef: zone, onCurseur: relectureIA ? rel.curseur : undefined }))),
       h('aside', { className: 'panneau' },
-        h(Carte, { titre: 'Orthographe et grammaire', info: 'Vérification par LanguageTool, un service gratuit. Rien n’est corrigé sans ton accord.', sousTitre: 'Les fautes sont surlignées dans ton texte.', actions: h(Bouton, { variante: 'principal', onClick: verifier, disabled: verification.etat === 'encours' }, verification.etat === 'encours' ? 'Vérification…' : 'Vérifier') },
+        relectureIA && h(PanneauRelecture, { rel, nomIA: IA.FOURNISSEURS[configIA.fournisseur].nom, onSecours: () => setSecours(true) }),
+        !relectureIA && h(Carte, { titre: 'Orthographe et grammaire', info: 'Vérification par LanguageTool, un service gratuit. Rien n’est corrigé sans ton accord.', sousTitre: 'Les fautes sont surlignées dans ton texte.', actions: h(Bouton, { variante: 'principal', onClick: verifier, disabled: verification.etat === 'encours' }, verification.etat === 'encours' ? 'Vérification…' : 'Vérifier') },
           verification.etat === 'erreur' && h('p', { className: 'erreur petit' }, 'Vérification impossible : ' + verification.detail),
           verification.etat === 'fait' && !verification.erreurs.length && h('p', { className: 'ok petit' }, 'Aucune faute détectée.'),
           verification.erreurs.map((e, i) => {
@@ -912,7 +1063,10 @@
                 h(Bouton, { variante: 'petit', onClick: () => montrer(e) }, h(Icone, { nom: 'oeil', taille: 16 }), 'Montrer dans le texte'),
                 h(Bouton, { variante: 'lien', onClick: () => ignorer(e) }, 'Ignorer')));
           }),
-          h('p', { className: 'mention' }, 'Correction fournie par ', h('a', { href: 'https://languagetool.org', target: '_blank', rel: 'noopener' }, 'LanguageTool'), '.')),
+          h('p', { className: 'mention' }, 'Correction fournie par ', h('a', { href: 'https://languagetool.org', target: '_blank', rel: 'noopener' }, 'LanguageTool'), '.'),
+          configIA
+            ? h(Bouton, { variante: 'lien', onClick: () => setSecours(false) }, 'Revenir à la relecture par ' + IA.FOURNISSEURS[configIA.fournisseur].nom)
+            : h('p', { className: 'doux petit' }, 'Pour une relecture complète (grammaire, vocabulaire, clarté), ajoute une clé dans Configuration, onglet IA.')),
         h(Carte, { titre: 'Typographie', info: 'Ces règles ne changent jamais tes mots. Les adresses web, les heures (14:30) et les nombres ne sont pas touchés.', sousTitre: 'Corrigée toute seule quand tu tapes ou colles : espace insécable avant : ; ! ? et dans « », guillemets « », apostrophe ’, points de suspension …' },
           typo.total
             ? h(Fragment, null,

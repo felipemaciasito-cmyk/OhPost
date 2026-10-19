@@ -704,3 +704,20 @@ canvas.slide.editable { cursor: text; }
 .barre-blocs .outil.danger { color: var(--erreur); }
 .barre-blocs .outil:disabled { opacity: 0.38; cursor: default; background: none; }
 .nb-blocs { font-size: 13px; color: var(--doux); padding: 0 8px; }
+
+/* ---------- Relecture par l'IA : cartes de propositions (phase 4) ---------- */
+.bouton.contour { background: transparent; box-shadow: inset 0 0 0 1px var(--doux); }
+.carte.proposition { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 2px solid transparent; scroll-margin: 12px; }
+.carte.proposition.active { border-color: var(--action); }
+.carte.proposition.traitee { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; }
+.proposition-tete { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.badge-type { align-self: flex-start; padding: 4px 10px; border-radius: 999px; background: var(--info-fond); color: var(--info-texte); font-size: 13px; font-weight: 600; }
+.carte.proposition.traitee .badge-type { align-self: center; }
+.avant-apres { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 12px; background: var(--fond); }
+.avant-apres p { margin: 0 0 6px; font-size: 15px; line-height: 1.55; }
+.etiquette-mini { font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--doux); }
+.retire { color: var(--erreur); background: var(--erreur-doux); text-decoration: line-through; padding: 0 2px; border-radius: 3px; }
+.ajoute { color: var(--touche-texte); background: var(--touche-doux); text-decoration: underline; padding: 0 2px; border-radius: 3px; }
+.pourquoi { margin: 2px 0 0; font-size: 15px; line-height: 1.5; }
+.vigilance { padding: 10px 12px; border-radius: 10px; background: var(--attention-doux); color: var(--attention-texte); font-size: 14px; line-height: 1.5; }
+.theme-sombre .editeur-fond mark.active { background: rgba(201, 212, 32, 0.4); box-shadow: 0 0 0 3px rgba(201, 212, 32, 0.4); }

@@ -359,7 +359,7 @@ blockquote { margin: 8px 0; padding: 8px 12px; border-left: 3px solid var(--touc
 
 .onglets { display: flex; justify-content: center; padding: 14px 16px 4px; }
 .nuancier { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
-.pastille-couleur { display: flex; gap: 12px; align-items: center; }
+.couleur-charte { display: flex; gap: 12px; align-items: center; }
 .echantillon { width: 56px; height: 56px; border-radius: 14px; border: 1px solid var(--trait); flex: 0 0 auto; }
 .galerie, .planche { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 6px; }
 .galerie-item { margin: 0; display: grid; gap: 8px; width: 160px; flex: none; }
@@ -376,6 +376,14 @@ blockquote { margin: 8px 0; padding: 8px 12px; border-left: 3px solid var(--touc
   .deux-colonnes { grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; }
   .contenu { padding-left: 16px; padding-right: 16px; }
   .barre-titre { max-width: 26vw; }
+}
+/* Étape Texte : le texte et le panneau de droite défilent chacun de leur côté (pas sur téléphone, où le panneau passe dessous). */
+@media (min-width: 701px) {
+  .contenu.atelier.texte-fixe { padding-bottom: 0; }
+  .defilement-separe { height: var(--hauteur-texte, auto); grid-template-rows: minmax(0, 1fr); align-items: stretch; }
+  .defilement-separe > .colonne-principale, .defilement-separe > .panneau { height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  .defilement-separe > .colonne-principale { padding: 4px 4px 24px; }
+  .defilement-separe > .panneau { position: static; top: auto; max-height: none; }
 }
 @media (max-width: 700px) {
   .deux-colonnes { grid-template-columns: minmax(0, 1fr); }

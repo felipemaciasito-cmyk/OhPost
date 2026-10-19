@@ -762,7 +762,7 @@
         }, h('span', { className: 'etape-num' }, i + 1), e.nom))),
       etat.aide && h(PanneauAide, { cle: etat.etape, dispatch }),
       h(Message, { etat, dispatch }),
-      h('main', { className: cls('contenu atelier', etat.etape === 'composition' && 'large') }, h(vues[etat.etape] || EtapeTexte, { etat, dispatch, article, majA })),
+      h('main', { className: cls('contenu atelier', etat.etape === 'composition' && 'large', (!vues[etat.etape] || etat.etape === 'texte') && 'texte-fixe') }, h(vues[etat.etape] || EtapeTexte, { etat, dispatch, article, majA })),
       h('footer', { className: 'pied-etapes' },
         h(Bouton, { disabled: index === 0, onClick: () => dispatch({ type: 'etape', etape: ETAPES[index - 1].id }) }, 'Étape précédente'),
         index < ETAPES.length - 1
@@ -807,6 +807,25 @@
     const zone = useRef(null);
     const curseur = useRef(null);
     const avantSaisie = useAvantSaisie(zone);
+    // Le texte et le panneau de droite défilent chacun de leur côté : la zone occupe la hauteur de l'écran
+    // entre l'en-tête et le pied (sur téléphone, où le panneau passe dessous, la page défile normalement).
+    const cadre = useRef(null);
+    const [hauteur, setHauteur] = useState(null);
+    useEffect(() => {
+      const mesurer = () => {
+        const el = cadre.current;
+        if (!el) return;
+        const pied = document.querySelector('.pied-etapes');
+        const bas = pied ? pied.getBoundingClientRect().height : 0;
+        const haut = el.getBoundingClientRect().top + racine.scrollY;
+        setHauteur(Math.max(320, Math.round(racine.innerHeight - haut - bas - 12)));
+      };
+      mesurer();
+      racine.addEventListener('resize', mesurer);
+      const observateur = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(mesurer) : null;
+      if (observateur) ['.barre', '.etapes', '.pied-etapes'].forEach((sel) => { const e = document.querySelector(sel); if (e) observateur.observe(e); });
+      return () => { racine.removeEventListener('resize', mesurer); if (observateur) observateur.disconnect(); };
+    }, []);
     const [verification, setVerification] = useState({ etat: 'repos', erreurs: [], detail: '' });
     const [active, setActive] = useState(null);
     const [remplacer, setRemplacer] = useState(null);
@@ -830,11 +849,13 @@
       setActive(e.offset);
       const el = zone.current;
       if (!el) return;
-      el.focus();
+      try { el.focus({ preventScroll: true }); } catch (x) { el.focus(); }
       el.setSelectionRange(e.offset, e.offset + e.length);
-      const ligne = texteComplet.slice(0, e.offset).split('\n').length;
-      const haut = el.getBoundingClientRect().top + racine.scrollY + (ligne - 4) * 27;
-      racine.scrollTo({ top: Math.max(0, haut - 140), behavior: 'smooth' });
+      // La faute surlignée est amenée au milieu de la colonne du texte (ou de la page sur téléphone).
+      racine.requestAnimationFrame(() => {
+        const marque = el.parentNode && el.parentNode.querySelector('mark.active');
+        if (marque) marque.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      });
     }
 
     async function verifier() {
@@ -872,7 +893,7 @@
       dispatch({ type: 'message', message: { texte: 'Typographie corrigée : ' + T.resume(r.remplacements) + '.', annulation: { type: 'article', id: article.id, maj: (a) => T.annulerTrace(a, trace) } } });
     };
 
-    return h('div', { className: 'deux-colonnes' },
+    return h('div', { className: 'deux-colonnes defilement-separe', ref: cadre, style: hauteur ? { '--hauteur-texte': hauteur + 'px' } : undefined },
       h('div', { className: 'colonne-principale' },
         h(Carte, { titre: 'Texte de l’article', info: 'Ton texte est la référence : les slides suivent chaque modification, sans changer leur mise en page.', sousTitre: `${article.texte.length} paragraphes · ${M.compterMots(texteComplet)} mots. Une ligne vide sépare deux paragraphes. Les slides se mettent à jour à chaque modification.`, actions: h(Bouton, { variante: 'petit', onClick: () => setRemplacer('') }, 'Remplacer tout le texte') },
           h(EditeurTexte, { valeur: texteComplet, onChange: modifierTexte, marques: verification.erreurs.map((e) => ({ debut: e.offset, fin: e.offset + e.length })), active, zoneRef: zone }))),
@@ -1019,7 +1040,7 @@
     const faibles = lisibilite.filter((l) => l.ratio < 4.5);
     return h(Fragment, null,
       h(Carte, { titre: 'Couleurs', info: 'Elles s’appliquent à tous tes carrousels, sur tous tes appareils.', actions: h(Bouton, { variante: 'petit', onClick: () => majCharte({ palette: { ...M.PALETTE } }) }, 'Rétablir les couleurs d’origine') },
-        h('div', { className: 'nuancier' }, COULEURS.map(([cle, nom, usage]) => h('div', { key: cle, className: 'pastille-couleur' },
+        h('div', { className: 'nuancier' }, COULEURS.map(([cle, nom, usage]) => h('div', { key: cle, className: 'couleur-charte' },
           h('label', { className: 'echantillon', style: { background: charte.palette[cle] } }, h('input', { type: 'color', value: charte.palette[cle], 'aria-label': 'Couleur ' + nom, onChange: (e) => majCouleur(cle, e.target.value) })),
           h('div', null, h('div', { className: 'petit' }, h('strong', null, nom)),
             h('input', { className: 'code-couleur', defaultValue: charte.palette[cle], key: charte.palette[cle], 'aria-label': 'Code de la couleur ' + nom, onBlur: (e) => majCouleur(cle, e.target.value.trim()) }),

@@ -16,6 +16,7 @@
   const X = racine.PostsOPExport || require('./export.js');
   const L = racine.PostsOPLiens || require('./liens.js');
   const T = racine.PostsOPTypographie || require('./typographie.js');
+  const IA = racine.PostsOPIA || require('./ia.js');
   const { createElement: h, Fragment, Component, useState, useReducer, useEffect, useLayoutEffect, useMemo, useRef, useContext, createContext } = React;
   const useApresRendu = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
@@ -83,7 +84,7 @@
 
   const AIDES = {
     bibliotheque: { titre: 'Tes articles', textes: ['Trois sections : En cours, Publiés (validés par toi) et Corbeille, d’où tu peux restaurer un article.', 'Le menu « … » d’une carte permet de dupliquer, d’utiliser un article comme modèle pour un nouveau texte, de le marquer comme publié ou de le mettre à la corbeille.', 'Trie et affiche tes articles comme tu veux, en grille ou en liste. « Annuler » et ⌘Z (Ctrl+Z) reviennent en arrière à tout moment.'] },
-    configuration: { titre: 'La configuration', textes: ['Charte : tes couleurs et tes tailles de texte. Tout changement s’applique à tous tes carrousels.', 'Ressources : tes polices, ton logo et tes fleurs, importés une fois et retrouvés sur tous tes appareils.', 'Réglages : le comportement de l’outil. Synchronisation : la liaison avec ton dépôt GitHub privé.'] },
+    configuration: { titre: 'La configuration', textes: ['Charte : tes couleurs et tes tailles de texte. Tout changement s’applique à tous tes carrousels.', 'Ressources : tes polices, ton logo et tes fleurs, importés une fois et retrouvés sur tous tes appareils.', 'Réglages : le comportement de l’outil. Synchronisation : la liaison avec ton dépôt GitHub privé.', 'IA : le fournisseur d’intelligence artificielle et sa clé. Comme la clé GitHub, elle reste sur l’appareil : à saisir une fois sur chacun.'] },
     texte: { titre: 'Étape 1 · Texte', textes: ['Ton texte est la référence du carrousel : chaque modification ici met les slides à jour, sans toucher à leur mise en page. Et un paragraphe modifié dans Design modifie aussi ce texte.', 'La vérification LanguageTool surligne les fautes dans ton texte. Pour chacune, choisis la bonne correction parmi celles proposées, ou ignore-la.', 'La typographie française se corrige toute seule quand tu tapes ou colles du texte, ici comme sur les slides : un message montre chaque correction, avec « Annuler ».', 'Les suggestions de style arriveront avec l’IA : tu sélectionneras un passage directement dans ton texte.'] },
     composition: { titre: 'Étape 2 · Composition', textes: ['Tes slides, les unes sous les autres, exactement comme elles seront exportées. Clique dans un paragraphe pour l’écrire à sa place ; sélectionne des mots pour les mettre en forme avec la petite barre qui apparaît.', 'Entrée crée un nouveau paragraphe, ⇧Entrée un retour à la ligne, ⌘↩ (Ctrl+↩) un saut de slide. ⌫ au début d’un paragraphe le réunit au précédent ; au début d’une slide, avec la slide précédente.', 'Les menus en haut regroupent tout le reste : gabarits, fond, logo, redécoupage, et Vérifier pour les points à regarder. Ton texte reste la référence : chaque modification ici le met à jour.'] },
     description: { titre: 'Étape 4 · Description', textes: ['Le texte qui accompagne le carrousel : légende Instagram et texte du post LinkedIn.', 'Pour l’instant tu l’écris toi-même ; l’IA pourra te proposer une version plus tard.'] },
@@ -997,10 +998,10 @@
   /* ================================================================== */
 
   function Configuration({ etat, dispatch, actions }) {
-    const onglets = { charte: OngletCharte, ressources: OngletRessources, reglages: OngletReglages, synchro: OngletSynchro };
+    const onglets = { charte: OngletCharte, ressources: OngletRessources, reglages: OngletReglages, synchro: OngletSynchro, ia: OngletIA };
     return h(Fragment, null,
       h(Barre, { etat, dispatch, titre: 'Configuration', gauche: h(Bouton, { variante: 'retour', onClick: () => dispatch({ type: 'ecran', ecran: 'bibliotheque' }) }, h(Icone, { nom: 'retour' }), 'Articles') }),
-      h('nav', { className: 'onglets' }, h(Segmente, { etiquette: 'Onglets', valeur: etat.onglet, onChange: (o) => dispatch({ type: 'onglet', onglet: o }), options: [{ valeur: 'charte', libelle: 'Charte' }, { valeur: 'ressources', libelle: 'Ressources' }, { valeur: 'reglages', libelle: 'Réglages' }, { valeur: 'synchro', libelle: 'Synchronisation' }] })),
+      h('nav', { className: 'onglets' }, h(Segmente, { etiquette: 'Onglets', valeur: etat.onglet, onChange: (o) => dispatch({ type: 'onglet', onglet: o }), options: [{ valeur: 'charte', libelle: 'Charte' }, { valeur: 'ressources', libelle: 'Ressources' }, { valeur: 'reglages', libelle: 'Réglages' }, { valeur: 'synchro', libelle: 'Synchronisation' }, { valeur: 'ia', libelle: 'IA' }] })),
       etat.aide && h(PanneauAide, { cle: 'configuration', dispatch }),
       h(Message, { etat, dispatch }),
       h('main', { className: 'contenu colonne-unique' }, h(onglets[etat.onglet] || OngletCharte, { etat, dispatch, actions })));
@@ -1127,6 +1128,86 @@
           h('li', null, 'Dans « Permissions », trouve « Contents » et choisis « Read and write ».'),
           h('li', null, 'Touche « Generate token », copie la clé (elle ne s’affiche qu’une fois) et colle-la ci-dessus.')),
         h('p', { className: 'doux petit' }, 'Ne colle jamais cette clé dans une conversation ni dans ton dépôt public. Si elle fuit, supprime-la sur GitHub et crées-en une autre.')));
+  }
+
+  // Fournisseur d'IA : Claude par défaut, Mistral en option. Tout reste sur cet appareil (voir ia.js).
+  const GUIDES_IA = {
+    claude: [
+      ['Sur ', h('strong', null, 'platform.claude.com'), ', crée un compte au nom de l’entreprise.'],
+      ['Dans le tableau de bord, touche « Ajouter des fonds ». Laisse le rechargement automatique désactivé : la dépense ne pourra jamais dépasser les crédits achetés.'],
+      ['Ouvre « Clés API », touche « Créer une clé », puis « Continuer avec une clé API ».'],
+      ['Nom : ', h('strong', null, 'PostsOP'), '. Expiration : 90 jours, ou la durée proposée la plus proche. Laisse l’espace de travail par défaut.'],
+      ['Touche le bouton de création, copie la clé (elle ne s’affiche qu’une fois) et colle-la ci-dessus.'],
+    ],
+    mistral: [
+      ['Sur ', h('strong', null, 'console.mistral.ai'), ', crée un compte au nom de l’entreprise et choisis une offre payante : avec l’offre gratuite, les textes envoyés peuvent servir à entraîner leurs modèles.'],
+      ['Ouvre la page des clés d’API et crée une clé nommée ', h('strong', null, 'PostsOP'), '.'],
+      ['Copie la clé (elle ne s’affiche en général qu’une fois) et colle-la ci-dessus.'],
+    ],
+  };
+
+  function OngletIA() {
+    const [config, setConfig] = useState(() => IA.lire());
+    const [fournisseur, setFournisseur] = useState(config.fournisseur);
+    const [cle, setCle] = useState('');
+    const [modele, setModele] = useState(() => IA.modeleDe(config, config.fournisseur));
+    const [test, setTest] = useState({ etat: 'repos', message: '' });
+    const f = IA.FOURNISSEURS[fournisseur];
+    const cleEnregistree = !!config.cles[fournisseur];
+    const actif = IA.active(config);
+    const choisir = (v) => { setFournisseur(v); setModele(IA.modeleDe(config, v)); setCle(''); setTest({ etat: 'repos', message: '' }); };
+    async function testerEtEnregistrer() {
+      const cleUtilisee = cle.trim() || config.cles[fournisseur];
+      const m = modele.trim() || f.modele;
+      setTest({ etat: 'encours', message: 'Test de la connexion…' });
+      if (!cleUtilisee) {
+        // Sans clé : on vérifie seulement que le fournisseur accepte les appels de ce navigateur.
+        const ok = await IA.joignable(fournisseur);
+        setTest(ok
+          ? { etat: 'ok', message: `${f.nom} accepte les appels depuis ce navigateur. Ajoute une clé pour un test complet.` }
+          : { etat: 'erreur', message: `${f.nom} ne répond pas depuis ce navigateur. Si ta connexion internet fonctionne, ce fournisseur refuse les appels venant d’un navigateur : il faudrait un petit serveur relais pour l’utiliser.` });
+        return;
+      }
+      try {
+        const message = await IA.tester(fournisseur, cleUtilisee, m);
+        IA.enregistrer({ fournisseur, cles: { ...config.cles, [fournisseur]: cleUtilisee }, modeles: { ...config.modeles, [fournisseur]: m === f.modele ? undefined : m } });
+        setConfig(IA.lire());
+        setCle('');
+        setTest({ etat: 'ok', message: message + ' Réglage enregistré sur cet appareil.' });
+      } catch (erreur) {
+        setTest({ etat: 'erreur', message: erreur.message });
+      }
+    }
+    function oublier() {
+      setConfig(IA.oublierCle(fournisseur));
+      setTest({ etat: 'repos', message: 'Clé oubliée sur cet appareil.' });
+    }
+    const aideCle = cleEnregistree
+      ? 'Une clé est déjà enregistrée sur cet appareil. Laisse vide pour la garder.'
+      : (f.prefixe ? `Commence par « ${f.prefixe} ». ` : '') + 'Sans clé, le test vérifie seulement que le fournisseur répond depuis ce navigateur.';
+    const douteuse = cle.trim() && f.prefixe && !cle.trim().startsWith(f.prefixe);
+    return h(Fragment, null,
+      h('p', { className: 'note' }, 'L’IA proposera, tu décideras : rien ne sera appliqué sans ta validation. Ces réglages restent sur cet appareil, comme ta clé GitHub.'),
+      h(Carte, { titre: 'État' },
+        h('p', null, actif
+          ? h(Fragment, null, h(Pastille, { ton: 'ok' }, `${IA.FOURNISSEURS[actif.fournisseur].nom} actif`), ' ', h('span', { className: 'doux petit' }, `Modèle ${actif.modele}.`))
+          : h(Fragment, null, h(Pastille, { ton: 'attention' }, 'Aucune IA active'), ' ', h('span', { className: 'doux petit' }, 'L’app fonctionne normalement sans IA.')))),
+      h(Carte, { titre: 'Fournisseur d’IA', info: 'Les coûts sont prélevés sur le compte que tu ouvres chez le fournisseur, jamais par PostsOP. Tes textes ne lui sont envoyés que lorsque tu demandes une proposition.' },
+        h(Ligne, { etiquette: 'Fournisseur', aide: fournisseur === 'claude' ? 'Par défaut. Société américaine Anthropic.' : 'Société française ; données hébergées en Europe.' },
+          h(Segmente, { etiquette: 'Fournisseur', valeur: fournisseur, onChange: choisir, options: [{ valeur: 'claude', libelle: 'Claude' }, { valeur: 'mistral', libelle: 'Mistral' }] })),
+        h(Ligne, { etiquette: 'Clé d’API', aide: aideCle },
+          h('input', { className: 'champ-texte', type: 'password', value: cle, autoComplete: 'off', autoCapitalize: 'off', autoCorrect: 'off', spellCheck: false, onChange: (e) => setCle(e.target.value), 'aria-label': 'Clé d’API ' + f.nom })),
+        douteuse && h('p', { className: 'erreur petit' }, `Cette clé ne commence pas par « ${f.prefixe} » : vérifie qu’il s’agit bien d’une clé ${f.nom}.`),
+        h(Ligne, { etiquette: 'Modèle', aide: `Laisse « ${f.modele} », sauf si le fournisseur retire ce modèle.` },
+          h('input', { className: 'champ-texte', value: modele, autoComplete: 'off', autoCapitalize: 'off', autoCorrect: 'off', spellCheck: false, onChange: (e) => setModele(e.target.value), 'aria-label': 'Modèle ' + f.nom })),
+        h('div', { className: 'actions-ligne' },
+          h(Bouton, { variante: 'principal', disabled: test.etat === 'encours', onClick: testerEtEnregistrer }, 'Tester et enregistrer'),
+          cleEnregistree && h(Bouton, { variante: 'lien', onClick: oublier }, 'Oublier la clé sur cet appareil')),
+        h('p', { className: 'doux petit' }, 'Le test avec une clé envoie une toute petite demande, qui coûte une fraction de centime.'),
+        test.message && h('p', { className: test.etat === 'erreur' ? 'erreur' : test.etat === 'ok' ? 'ok' : 'doux', role: 'status' }, test.message)),
+      h(Carte, { titre: 'Mise en place, une seule fois', sousTitre: 'Quelques minutes. Les intitulés de la console peuvent légèrement varier.' },
+        h('ol', { className: 'guide' }, GUIDES_IA[fournisseur].map((morceaux, i) => h('li', { key: fournisseur + i }, ...morceaux))),
+        h('p', { className: 'doux petit' }, 'Ne colle jamais cette clé dans une conversation ni dans ton dépôt public. Si elle fuit, supprime-la sur la console et crées-en une autre.')));
   }
 
   /* ================================================================== */

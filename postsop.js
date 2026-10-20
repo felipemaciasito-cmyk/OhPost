@@ -18,7 +18,7 @@
   const T = racine.PostsOPTypographie || require('./typographie.js');
   const IA = racine.PostsOPIA || require('./ia.js');
   const R = racine.PostsOPRelecture || require('./relecture.js');
-  const VERSION = '2026-10-20.6'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-20.7'; // à changer à chaque livraison (affichée dans l'aide « i »)
   const { createElement: h, Fragment, Component, useState, useReducer, useEffect, useLayoutEffect, useMemo, useRef, useContext, createContext } = React;
   const useApresRendu = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 

@@ -796,3 +796,23 @@ canvas.slide.editable { cursor: text; }
 .favori-retirer { position: absolute; top: 2px; right: 2px; width: 26px; height: 26px; border: 0; border-radius: 50%; background: var(--surface); color: var(--texte); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2); font: inherit; font-size: 15px; cursor: pointer; opacity: 0.7; }
 .favori-retirer:hover, .favori-retirer:focus-visible { opacity: 1; }
 .galerie-vide { max-width: 260px; margin: 6px 10px; }
+
+/* Propositions de mise en page */
+.fenetre-propositions { width: min(1180px, 100%); max-height: 94vh; display: flex; flex-direction: column; position: relative; }
+.propositions-corps { display: flex; flex-wrap: wrap; gap: 18px; padding: 16px 18px 22px; overflow: auto; }
+.propositions-liste { flex: 0 1 260px; min-width: 230px; display: flex; flex-direction: column; gap: 10px; }
+.propositions-liste .segmente { display: flex; }
+.propositions-liste .segmente button { flex: 1 1 auto; }
+.proposition-item { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 10px 12px; border-radius: 14px; border: 2px solid var(--trait); background: var(--surface); color: var(--texte); font: inherit; text-align: left; cursor: pointer; }
+.proposition-item.actif { border-color: var(--action); }
+.propositions-mini { display: flex; gap: 4px; }
+.propositions-case { display: flex; align-items: center; gap: 8px; min-height: 40px; font-size: 15px; }
+.propositions-centre { flex: 1 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.propositions-centre h3 { margin: 0; font-size: 22px; }
+.propositions-centre .proposition-tete p { margin: 4px 0 0; }
+.proposition-slides { display: flex; flex-wrap: wrap; gap: 12px; }
+.proposition-slide { position: relative; }
+.etoile-slide { position: absolute; top: 4px; right: 4px; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #FFFFFF; text-shadow: 0 0 3px rgba(0, 0, 0, 0.6); font-size: 14px; line-height: 26px; cursor: pointer; opacity: 0.55; transition: opacity 0.15s, background 0.15s; }
+.etoile-slide:hover, .etoile-slide:focus-visible { opacity: 1; background: #FFFFFF; color: #12313A; text-shadow: none; }
+.etoile-slide.gardee { opacity: 1; background: var(--touche); color: #12313A; text-shadow: none; }
+.propositions-discussion { position: absolute; top: 76px; right: 24px; }

@@ -306,6 +306,7 @@
       const ctx = useContext(Contexte);
       const { choisirPolice, reglages, charte, images } = ctx;
       const [edition, setEdition] = useState(null);
+      const [propositionsOuvertes, setPropositionsOuvertes] = useState(false);
       const [version, setVersion] = useState(0);
       const [menu, setMenu] = useState(null);
       const [tailleEcran, setTailleEcran] = useState(() => lirePref('postsop-taille-slides', 'moyennes'));
@@ -1030,6 +1031,8 @@
           item('Supprimer la slide', () => { majA(OP.supprimerSlide(active), null, `Slide ${active + 1} supprimée. Son texte reste dans l’article.`); dispatch({ type: 'slide', index: Math.max(0, active - 1) }); setEdition(null); }, { danger: true, desactive: total <= 1 }),
         ] },
         { nom: 'Carrousel', contenu: () => [
+          item('Propositions de mise en page…', () => setPropositionsOuvertes(true)),
+          trait,
           { type: 'sous', libelle: 'Fond', contenu: () => [{ type: 'libre', rendu: (fermer) => h(Nuancier, { valeur: article.fond, choisir: (f) => { fermer(); majA(OP.champ('fond', f), null, `Fond ${M.fondsDe(charte.palette)[f].nom.toLowerCase()}.`); setEdition(null); } }) }] },
           { type: 'sous', libelle: 'Format', contenu: () => [['carre', 'Carré · 1:1'], ['portrait', 'Portrait · 4:5']].map(([v, nom]) => item(nom, () => { majA(OP.champ('format', v)); setEdition(null); }, coche(article.format === v))) },
           { type: 'sous', libelle: 'Réseau', contenu: () => [['instagram', 'Instagram (images)'], ['linkedin', 'LinkedIn (PDF)']].map(([v, nom]) => item(nom, () => majA(OP.champ('reseau', v)), coche(article.reseau === v))) },
@@ -1054,6 +1057,7 @@
       const historique = h('span', { className: 'historique-menus' },
         h('span', { className: 'position' }, `Slide ${active + 1} sur ${total}`));
       return h('div', { className: 'composition' },
+        propositionsOuvertes && h(FenetrePropositions, { etat, dispatch, article, majA, fermer: () => setPropositionsOuvertes(false) }),
         h(BarreMenus, { menus, ouvert: menu, setOuvert: setMenu, droite: historique }),
         h('div', { className: 'pages-composition', ref: pagesRef },
           article.slides.map((s, i) => {
@@ -1203,6 +1207,169 @@
             h(SlideCanvas, { slide: appliquerFavori(slide, f), formatId: article.format, fondId: article.fond, largeur: 84, index, total, logo: article.logo }),
             h('span', null, f.nature)),
           h('button', { type: 'button', className: 'favori-retirer', onMouseDown: garder, onClick: () => retirer(f), 'aria-label': 'Retirer ce favori' }, '×')))));
+    }
+
+    /* ---------- Propositions de mise en page (Studio simplifié, décisions du 19 octobre 2026) ---------- */
+    const PROPOSITIONS_PAR_ARTICLE = new Map(); // gardées le temps de la session
+    function FenetrePropositions({ etat, dispatch, article, majA, fermer }) {
+      const IA = racine.PostsOPIA;
+      const P = racine.PostsOPPropositions;
+      const { choisirPolice, reglages, charte } = useContext(Contexte);
+      const fonds = M.fondsDe(charte.palette);
+      const config = IA && IA.active();
+      const nomIA = config ? IA.FOURNISSEURS[config.fournisseur].nom : 'Claude';
+      const [liste, setListeBrute] = useState(() => PROPOSITIONS_PAR_ARTICLE.get(article.id) || []);
+      const setListe = (l) => { PROPOSITIONS_PAR_ARTICLE.set(article.id, l); setListeBrute(l); };
+      const [choisie, setChoisie] = useState(() => (liste[0] ? liste[0].id : 'actuelle'));
+      const [onglet, setOnglet] = useState('propositions');
+      const [inspirer, setInspirer] = useState(true);
+      const [suivi, setSuivi] = useState({ etat: 'repos', detail: '' });
+      const [passe, setPasse] = useState([]);
+      const [futur, setFutur] = useState([]);
+      const [chat, setChat] = useState({ ouvert: false, messages: [], encours: false });
+      const [saisie, setSaisie] = useState('');
+      const favoris = (etat.projet && etat.projet.favoris) || [];
+      const favorisCarrousels = (etat.projet && etat.projet.favorisCarrousels) || [];
+      useEffect(() => {
+        const touche = (e) => { if (e.key === 'Escape') fermer(); };
+        racine.addEventListener('keydown', touche);
+        return () => racine.removeEventListener('keydown', touche);
+      }, []);
+      const paragraphes = article.texte;
+      const catalogueTexte = P.catalogue(M.GABARITS, fonds, M.NATURES);
+      const element = liste.find((x) => x.id === choisie);
+      const plan = element ? element.plan : null;
+      const slides = plan ? P.construireSlides(plan, paragraphes) : article.slides;
+      const fond = plan ? plan.fond : article.fond;
+      const total = slides.length;
+      const deborde = slides.filter((sl, i) => M.composer(sl, article.format, fond, choisirPolice, { charte, reglages, index: i, total }).deborde).length;
+      const recette = plan && JSON.stringify(P.recetteDe(plan));
+      const carrouselGarde = plan && favorisCarrousels.find((f) => JSON.stringify(f.recette) === recette);
+
+      async function generer() {
+        if (!config) return;
+        setSuivi({ etat: 'encours', detail: '' });
+        try {
+          const favs = inspirer ? favoris.map((f) => ({ gabarit: f.presentation.gabarit, styles: f.presentation.blocs.map((b) => b.style) })) : [];
+          const brut = await IA.demander(config, { systeme: P.SYSTEME, texte: P.messageGeneration({ paragraphes, catalogueTexte, format: M.FORMATS[article.format].nom, reseau: article.reseau === 'linkedin' ? 'LinkedIn' : 'Instagram', favoris: favs }), maxJetons: 4000, delai: 150000 });
+          const r = P.lireReponse(brut, paragraphes.length, M.GABARITS, fonds, M.NATURES);
+          if (!r.plans.length) throw new Error('Aucune proposition ne reprenait tout ton texte dans l’ordre : réessaie.');
+          const nouvelles = r.plans.map((pl, k) => ({ id: 'p' + Date.now().toString(36) + k, plan: pl }));
+          setListe(nouvelles.concat(liste).slice(0, 9));
+          setChoisie(nouvelles[0].id);
+          setOnglet('propositions');
+          setSuivi({ etat: 'repos', detail: r.ecartes ? `${r.ecartes} proposition${r.ecartes > 1 ? 's écartées' : ' écartée'} : elle${r.ecartes > 1 ? 's' : ''} ne reprenai${r.ecartes > 1 ? 'en' : ''}t pas tout ton texte.` : '' });
+        } catch (erreur) {
+          setSuivi({ etat: 'erreur', detail: erreur.message });
+        }
+      }
+      function remplacerPlan(id, nouveau) { setListe(liste.map((x) => (x.id === id ? { ...x, plan: nouveau } : x))); }
+      async function demander(texte) {
+        const t = String(texte || '').trim();
+        if (!t || !plan || !config || chat.encours) return;
+        const historique = chat.messages;
+        setChat({ ...chat, encours: true, messages: historique.concat([{ de: 'moi', texte: t }]) });
+        setSaisie('');
+        try {
+          const brut = await IA.demander(config, { systeme: P.SYSTEME, texte: P.messageEvolution({ paragraphes, catalogueTexte, plan, historique, demande: t }), maxJetons: 3000, delai: 120000 });
+          const r = P.lireReponse(brut, paragraphes.length, M.GABARITS, fonds, M.NATURES);
+          if (r.plans.length) {
+            setPasse(passe.concat([{ id: choisie, plan }]));
+            setFutur([]);
+            remplacerPlan(choisie, { ...r.plans[0], nom: plan.nom });
+          }
+          setChat((c) => ({ ...c, encours: false, messages: c.messages.concat([{ de: 'ia', texte: r.plans.length ? (r.reponse || 'Voici la mise en page modifiée.') + ' « Annuler » revient en arrière.' : 'Ma proposition ne reprenait pas tout ton texte : je n’ai rien changé. Reformule ta demande.' }]) }));
+        } catch (erreur) {
+          setChat((c) => ({ ...c, encours: false, messages: c.messages.concat([{ de: 'ia', texte: erreur.message }]) }));
+        }
+      }
+      function annuler() { const d = passe[passe.length - 1]; if (!d) return; const actuel = liste.find((x) => x.id === d.id); setFutur(futur.concat([{ id: d.id, plan: actuel.plan }])); setPasse(passe.slice(0, -1)); remplacerPlan(d.id, d.plan); setChoisie(d.id); }
+      function retablir() { const d = futur[futur.length - 1]; if (!d) return; const actuel = liste.find((x) => x.id === d.id); setPasse(passe.concat([{ id: d.id, plan: actuel.plan }])); setFutur(futur.slice(0, -1)); remplacerPlan(d.id, d.plan); setChoisie(d.id); }
+      function utiliser() {
+        if (!plan) return;
+        const nouvelles = P.construireSlides(plan, paragraphes);
+        majA((a) => OP.remplacerTexte(a.texte, nouvelles)({ ...a, fond: plan.fond }), null, `« ${plan.nom} » est maintenant ton carrousel. Retouche-le à la main ici, slide par slide.`);
+        fermer();
+      }
+      const majProjet = (maj) => dispatch({ type: 'projet', maj });
+      function basculerFavoriSlide(sl, i) {
+        const pres = presentationDe(sl, i);
+        const deja = favoris.find((f) => memePresentation(f.presentation, pres));
+        if (deja) majProjet((pr) => ({ ...pr, favoris: (pr.favoris || []).filter((f) => f.id !== deja.id) }));
+        else majProjet((pr) => ({ ...pr, favoris: [nouveauFavori(sl, i, { ...article, fond })].concat(pr.favoris || []) }));
+      }
+      function basculerCarrousel() {
+        if (!plan) return;
+        if (carrouselGarde) majProjet((pr) => ({ ...pr, favorisCarrousels: (pr.favorisCarrousels || []).filter((f) => f.id !== carrouselGarde.id) }));
+        else majProjet((pr) => ({ ...pr, favorisCarrousels: [{ id: 'car-' + Date.now().toString(36), nom: plan.nom, origine: article.titre, recette: P.recetteDe(plan) }].concat(pr.favorisCarrousels || []) }));
+      }
+      function voirCarrousel(f) {
+        const adapte = P.adapterRecette(f.recette, paragraphes.length, f.nom + ' (favori)', M.GABARITS, fonds, M.NATURES);
+        if (!adapte) return;
+        const id = 'f' + Date.now().toString(36);
+        setListe([{ id, plan: adapte, favori: true }].concat(liste).slice(0, 9));
+        setChoisie(id);
+        setOnglet('propositions');
+      }
+      const miniatures = (sls, fd) => h('div', { className: 'propositions-mini' }, sls.slice(0, 4).map((sl, i) => h(SlideCanvas, { key: i, slide: sl, formatId: article.format, fondId: fd, largeur: 44, index: i, total: sls.length, logo: article.logo })));
+      const itemListe = (id, nom, sous, sls, fd) => h('button', { key: id, type: 'button', className: cls('proposition-item', choisie === id && 'actif'), 'aria-pressed': choisie === id, onClick: () => setChoisie(id) },
+        h('strong', null, nom), h('span', { className: 'doux petit' }, sous), miniatures(sls, fd));
+
+      return h('div', { className: 'voile', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Propositions de mise en page' },
+        h('div', { className: 'feuille fenetre-propositions' },
+          h('div', { className: 'calendrier-tete' },
+            h('h2', { className: 'gill' }, 'Propositions de mise en page'),
+            h('div', { className: 'actions-ligne' },
+              h(Bouton, { variante: 'petit', disabled: !passe.length, onClick: annuler }, 'Annuler'),
+              h(Bouton, { variante: 'petit', disabled: !futur.length, onClick: retablir }, 'Rétablir'),
+              h(Bouton, { variante: 'icone', etiquette: 'Fermer', titre: 'Fermer', onClick: fermer }, '×'))),
+          h('div', { className: 'propositions-corps' },
+            h('div', { className: 'propositions-liste' },
+              h('div', { className: 'segmente', role: 'group', 'aria-label': 'Sources' },
+                h('button', { type: 'button', 'aria-pressed': onglet === 'propositions', onClick: () => setOnglet('propositions') }, 'Propositions'),
+                h('button', { type: 'button', 'aria-pressed': onglet === 'favoris', onClick: () => setOnglet('favoris') }, '★ Favoris (' + (favoris.length + favorisCarrousels.length) + ')')),
+              onglet === 'propositions' ? h(Fragment, null,
+                itemListe('actuelle', 'Ta mise en page actuelle', `${article.slides.length} slides`, article.slides, article.fond),
+                liste.map((x) => itemListe(x.id, x.plan.nom, `${x.plan.slides.length} slides${x.favori ? ' · favori' : ''}`, P.construireSlides(x.plan, paragraphes), x.plan.fond)),
+                config
+                  ? h(Fragment, null,
+                    h(Bouton, { variante: liste.length ? undefined : 'principal', disabled: suivi.etat === 'encours', onClick: generer }, suivi.etat === 'encours' ? nomIA + ' compose…' : liste.length ? 'Nouvelles propositions' : 'Proposer 3 mises en page'),
+                    favoris.length > 0 && h('label', { className: 'propositions-case' }, h('input', { type: 'checkbox', checked: inspirer, onChange: () => setInspirer(!inspirer) }), 'S’inspirer de mes favoris'),
+                    suivi.etat === 'encours' && h('p', { className: 'doux petit', role: 'status' }, nomIA + ' compose trois mises en page. Cela peut prendre jusqu’à une minute.'),
+                    suivi.etat === 'erreur' && h('p', { className: 'erreur petit', role: 'status' }, suivi.detail),
+                    suivi.detail && suivi.etat === 'repos' && h('p', { className: 'doux petit' }, suivi.detail))
+                  : h('p', { className: 'doux petit' }, 'Pour que Claude te propose des mises en page, ajoute une clé dans Configuration, onglet IA.'))
+              : h(Fragment, null,
+                !favoris.length && !favorisCarrousels.length && h('p', { className: 'doux petit' }, 'Touche ☆ sur une slide, ou « Garder ce carrousel », pour retrouver ici ce qui te plaît.'),
+                favorisCarrousels.map((f) => h('div', { key: f.id, className: 'proposition-item' },
+                  h('div', { className: 'proposition-tete' }, h('strong', null, f.nom), h(Bouton, { variante: 'icone', etiquette: 'Retirer des favoris', onClick: () => majProjet((pr) => ({ ...pr, favorisCarrousels: (pr.favorisCarrousels || []).filter((x) => x.id !== f.id) })) }, '★')),
+                  h('span', { className: 'doux petit' }, 'Carrousel · ' + f.recette.slides.length + ' slides'),
+                  h(Bouton, { variante: 'lien', onClick: () => voirCarrousel(f) }, 'Voir sur cet article'))),
+                favoris.length > 0 && h('p', { className: 'doux petit' }, `${favoris.length} slide${favoris.length > 1 ? 's gardées' : ' gardée'}. Pour en appliquer une : menu Slide, « Appliquer un style favori ».`))),
+            h('div', { className: 'propositions-centre' },
+              h('div', { className: 'proposition-tete' },
+                h('div', null, h('h3', { className: 'gill' }, (plan ? plan.nom : 'Ta mise en page actuelle') + ' · ' + total + ' slides'), h('p', { className: 'doux petit' }, plan ? plan.pourquoi : 'Celle de ton carrousel aujourd’hui.')),
+                h(Bouton, { disabled: !plan || !config, titre: plan ? '' : 'Choisis une proposition pour la faire évoluer', onClick: () => setChat({ ...chat, ouvert: !chat.ouvert }), 'aria-expanded': chat.ouvert }, h(Icone, { nom: 'bulle', taille: 18 }), chat.ouvert ? 'Fermer' : 'Demander à ' + nomIA)),
+              deborde > 0 && h('p', { className: 'vigilance' }, `${deborde} slide${deborde > 1 ? 's débordent' : ' déborde'} : demande à ${nomIA} d’aérer, ou retouche-la${deborde > 1 ? 's' : ''} ensuite dans Composition.`),
+              h('div', { className: 'proposition-slides' }, slides.map((sl, i) => {
+                const garde = favoris.some((f) => memePresentation(f.presentation, presentationDe(sl, i)));
+                return h('div', { key: i, className: 'proposition-slide' },
+                  h(SlideCanvas, { slide: sl, formatId: article.format, fondId: fond, largeur: 150, index: i, total, logo: article.logo }),
+                  h('button', { type: 'button', className: cls('etoile-slide', garde && 'gardee'), 'aria-label': (garde ? 'Ne plus garder' : 'Garder') + ' la slide ' + (i + 1), title: garde ? 'Retirer des favoris' : 'Garder dans mes favoris', onClick: () => basculerFavoriSlide(sl, i) }, garde ? '★' : '☆'));
+              })),
+              h('div', { className: 'actions-ligne' },
+                plan && h(Bouton, { variante: 'principal', onClick: utiliser }, 'Utiliser cette proposition'),
+                plan && h(Bouton, { onClick: basculerCarrousel }, carrouselGarde ? '★ Gardé dans tes favoris' : '☆ Garder ce carrousel')),
+              chat.ouvert && h('div', { className: 'fenetre-discussion propositions-discussion', role: 'dialog', 'aria-label': 'Demander à ' + nomIA },
+                h('div', { className: 'proposition-tete' }, h('h3', { className: 'gill' }, 'Demander à ' + nomIA), h(Bouton, { variante: 'icone', etiquette: 'Fermer', onClick: () => setChat({ ...chat, ouvert: false }) }, '×')),
+                h('div', { className: 'discussion-fil' },
+                  !chat.messages.length && h('p', { className: 'bulle ia' }, 'Ton texte ne change jamais : seule la présentation bouge. Chaque demande s’annule avec « Annuler », en haut.'),
+                  chat.messages.map((m, i) => h('p', { key: i, className: cls('bulle', m.de === 'moi' ? 'moi' : 'ia') }, m.texte)),
+                  chat.encours && h('p', { className: 'bulle ia doux' }, nomIA + ' réfléchit…')),
+                h('div', { className: 'discussion-raccourcis' }, ['Plus aéré', 'Une slide de moins', 'La citation la plus forte en couverture'].map((t) => h('button', { key: t, type: 'button', className: 'puce', disabled: chat.encours, onClick: () => demander(t) }, t))),
+                h('div', { className: 'discussion-saisie' },
+                  h('input', { className: 'champ-texte', value: saisie, placeholder: 'Ta demande, en une phrase', 'aria-label': 'Ta demande à ' + nomIA, onChange: (e) => setSaisie(e.target.value), onKeyDown: (e) => { if (e.key === 'Enter') { e.preventDefault(); demander(saisie); } } }),
+                  h(Bouton, { variante: 'principal', disabled: chat.encours || !saisie.trim(), onClick: () => demander(saisie) }, 'Envoyer')))))));
     }
 
     function GalerieGabarits({ slide, index, total, article, choisir }) {

@@ -88,7 +88,7 @@
     configuration: { titre: 'La configuration', textes: ['Charte : tes couleurs et tes tailles de texte. Tout changement s’applique à tous tes carrousels.', 'Ressources : tes polices, ton logo et tes fleurs, importés une fois et retrouvés sur tous tes appareils.', 'Réglages : le comportement de l’outil. Synchronisation : la liaison avec ton dépôt GitHub privé.', 'IA : le fournisseur d’intelligence artificielle et sa clé. Comme la clé GitHub, elle reste sur l’appareil : à saisir une fois sur chacun.'] },
     texte: { titre: 'Étape 1 · Texte', textes: ['Ton texte est la référence du carrousel : chaque modification ici met les slides à jour, sans toucher à leur mise en page. Et un paragraphe modifié dans Design modifie aussi ce texte.', 'Avec une IA active (Configuration, onglet IA), « Relire avec Claude » propose des corrections sous forme de cartes : accepte, modifie ou refuse chacune ; rien n’est appliqué sans toi. Sans IA, la vérification LanguageTool surligne les fautes ; pour chacune, choisis la bonne correction ou ignore-la.', 'La typographie française se corrige toute seule quand tu tapes ou colles du texte, ici comme sur les slides : un message montre chaque correction, avec « Annuler ».', 'Les suggestions de style arriveront avec l’IA : tu sélectionneras un passage directement dans ton texte.'] },
     composition: { titre: 'Étape 2 · Composition', textes: ['Tes slides, les unes sous les autres, exactement comme elles seront exportées. Clique dans un paragraphe pour l’écrire à sa place ; sélectionne des mots pour les mettre en forme avec la petite barre qui apparaît.', 'Entrée crée un nouveau paragraphe, ⇧Entrée un retour à la ligne, ⌘↩ (Ctrl+↩) un saut de slide. ⌫ au début d’un paragraphe le réunit au précédent ; au début d’une slide, avec la slide précédente.', 'Les menus en haut regroupent tout le reste : gabarits, fond, logo, redécoupage, et Vérifier pour les points à regarder. Ton texte reste la référence : chaque modification ici le met à jour.'] },
-    description: { titre: 'Étape 4 · Description', textes: ['Le texte qui accompagne le carrousel : légende Instagram et texte du post LinkedIn.', 'Pour l’instant tu l’écris toi-même ; l’IA pourra te proposer une version plus tard.'] },
+    description: { titre: 'Étape 4 · Description', textes: ['Le texte qui accompagne le carrousel : légende Instagram et texte du post LinkedIn.', 'Avec une IA active, « Proposer avec Claude » écrit une première version à partir de ton article. Tu choisis de l’utiliser ou non, puis tu la modifies : rien n’est publié tout seul.'] },
     export: { titre: 'Étape 5 · Export', textes: ['Les fichiers à publier : des images PNG pour Instagram, un PDF pour LinkedIn, ou les deux.', 'S’il reste des alertes, l’outil te les rappelle avant d’exporter : à toi de décider.', 'Une fois publié sur le réseau, marque l’article comme publié : il rejoint la section Publiés.'] },
   };
 
@@ -1098,7 +1098,7 @@
               h('p', { className: 'petit' }, typo.total === 1 ? 'Reste 1 correction : ' + T.resume(typo.liste) + '.' : 'Restent ' + T.resume(typo.liste) + '.'),
               h(Bouton, { variante: 'principal', onClick: () => majA(T.corrigerArticle, null, 'Typographie corrigée : ' + T.resume(typo.liste) + '.') }, 'Corriger la typographie'))
             : h('p', { className: 'ok petit' }, 'Ton article respecte ces règles.')),
-        h(Carte, { titre: 'Suggestions de style', sousTitre: 'Elles arriveront avec l’IA. Tu sélectionneras un passage directement dans ton texte, et un petit menu te proposera : clarifier, raccourcir, restructurer, rendre plus percutant.' })),
+        h(Carte, { titre: 'Suggestions de style', sousTitre: 'Pas encore disponible. Bientôt, tu sélectionneras un passage dans ton texte, et un petit menu te proposera : clarifier, raccourcir, restructurer, rendre plus percutant.' })),
       remplacer !== null && h(Feuille, { titre: 'Remplacer tout le texte', onAnnuler: () => setRemplacer(null), action: h(Bouton, { variante: 'principal', disabled: !remplacer.trim(), onClick: remplacerTout }, 'Remplacer') },
         h('p', { className: 'note' }, 'Le nouveau texte est redécoupé en slides avec la même mise en page : fond, format, gabarits et logo. Tu pourras l’annuler juste après.'),
         h(ZoneTexteTypo, { className: 'zone-texte', rows: 12, valeur: remplacer, onValeur: setRemplacer, placeholder: 'Colle ici le nouveau texte.', 'aria-label': 'Nouveau texte' })));
@@ -1114,18 +1114,52 @@
 
   const LIMITES_DESCRIPTION = { instagram: 2200, linkedin: 3000 }; // indicatives, à vérifier
 
+  // Propositions de description par l'IA, gardées le temps de la session (on peut changer d'étape sans les perdre).
+  const PROPOSITIONS_DESCRIPTION = new Map();
+
   function EtapeDescription({ dispatch, article, majA }) {
     const descriptions = article.descriptions || DESCRIPTIONS_VIDES;
+    const configIA = IA.active();
+    const nomIA = configIA ? IA.FOURNISSEURS[configIA.fournisseur].nom : '';
+    const [props, setProps] = useState(() => PROPOSITIONS_DESCRIPTION.get(article.id) || {});
+    const majProp = (reseau, valeur) => setProps((x) => { const y = { ...x, [reseau]: valeur }; PROPOSITIONS_DESCRIPTION.set(article.id, y); return y; });
+    async function proposer(reseau) {
+      const config = IA.active();
+      if (!config) return;
+      majProp(reseau, { etat: 'encours' });
+      try {
+        const brut = await IA.demander(config, { systeme: R.consigneDescription(reseau), texte: R.consigne(article.texte.join('\n\n')), maxJetons: 1500, delai: 90000 });
+        const t = R.nettoyerDescription(brut);
+        if (!t) throw new Error('La réponse de l’IA est vide. Réessaie.');
+        majProp(reseau, { etat: 'fait', texte: T.appliquer(t, T.corrections(t)) });
+      } catch (erreur) {
+        majProp(reseau, { etat: 'erreur', detail: erreur.message });
+      }
+    }
     return h('div', { className: 'colonne-unique' },
+      !configIA && h('p', { className: 'note' }, 'Pour que Claude te propose une description, ajoute une clé dans Configuration, onglet IA.'),
       ['instagram', 'linkedin'].map((reseau) => {
         const texte = descriptions[reseau].fr || '';
+        const p = props[reseau] || { etat: 'repos' };
+        const limite = LIMITES_DESCRIPTION[reseau];
         return h(Carte, {
           key: reseau, titre: reseau === 'instagram' ? 'Légende Instagram' : 'Texte du post LinkedIn',
           info: reseau === 'instagram' ? 'Seules les premières lignes s’affichent avant « plus » : la première phrase compte le plus.' : 'Il s’affiche au-dessus du document : il donne envie de l’ouvrir.',
-          actions: h(Bouton, { variante: 'petit', disabled: !texte, onClick: () => { if (navigator.clipboard) navigator.clipboard.writeText(texte).catch(() => {}); dispatch({ type: 'message', message: 'Description copiée.' }); } }, 'Copier'),
+          actions: h(Fragment, null,
+            configIA && h(Bouton, { variante: 'petit', disabled: p.etat === 'encours', onClick: () => proposer(reseau) }, p.etat === 'encours' ? 'Rédaction…' : p.etat === 'fait' ? 'Autre proposition' : 'Proposer avec ' + nomIA),
+            h(Bouton, { variante: 'petit', disabled: !texte, onClick: () => { if (navigator.clipboard) navigator.clipboard.writeText(texte).catch(() => {}); dispatch({ type: 'message', message: 'Description copiée.' }); } }, 'Copier')),
         },
-        h('textarea', { className: 'zone-texte', rows: 9, value: texte, placeholder: 'Écris ici le texte qui accompagnera ton carrousel. L’IA pourra te proposer une version plus tard.', onChange: (e) => majA(OP.description(reseau, e.target.value), 'description-' + reseau), 'aria-label': 'Description ' + reseau }),
-        h('div', { className: 'doux petit droite' }, `${texte.length} / ${LIMITES_DESCRIPTION[reseau]} caractères (limite indicative)`));
+        h('textarea', { className: 'zone-texte', rows: 9, value: texte, placeholder: 'Écris ici le texte qui accompagnera ton carrousel.', onChange: (e) => majA(OP.description(reseau, e.target.value), 'description-' + reseau), 'aria-label': 'Description ' + reseau }),
+        h('div', { className: 'doux petit droite' }, `${texte.length} / ${limite} caractères (limite indicative)`),
+        p.etat === 'encours' && h('p', { className: 'doux petit', role: 'status' }, `${nomIA} écrit une proposition à partir de ton article…`),
+        p.etat === 'erreur' && h('p', { className: 'erreur petit', role: 'status' }, p.detail),
+        p.etat === 'fait' && h('div', { className: 'proposition-description' },
+          h('div', { className: 'etiquette-mini' }, 'Proposition de ' + nomIA),
+          h('p', { className: 'texte-propose' }, p.texte),
+          h('div', { className: cls('petit', p.texte.length > limite ? 'erreur' : 'doux') }, `${p.texte.length} caractères${p.texte.length > limite ? ' : au-delà de la limite indicative' : ''}`),
+          h('div', { className: 'actions-ligne' },
+            h(Bouton, { variante: 'principal', onClick: () => { majA(OP.description(reseau, p.texte), null, texte ? 'Description remplacée par la proposition.' : 'Proposition utilisée.'); majProp(reseau, { etat: 'repos' }); } }, texte ? 'Remplacer mon texte' : 'Utiliser cette proposition'),
+            h(Bouton, { variante: 'lien', onClick: () => majProp(reseau, { etat: 'repos' }) }, 'Ignorer'))));
       }));
   }
 

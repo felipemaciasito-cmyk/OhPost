@@ -31,13 +31,14 @@
     '',
     'Règles impératives :',
     '1. Ne change jamais le sens. Ne renforce ni n’affaiblis une affirmation. N’ajoute aucun fait.',
-    '2. Respecte la voix de l’auteur : tutoiement ou vouvoiement, ton, phrases courtes, style oral volontaire.',
-    '3. Dans une citation entre guillemets, ne corrige qu’une faute évidente, et signale-le en point de vigilance.',
-    '4. Ignore la typographie : espaces insécables, forme des guillemets et des apostrophes, points de suspension. Elle est corrigée automatiquement.',
-    '5. Chaque proposition porte sur un passage court, au plus une phrase, à l’intérieur d’un seul paragraphe.',
-    '6. « avant » est copié du texte à l’identique, caractère pour caractère. « phrase » est la phrase entière qui le contient, copiée à l’identique.',
-    '7. « vigilance » est rempli quand la proposition peut modifier une nuance, le ton ou le sens ; sinon, chaîne vide.',
-    '8. Si le texte est correct, renvoie une liste vide. Au plus ' + MAX_PROPOSITIONS + ' propositions, dans l’ordre du texte.',
+    '2. Respecte la voix de l’auteur : tutoiement ou vouvoiement, ton, phrases courtes, mots familiers choisis exprès. Un style oral volontaire n’est pas une faute.',
+    '3. Les paroles rapportées entre guillemets sont citées telles qu’elles ont été dites : leur oralité (« je sais plus », « c’est pas juste », « y’a pire ») est voulue. N’y corrige qu’une faute d’orthographe évidente, et signale-le en point de vigilance.',
+    '4. Ne reformule pas une phrase correcte par simple goût : propose seulement ce qui corrige une faute ou lève une vraie ambiguïté.',
+    '5. Ignore la typographie : espaces insécables, forme des guillemets et des apostrophes, points de suspension. Elle est corrigée automatiquement.',
+    '6. Chaque proposition porte sur un passage court, au plus une phrase, à l’intérieur d’un seul paragraphe.',
+    '7. « avant » est copié du texte à l’identique, caractère pour caractère. « phrase » est la phrase entière qui le contient, copiée à l’identique.',
+    '8. « vigilance » est rempli quand la proposition peut modifier une nuance, le ton ou le sens ; sinon, chaîne vide.',
+    '9. Si le texte est correct, renvoie une liste vide. Au plus ' + MAX_PROPOSITIONS + ' propositions, dans l’ordre du texte.',
     '',
     'Réponds uniquement avec un objet JSON, sans aucun texte autour :',
     '{"propositions":[{"type":"orthographe|grammaire|conjugaison|ponctuation|vocabulaire|repetition|clarte","avant":"…","apres":"…","phrase":"…","pourquoi":"une phrase courte","vigilance":""}]}',
@@ -176,7 +177,34 @@
     return sortie;
   }
 
-  const api = { SYSTEME, consigne, lireReponse, simplifier, trouver, localiser, appliquer, apercu, recaler, TYPES, MAX_PROPOSITIONS };
+  /* ---------- Descriptions de publication (légende Instagram, texte LinkedIn) ---------- */
+  const RESEAUX = {
+    instagram: { nom: 'Instagram', limite: 2200, regles: 'La première ligne doit donner envie de lire la suite : seules les premières lignes s’affichent avant « plus ». Puis 3 à 6 phrases courtes, une question qui invite à réagir, et 3 à 5 hashtags pertinents à la toute fin. Vise 600 à 1 200 caractères.' },
+    linkedin: { nom: 'LinkedIn', limite: 3000, regles: 'La première ligne doit donner envie d’ouvrir le carrousel : seules les premières lignes s’affichent avant « voir plus ». Puis 4 à 8 lignes courtes et aérées, une invitation à parcourir le carrousel et une question qui invite à réagir. Au plus 3 hashtags, à la fin. Vise 600 à 1 300 caractères.' },
+  };
+  function consigneDescription(reseau) {
+    const r = RESEAUX[reseau];
+    return [
+      'Tu écris le texte qui accompagne un carrousel publié sur ' + r.nom + '. Le carrousel reprend l’article fourni.',
+      '',
+      'Règles impératives :',
+      '1. Écris en français, avec la voix de l’article : même personne (je, nous), même ton, phrases courtes.',
+      '2. N’invente rien : aucun fait, chiffre, prénom, résultat ou citation qui ne soit dans l’article. Ne renforce aucune affirmation.',
+      '3. Ne recopie pas l’article : donne envie de le lire dans le carrousel.',
+      '4. ' + r.regles,
+      '5. Pas d’émoji, pas de titre, pas de guillemets autour de ta réponse.',
+      '',
+      'Réponds uniquement avec le texte de la description, prêt à être copié.',
+    ].join('\n');
+  }
+  // Nettoie la réponse (guillemets ou balises éventuels) ; la typographie française est appliquée ensuite.
+  function nettoyerDescription(brut) {
+    let t = String(brut || '').trim().replace(/^```[a-z]*\s*|```$/gi, '').trim();
+    if (/^["«“]/.test(t) && /["»”]$/.test(t)) t = t.slice(1, -1).trim();
+    return t;
+  }
+
+  const api = { RESEAUX, consigneDescription, nettoyerDescription, SYSTEME, consigne, lireReponse, simplifier, trouver, localiser, appliquer, apercu, recaler, TYPES, MAX_PROPOSITIONS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else racine.PostsOPRelecture = api;
 })(typeof window !== 'undefined' ? window : globalThis);

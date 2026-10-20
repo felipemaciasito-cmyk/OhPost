@@ -295,6 +295,7 @@ canvas.slide.selectionnee { outline-color: var(--touche); }
 .puces { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .puce { min-height: 42px; padding: 0 14px; border: 1px solid var(--trait); border-radius: 999px; background: var(--surface); color: var(--texte); font: inherit; font-size: 15px; font-weight: 500; cursor: pointer; transition: border-color 0.2s, background 0.2s; }
 .puce:hover:not(:disabled) { border-color: var(--touche); }
+.fenetre-discussion .puce { font-size: 13px; }
 .puce:disabled { opacity: 0.4; cursor: default; }
 .puce.active { background: var(--action); color: var(--action-texte); border-color: var(--action); }
 .suggestion { margin-top: 14px; display: grid; gap: 10px; }
@@ -770,3 +771,28 @@ canvas.slide.editable { cursor: text; }
 .calendrier-champs input { width: 100%; min-width: 0; box-sizing: border-box; }
 .calendrier-fiche p { margin: 0; }
 @media (max-width: 700px) { .calendrier-case { min-height: 64px; } .calendrier-item span { display: none; } }
+
+/* Discussion avec l'IA : petite fenêtre au-dessus du panneau de droite */
+.fenetre-discussion { position: fixed; top: 146px; right: 20px; z-index: 30; width: min(420px, calc(100vw - 40px)); max-height: calc(100vh - 240px); box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 12px; border-radius: 20px; background: var(--surface); border: 1px solid var(--trait); box-shadow: 0 18px 50px rgba(0, 30, 40, 0.25); }
+.fenetre-discussion h3 { margin: 0; font-size: 20px; }
+.discussion-passage { display: flex; align-items: flex-start; gap: 6px; padding: 8px 10px; border-radius: 12px; background: var(--touche-doux); color: var(--touche-texte); font-size: 14px; }
+.discussion-passage span { flex: 1 1 auto; }
+.discussion-fil { flex: 1 1 auto; min-height: 120px; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 8px; padding-right: 2px; }
+.bulle { margin: 0; max-width: 88%; padding: 8px 12px; font-size: 14px; line-height: 1.45; white-space: pre-wrap; }
+.bulle.moi { align-self: flex-end; border-radius: 14px 14px 4px 14px; background: var(--action); color: var(--sur-action, #FFFFFF); }
+.bulle.ia { align-self: flex-start; border-radius: 14px 14px 14px 4px; background: var(--fond); color: var(--texte); }
+.discussion-proposition { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 14px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--trait); }
+.discussion-proposition p { margin: 0; }
+.discussion-raccourcis { display: flex; flex-wrap: wrap; gap: 6px; }
+.puce { min-height: 34px; padding: 0 11px; border: 1px solid var(--trait); border-radius: 999px; background: var(--surface); color: var(--texte); font: inherit; font-size: 14px; cursor: pointer; }
+.fenetre-discussion .puce { font-size: 13px; }
+.puce:disabled { opacity: 0.5; cursor: default; }
+.discussion-saisie { display: flex; gap: 8px; }
+.discussion-saisie input { flex: 1 1 auto; min-width: 0; }
+@media (max-width: 700px) { .fenetre-discussion { top: auto; left: 12px; right: 12px; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); width: auto; max-height: 62vh; } }
+
+/* Favoris : galerie « Appliquer un style favori » */
+.favori-menu { position: relative; }
+.favori-retirer { position: absolute; top: 2px; right: 2px; width: 26px; height: 26px; border: 0; border-radius: 50%; background: var(--surface); color: var(--texte); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2); font: inherit; font-size: 15px; cursor: pointer; opacity: 0.7; }
+.favori-retirer:hover, .favori-retirer:focus-visible { opacity: 1; }
+.galerie-vide { max-width: 260px; margin: 6px 10px; }

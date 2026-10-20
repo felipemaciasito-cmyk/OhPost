@@ -1006,6 +1006,20 @@
           ...(article.slides[active].libre ? [item('Revenir au gabarit', () => actionsBlocs.revenir(active)), { type: 'note', texte: 'La slide reprend sa mise en page automatique : marges, espacements et alignements de la charte.' }, trait] : []),
           { type: 'sous', libelle: 'Gabarit', contenu: () => [{ type: 'libre', rendu: (fermer) => h(GalerieGabarits, { slide: article.slides[active], index: active, total, article, choisir: (g) => { fermer(); majA(OP.gabarit(active, g), null, `Gabarit « ${nomGabarit(g)} ».`); setEdition(null); } }) }] },
           trait,
+          (() => {
+            const favoris = (etat.projet && etat.projet.favoris) || [];
+            const pres = presentationDe(article.slides[active], active);
+            const deja = favoris.find((f) => memePresentation(f.presentation, pres));
+            return deja
+              ? item('★ Retirer de mes favoris', () => dispatch({ type: 'projet', maj: (pr) => ({ ...pr, favoris: (pr.favoris || []).filter((f) => f.id !== deja.id) }) }))
+              : item('☆ Garder dans mes favoris', () => { dispatch({ type: 'projet', maj: (pr) => ({ ...pr, favoris: [nouveauFavori(article.slides[active], active, article)].concat(pr.favoris || []) }) }); dispatch({ type: 'message', message: `Slide ${active + 1} gardée dans tes favoris : « Appliquer un style favori » la réutilise sur n’importe quelle slide.` }); });
+          })(),
+          { type: 'sous', libelle: 'Appliquer un style favori', contenu: () => [{ type: 'libre', rendu: (fermer) => h(GalerieFavoris, {
+            favoris: (etat.projet && etat.projet.favoris) || [], slide: article.slides[active], index: active, total, article,
+            appliquer: (f) => { fermer(); majA(OP.slide(active, appliquerFavori(article.slides[active], f)), null, `Style favori appliqué à la slide ${active + 1} : son texte n’a pas changé.`); setEdition(null); },
+            retirer: (f) => dispatch({ type: 'projet', maj: (pr) => ({ ...pr, favoris: (pr.favoris || []).filter((x) => x.id !== f.id) }) }),
+          }) }] },
+          trait,
           item('Dupliquer la slide', () => { majA(OP.dupliquerSlide(active), null, `Slide ${active + 1} dupliquée.`); dispatch({ type: 'slide', index: active + 1 }); }),
           item('Réunir avec la précédente', reunirPrecedente, { raccourci: '⌫ en tête', desactive: active === 0 }),
           item('Réunir avec la suivante', () => { majA(OP.retirerCoupure(active), null, `Slides ${active + 1} et ${active + 2} réunies.`); setEdition(null); }, { desactive: active === total - 1 }),
@@ -1145,6 +1159,50 @@
       return h('div', { className: 'taille-libre' },
         h('input', { type: 'number', inputMode: 'numeric', min: 12, max: 400, placeholder: 'px', value: v, 'aria-label': 'Taille libre en pixels', onChange: (e) => setV(e.target.value), onKeyDown: (e) => { if (e.key === 'Enter') ok(); } }),
         h('button', { type: 'button', className: 'bouton principal petit', onClick: ok, disabled: !v }, 'Appliquer'));
+    }
+
+    /* ---------- Favoris : garder la présentation d'une slide et l'appliquer à une autre (sans IA) ----------
+     * Un favori garde la présentation (gabarit, échelle, styles, alignements, placement libre), jamais le texte :
+     * appliqué à une slide, il change sa présentation et laisse son texte (et ses liens avec l'article) intacts. */
+    const NATURES_FAVORI = { V: 'Couverture', T: 'Texte', F: 'Fin' };
+    function presentationDe(slide, index) {
+      const gabarit = M.gabaritParDefaut(slide, index);
+      return {
+        gabarit, echelle: slide.echelle || null, libre: !!slide.libre,
+        blocs: slide.blocs.map((b) => ({ style: b.style, alignement: b.alignement || null, pos: slide.libre && b.pos ? b.pos : null })),
+      };
+    }
+    const memePresentation = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    function nouveauFavori(slide, index, article) {
+      const pres = presentationDe(slide, index);
+      return { id: 'fav-' + Date.now().toString(36), cree: new Date().toISOString(), nature: NATURES_FAVORI[pres.gabarit[0]] || 'Slide', origine: article.titre, presentation: pres, apercu: { blocs: slide.blocs.map((b) => ({ style: b.style, texte: b.texte, marques: b.marques })), fond: article.fond } };
+    }
+    function appliquerFavori(slide, fav) {
+      const p = fav.presentation;
+      const garderPlacement = p.libre && p.blocs.length === slide.blocs.length && p.blocs.every((b) => b.pos);
+      const blocs = slide.blocs.map((b, k) => {
+        const modele = p.blocs[Math.min(k, p.blocs.length - 1)];
+        const c = { ...b, style: modele ? modele.style : b.style };
+        if (modele && modele.alignement) c.alignement = modele.alignement; else delete c.alignement;
+        delete c.pos; delete c.fige;
+        if (garderPlacement) c.pos = p.blocs[k].pos;
+        return c;
+      });
+      const nouvelle = { ...slide, gabarit: p.gabarit, blocs };
+      if (p.echelle) nouvelle.echelle = p.echelle; else delete nouvelle.echelle;
+      if (garderPlacement) nouvelle.libre = true; else delete nouvelle.libre;
+      return nouvelle;
+    }
+
+    function GalerieFavoris({ favoris, slide, index, total, article, appliquer, retirer }) {
+      if (!favoris.length) return h('p', { className: 'doux petit galerie-vide' }, 'Aucun favori pour l’instant. Sur une slide qui te plaît, choisis « Garder dans mes favoris ».');
+      return h('div', { className: 'galerie-menu' },
+        h('div', { className: 'titre-section' }, 'Tes slides gardées : aperçu avec le texte de cette slide'),
+        h('div', { className: 'grille-gabarits-menu' }, favoris.map((f) => h('div', { key: f.id, className: 'favori-menu' },
+          h('button', { type: 'button', className: 'gabarit-menu', onMouseDown: garder, onClick: () => appliquer(f), 'aria-label': 'Appliquer le style favori ' + f.nature + ' (' + f.origine + ')' },
+            h(SlideCanvas, { slide: appliquerFavori(slide, f), formatId: article.format, fondId: article.fond, largeur: 84, index, total, logo: article.logo }),
+            h('span', null, f.nature)),
+          h('button', { type: 'button', className: 'favori-retirer', onMouseDown: garder, onClick: () => retirer(f), 'aria-label': 'Retirer ce favori' }, '×')))));
     }
 
     function GalerieGabarits({ slide, index, total, article, choisir }) {

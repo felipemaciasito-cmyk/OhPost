@@ -18,7 +18,7 @@
   const T = racine.PostsOPTypographie || require('./typographie.js');
   const IA = racine.PostsOPIA || require('./ia.js');
   const R = racine.PostsOPRelecture || require('./relecture.js');
-  const VERSION = '2026-10-20.4'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-20.6'; // à changer à chaque livraison (affichée dans l'aide « i »)
   const { createElement: h, Fragment, Component, useState, useReducer, useEffect, useLayoutEffect, useMemo, useRef, useContext, createContext } = React;
   const useApresRendu = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
@@ -87,7 +87,7 @@
   const AIDES = {
     bibliotheque: { titre: 'Tes articles', textes: ['Trois sections : En cours, Publiés (validés par toi) et Corbeille, d’où tu peux restaurer un article.', 'Le menu « … » d’une carte permet de dupliquer, d’utiliser un article comme modèle pour un nouveau texte, de le marquer comme publié ou de le mettre à la corbeille.', 'Trie et affiche tes articles comme tu veux, en grille ou en liste. « Annuler » et ⌘Z (Ctrl+Z) reviennent en arrière à tout moment.', 'Calendrier : place tes articles sur une date, puis « Programmer un rappel » ajoute une alerte au calendrier de ton appareil. La publication automatique arrivera plus tard.'] },
     configuration: { titre: 'La configuration', textes: ['Charte : tes couleurs et tes tailles de texte. Tout changement s’applique à tous tes carrousels.', 'Ressources : tes polices, ton logo et tes fleurs, importés une fois et retrouvés sur tous tes appareils.', 'Réglages : le comportement de l’outil. Synchronisation : la liaison avec ton dépôt GitHub privé.', 'IA : le fournisseur d’intelligence artificielle et sa clé. Comme la clé GitHub, elle reste sur l’appareil : à saisir une fois sur chacun.'] },
-    texte: { titre: 'Étape 1 · Texte', textes: ['Ton texte est la référence du carrousel : chaque modification ici met les slides à jour, sans toucher à leur mise en page. Et un paragraphe modifié dans Design modifie aussi ce texte.', 'Avec une IA active (Configuration, onglet IA), « Relire avec Claude » propose des corrections sous forme de cartes : accepte, modifie ou refuse chacune ; rien n’est appliqué sans toi. Sans IA, la vérification LanguageTool surligne les fautes ; pour chacune, choisis la bonne correction ou ignore-la.', 'La typographie française se corrige toute seule quand tu tapes ou colles du texte, ici comme sur les slides : un message montre chaque correction, avec « Annuler ».', 'Les suggestions de style arriveront avec l’IA : tu sélectionneras un passage directement dans ton texte.'] },
+    texte: { titre: 'Étape 1 · Texte', textes: ['Ton texte est la référence du carrousel : chaque modification ici met les slides à jour, sans toucher à leur mise en page. Et un paragraphe modifié dans Design modifie aussi ce texte.', 'Avec une IA active (Configuration, onglet IA), « Relire avec Claude » propose des corrections sous forme de cartes : accepte, modifie ou refuse chacune ; rien n’est appliqué sans toi. Sans IA, la vérification LanguageTool surligne les fautes ; pour chacune, choisis la bonne correction ou ignore-la.', 'La typographie française se corrige toute seule quand tu tapes ou colles du texte, ici comme sur les slides : un message montre chaque correction, avec « Annuler ».', 'Discussion : sélectionne un passage, puis « Discuter avec Claude ». Donne tes consignes en langage naturel et demande plusieurs propositions ; « Appliquer » remplace le passage, « Annuler » le rétablit.', 'Les suggestions de style arriveront avec l’IA : tu sélectionneras un passage directement dans ton texte.'] },
     composition: { titre: 'Étape 2 · Composition', textes: ['Tes slides, les unes sous les autres, exactement comme elles seront exportées. Clique dans un paragraphe pour l’écrire à sa place ; sélectionne des mots pour les mettre en forme avec la petite barre qui apparaît.', 'Entrée crée un nouveau paragraphe, ⇧Entrée un retour à la ligne, ⌘↩ (Ctrl+↩) un saut de slide. ⌫ au début d’un paragraphe le réunit au précédent ; au début d’une slide, avec la slide précédente.', 'Les menus en haut regroupent tout le reste : gabarits, fond, logo, redécoupage, et Vérifier pour les points à regarder. Ton texte reste la référence : chaque modification ici le met à jour.'] },
     description: { titre: 'Étape 4 · Description', textes: ['Le texte qui accompagne le carrousel : légende Instagram et texte du post LinkedIn.', 'Avec une IA active, « Proposer avec Claude » écrit une première version à partir de ton article. Tu choisis de l’utiliser ou non, puis tu la modifies : rien n’est publié tout seul.'] },
     export: { titre: 'Étape 5 · Export', textes: ['Les fichiers à publier : des images PNG pour Instagram, un PDF pour LinkedIn, ou les deux.', 'S’il reste des alertes, l’outil te les rappelle avant d’exporter : à toi de décider.', 'Une fois publié sur le réseau, marque l’article comme publié : il rejoint la section Publiés.', 'Calendrier : planifie la date de publication de chaque carrousel, et ajoute un rappel au calendrier de ton appareil.'] },
@@ -391,7 +391,7 @@
     fusion: 'M8 4v6a4 4 0 004 4h0a4 4 0 014 4v2M16 4v6a4 4 0 01-4 4',
     engrenage: 'M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z',
     points: 'M5 12h.01M12 12h.01M19 12h.01', grille: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z', liste: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
-    coche: 'M5 12l5 5L20 7', calendrier: 'M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2zM3 10h18M8 3v4M16 3v4', partager: 'M12 3v12M8 7l4-4 4 4M5 13v6a2 2 0 002 2h10a2 2 0 002-2v-6', telecharger: 'M12 3v12M8 11l4 4 4-4M5 19h14',
+    coche: 'M5 12l5 5L20 7', calendrier: 'M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2zM3 10h18M8 3v4M16 3v4', bulle: 'M21 12a8 8 0 01-11.6 7.1L4 20l1-4.6A8 8 0 1121 12z', partager: 'M12 3v12M8 7l4-4 4 4M5 13v6a2 2 0 002 2h10a2 2 0 002-2v-6', telecharger: 'M12 3v12M8 11l4 4 4-4M5 19h14',
     restaurer: 'M3 12a9 9 0 109-9 9 9 0 00-6.4 2.6L3 8M3 3v5h5', modele: 'M8 8h12v12H8zM16 8V4H4v12h4',
   };
   const Icone = ({ nom, taille = 20 }) => h('svg', { className: 'icone', width: taille, height: taille, viewBox: '0 0 24 24', 'aria-hidden': 'true' },
@@ -1065,6 +1065,107 @@
     };
   }
 
+  /* ---------- Discussion avec l'IA : petite fenêtre au-dessus du panneau (décision du 20 octobre 2026) ---------- */
+  const DISCUSSIONS = new Map(); // id d'article → { messages, ouvert }, le temps de la session
+  const RACCOURCIS_DISCUSSION = [['Clarifier', 'Clarifie ce passage.'], ['Raccourcir', 'Raccourcis ce passage.'], ['Plus percutant', 'Rends ce passage plus percutant.'], ['3 propositions', 'Donne-moi 3 propositions différentes pour ce passage.']];
+
+  function useDiscussion(article, texteComplet, majA, choisirZone) {
+    const [d, setD] = useState(() => DISCUSSIONS.get(article.id) || { messages: [], ouvert: false, etat: 'repos', detail: '' });
+    const dernier = useRef(d);
+    dernier.current = d;
+    const maj = (y) => { dernier.current = y; DISCUSSIONS.set(article.id, y); setD(y); };
+    async function envoyer(demande, passage) {
+      const config = IA.active();
+      const texte = String(demande || '').trim();
+      if (!config || !texte) return;
+      const avant = dernier.current;
+      const historique = avant.messages;
+      maj({ ...avant, messages: historique.concat([{ de: 'moi', texte }]), etat: 'encours', detail: '' });
+      try {
+        const brut = await IA.demander(config, { systeme: R.SYSTEME_DISCUSSION, texte: R.messageDiscussion(texteComplet, passage || '', historique, texte), maxJetons: 3000, delai: 120000 });
+        const r = R.lireDiscussion(brut);
+        const x = dernier.current;
+        maj({ ...x, etat: 'repos', messages: x.messages.concat([{ de: 'ia', texte: r.reponse, passage: passage || '', propositions: r.propositions.map((q) => ({ ...q, apercu: T.appliquer(q.apres, T.corrections(q.apres)), statut: 'attente' })) }]) });
+      } catch (erreur) {
+        maj({ ...dernier.current, etat: 'erreur', detail: erreur.message });
+      }
+    }
+    function majProposition(mi, pi, changement) {
+      const x = dernier.current;
+      maj({ ...x, detail: '', etat: x.etat === 'erreur' ? 'repos' : x.etat, messages: x.messages.map((m, i) => (i !== mi ? m : { ...m, propositions: m.propositions.map((q, j) => changement(q, j)) })) });
+    }
+    function appliquer(mi, pi) {
+      const m = dernier.current.messages[mi];
+      const p = m.propositions[pi];
+      let source = texteComplet;
+      // Une autre proposition de la même réponse était appliquée : on la retire d'abord.
+      const deja = m.propositions.findIndex((q) => q.statut === 'appliquee');
+      if (deja >= 0) {
+        const q = m.propositions[deja];
+        const pos = R.placerPassage(source, q.insere, null);
+        if (pos) source = source.slice(0, pos[0]) + q.avantReel + source.slice(pos[1]);
+      }
+      const zone = m.passage ? R.placerPassage(source, m.passage, null) : null;
+      const pos = R.placerPassage(source, p.avant || m.passage, zone ? { debut: zone[0], fin: zone[1] } : null);
+      if (!pos) { maj({ ...dernier.current, etat: 'erreur', detail: 'Passage introuvable dans ton texte : il a peut-être changé. Choisis-le de nouveau et redemande.' }); return; }
+      const a = R.appliquer(source, pos[0], pos[1], p.apres);
+      majA(OP.source(a.texte), null);
+      if (choisirZone) choisirZone(pos[0], pos[0] + a.longueur); // le passage choisi suit le nouveau texte
+      majProposition(mi, pi, (q, j) => (j === pi ? { ...q, statut: 'appliquee', insere: a.insere, avantReel: source.slice(pos[0], pos[1]) } : { ...q, statut: 'attente' }));
+    }
+    function annuler(mi, pi) {
+      const p = dernier.current.messages[mi].propositions[pi];
+      const pos = R.placerPassage(texteComplet, p.insere, null);
+      if (!pos) { maj({ ...dernier.current, etat: 'erreur', detail: 'Impossible d’annuler : le passage a été modifié depuis.' }); return; }
+      majA(OP.source(texteComplet.slice(0, pos[0]) + p.avantReel + texteComplet.slice(pos[1])), null);
+      if (choisirZone) choisirZone(pos[0], pos[0] + p.avantReel.length);
+      majProposition(mi, pi, (q, j) => (j === pi ? { ...q, statut: 'attente' } : q));
+    }
+    return {
+      ...d, envoyer, appliquer, annuler,
+      ouvrir: () => maj({ ...dernier.current, ouvert: true }), fermer: () => maj({ ...dernier.current, ouvert: false }),
+      effacer: () => maj({ ...dernier.current, messages: [], etat: 'repos', detail: '' }),
+    };
+  }
+
+  function FenetreDiscussion({ disc, nomIA, passage, onRetirerPassage }) {
+    const [saisie, setSaisie] = useState('');
+    const fil = useRef(null);
+    useEffect(() => { if (fil.current) fil.current.scrollTop = fil.current.scrollHeight; }, [disc.messages.length, disc.etat]);
+    const encours = disc.etat === 'encours';
+    const envoyer = (t) => { if (!encours && t.trim()) { disc.envoyer(t, passage); setSaisie(''); } };
+    const extrait = passage && (passage.length > 110 ? passage.slice(0, 110).replace(/\s\S*$/, '') + '…' : passage);
+    return h('div', { className: 'fenetre-discussion', role: 'dialog', 'aria-label': 'Discuter avec ' + nomIA },
+      h('div', { className: 'proposition-tete' },
+        h('h3', { className: 'gill' }, 'Discuter avec ' + nomIA),
+        h('div', { className: 'actions-ligne' },
+          disc.messages.length > 0 && h(Bouton, { variante: 'lien', onClick: disc.effacer }, 'Nouvelle'),
+          h(Bouton, { variante: 'icone', etiquette: 'Fermer la discussion', titre: 'Fermer (la conversation est gardée)', onClick: disc.fermer }, '×'))),
+      passage
+        ? h('div', { className: 'discussion-passage' }, h('span', null, h('strong', null, 'Passage choisi : '), '« ' + extrait + ' »'), h(Bouton, { variante: 'icone', etiquette: 'Retirer le passage choisi', onClick: onRetirerPassage }, '×'))
+        : h('p', { className: 'doux petit' }, 'Aucun passage choisi : sélectionne-en un dans ton texte, ou cite-le dans ta demande.'),
+      passage && passage.length > R.MAX_PASSAGE && h('p', { className: 'erreur petit' }, 'Passage trop long : choisis au plus un ou deux paragraphes.'),
+      h('div', { className: 'discussion-fil', ref: fil },
+        !disc.messages.length && h('p', { className: 'bulle ia' }, `Dis-moi ce que tu veux en langage naturel : « trois versions plus courtes », « garde la citation telle quelle », « plus chaleureux »… Je te propose, tu choisis. Ton texte ne change que si tu appliques une proposition.`),
+        disc.messages.map((m, mi) => h(Fragment, { key: mi },
+          h('p', { className: cls('bulle', m.de === 'moi' ? 'moi' : 'ia') }, m.texte),
+          (m.propositions || []).map((p, pi) => h('div', { key: pi, className: 'discussion-proposition' },
+            m.propositions.length > 1 && h('div', { className: 'etiquette-mini' }, 'Proposition ' + (pi + 1)),
+            h('p', { className: 'texte-propose' }, p.apercu || p.apres),
+            p.pourquoi && h('p', { className: 'doux petit' }, p.pourquoi),
+            p.vigilance && h('div', { className: 'vigilance' }, h('strong', null, 'Point de vigilance. '), p.vigilance),
+            p.statut === 'appliquee'
+              ? h('div', { className: 'actions-ligne' }, h(Pastille, { ton: 'ok' }, 'Appliquée'), h(Bouton, { variante: 'lien', onClick: () => disc.annuler(mi, pi) }, 'Annuler'))
+              : h(Bouton, { variante: 'principal', onClick: () => disc.appliquer(mi, pi) }, 'Appliquer'))))),
+        encours && h('p', { className: 'bulle ia doux' }, nomIA + ' réfléchit…')),
+      disc.etat === 'erreur' && h('p', { className: 'erreur petit', role: 'status' }, disc.detail),
+      h('div', { className: 'discussion-raccourcis' }, RACCOURCIS_DISCUSSION.map(([libelle, demande]) => h('button', { key: libelle, type: 'button', className: 'puce', disabled: encours, onClick: () => envoyer(demande) }, libelle))),
+      h('div', { className: 'discussion-saisie' },
+        h('input', { className: 'champ-texte', value: saisie, placeholder: 'Ta consigne, en langage naturel', 'aria-label': 'Ta consigne à ' + nomIA, onChange: (e) => setSaisie(e.target.value), onKeyDown: (e) => { if (e.key === 'Enter') { e.preventDefault(); envoyer(saisie); } } }),
+        h(Bouton, { variante: 'principal', disabled: encours || !saisie.trim(), onClick: () => envoyer(saisie) }, 'Envoyer')),
+      );
+  }
+
   const LIBELLES_PROPOSITION = { acceptee: 'Acceptée', modifiee: 'Modifiée', refusee: 'Refusée' };
 
   function CarteProposition({ p, rel }) {
@@ -1162,6 +1263,7 @@
       return () => document.removeEventListener('selectionchange', suivre);
     }, []);
     const passageChoisi = selection && texteComplet.slice(selection.debut, selection.fin);
+    const disc = useDiscussion(article, texteComplet, majA, choisirSelection);
     const typo = useMemo(() => T.correctionsArticle(article), [article.texte, article.slides, article.langue]);
     // Après une correction typographique, le curseur reste juste après ce que tu viens de taper.
     useApresRendu(() => {
@@ -1254,15 +1356,10 @@
               h('p', { className: 'petit' }, typo.total === 1 ? 'Reste 1 correction : ' + T.resume(typo.liste) + '.' : 'Restent ' + T.resume(typo.liste) + '.'),
               h(Bouton, { variante: 'principal', onClick: () => majA(T.corrigerArticle, null, 'Typographie corrigée : ' + T.resume(typo.liste) + '.') }, 'Corriger la typographie'))
             : h('p', { className: 'ok petit' }, 'Ton article respecte ces règles.')),
-        h(Carte, { titre: 'Suggestions de style', info: 'La proposition arrive sous forme de carte, en haut de ce panneau : tu l’acceptes, la modifies ou la refuses. Les paroles entre guillemets ne sont jamais reformulées.', sousTitre: relectureIA ? 'Sélectionne un passage dans ton texte, puis choisis ce que ' + IA.FOURNISSEURS[configIA.fournisseur].nom + ' doit en faire.' : 'Pour retravailler un passage avec l’IA, ajoute une clé dans Configuration, onglet IA.' },
-          relectureIA && (passageChoisi
-            ? h(Fragment, null,
-              h('p', { className: 'passage-choisi' }, '« ' + (passageChoisi.length > 140 ? passageChoisi.slice(0, 140).replace(/\s\S*$/, '') + '…' : passageChoisi) + ' »'),
-              passageChoisi.length > R.MAX_PASSAGE
-                ? h('p', { className: 'erreur petit' }, 'Passage trop long : choisis au plus un ou deux paragraphes.')
-                : h('div', { className: 'actions-ligne' }, Object.keys(R.ACTIONS).map((cle) => h(Bouton, { key: cle, disabled: rel.suggestion && rel.suggestion.etat === 'encours', onClick: () => rel.suggerer(selection.debut, selection.fin, cle) }, rel.suggestion && rel.suggestion.etat === 'encours' && rel.suggestion.action === cle ? 'Rédaction…' : R.ACTIONS[cle].libelle))))
-            : h('p', { className: 'doux petit' }, 'Aucun passage sélectionné.')),
-          relectureIA && rel.suggestion && rel.suggestion.etat === 'erreur' && h('p', { className: 'erreur petit', role: 'status' }, rel.suggestion.detail))),
+        h(Carte, { titre: 'Discussion', info: 'Tu donnes tes consignes en langage naturel et tu demandes une ou plusieurs propositions. La conversation reste ouverte pendant que tu travailles ton texte ; ton texte ne change que si tu appliques une proposition.', sousTitre: relectureIA ? 'Donne tes consignes à ' + IA.FOURNISSEURS[configIA.fournisseur].nom + ' et demande-lui plusieurs propositions.' : 'Pour discuter avec l’IA, ajoute une clé dans Configuration, onglet IA.' },
+          relectureIA && h(Bouton, { onClick: disc.ouvert ? disc.fermer : disc.ouvrir, 'aria-expanded': disc.ouvert }, h(Icone, { nom: 'bulle', taille: 18 }), disc.ouvert ? 'Fermer la discussion' : 'Discuter avec ' + IA.FOURNISSEURS[configIA.fournisseur].nom),
+          relectureIA && disc.messages.length > 0 && !disc.ouvert && h('p', { className: 'doux petit' }, 'Ta conversation est gardée : rouvre-la pour la reprendre.')),
+        relectureIA && disc.ouvert && h(FenetreDiscussion, { disc, nomIA: IA.FOURNISSEURS[configIA.fournisseur].nom, passage: passageChoisi, onRetirerPassage: () => setSelection(null) })),
       remplacer !== null && h(Feuille, { titre: 'Remplacer tout le texte', onAnnuler: () => setRemplacer(null), action: h(Bouton, { variante: 'principal', disabled: !remplacer.trim(), onClick: remplacerTout }, 'Remplacer') },
         h('p', { className: 'note' }, 'Le nouveau texte est redécoupé en slides avec la même mise en page : fond, format, gabarits et logo. Tu pourras l’annuler juste après.'),
         h(ZoneTexteTypo, { className: 'zone-texte', rows: 12, valeur: remplacer, onValeur: setRemplacer, placeholder: 'Colle ici le nouveau texte.', 'aria-label': 'Nouveau texte' })));

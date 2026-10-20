@@ -204,7 +204,45 @@
     return t;
   }
 
-  const api = { RESEAUX, consigneDescription, nettoyerDescription, SYSTEME, consigne, lireReponse, simplifier, trouver, localiser, appliquer, apercu, recaler, TYPES, MAX_PROPOSITIONS };
+  /* ---------- Suggestions sur un passage choisi ---------- */
+  const ACTIONS = {
+    clarifier: { libelle: 'Clarifier', consigne: 'Rends le passage plus clair et plus facile à lire, sans l’allonger.' },
+    raccourcir: { libelle: 'Raccourcir', consigne: 'Raccourcis le passage d’environ un tiers en gardant toutes les idées importantes.' },
+    restructurer: { libelle: 'Restructurer', consigne: 'Réorganise le passage pour un enchaînement plus logique : ordre des idées, des phrases, des paragraphes.' },
+    percutant: { libelle: 'Plus percutant', consigne: 'Rends le passage plus percutant : attaque plus directe, rythme plus vif, sans exagérer ni durcir le propos.' },
+  };
+  const MAX_PASSAGE = 1500;
+  function consigneSuggestion(action) {
+    return [
+      'Tu aides à retravailler un passage d’un article en français destiné à LinkedIn et Instagram. On te donne l’article complet, pour le contexte, et le passage à retravailler.',
+      'Demande : ' + ACTIONS[action].consigne,
+      '',
+      'Règles impératives :',
+      '1. Ne change jamais le sens. Ne renforce ni n’affaiblis une affirmation. N’ajoute aucun fait.',
+      '2. Garde la voix de l’auteur : même personne, même ton, mots familiers voulus.',
+      '3. Les paroles rapportées entre guillemets restent mot pour mot : ne les reformule pas.',
+      '4. Ignore la typographie (espaces insécables, forme des guillemets et des apostrophes) : elle est corrigée automatiquement.',
+      '5. Ne réécris que le passage, rien d’autre. Garde ses retours à la ligne s’ils séparent des paragraphes.',
+      '6. « vigilance » signale ce qui pourrait faire bouger une nuance, le ton ou le sens ; sinon, chaîne vide.',
+      '',
+      'Réponds uniquement avec un objet JSON, sans aucun texte autour :',
+      '{"proposition":"…","pourquoi":"une phrase courte","vigilance":""}',
+    ].join('\n');
+  }
+  const consigneSuggestionTexte = (article, passage) => consigne(article) + '\n\nPassage à retravailler, entre les balises <passage> et </passage> :\n<passage>\n' + passage + '\n</passage>';
+  function lireSuggestion(brut, passage) {
+    const t = String(brut || '').replace(/```(?:json)?/gi, '');
+    const d = t.indexOf('{');
+    const f = t.lastIndexOf('}');
+    let donnees = null;
+    try { donnees = JSON.parse(t.slice(d, f + 1)); } catch (e) { donnees = null; }
+    if (!donnees || typeof donnees.proposition !== 'string') throw new Error('La réponse de l’IA est illisible. Réessaie.');
+    const proposition = donnees.proposition.trim();
+    if (!proposition || proposition === passage.trim()) throw new Error('L’IA n’a rien proposé de différent pour ce passage.');
+    return { proposition, pourquoi: typeof donnees.pourquoi === 'string' ? donnees.pourquoi.trim() : '', vigilance: typeof donnees.vigilance === 'string' ? donnees.vigilance.trim() : '' };
+  }
+
+  const api = { ACTIONS, MAX_PASSAGE, consigneSuggestion, consigneSuggestionTexte, lireSuggestion, RESEAUX, consigneDescription, nettoyerDescription, SYSTEME, consigne, lireReponse, simplifier, trouver, localiser, appliquer, apercu, recaler, TYPES, MAX_PROPOSITIONS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else racine.PostsOPRelecture = api;
 })(typeof window !== 'undefined' ? window : globalThis);

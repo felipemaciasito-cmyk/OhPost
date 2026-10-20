@@ -18,6 +18,7 @@
   const T = racine.PostsOPTypographie || require('./typographie.js');
   const IA = racine.PostsOPIA || require('./ia.js');
   const R = racine.PostsOPRelecture || require('./relecture.js');
+  const VERSION = '2026-10-20.3'; // à changer à chaque livraison (affichée dans l'aide « i »)
   const { createElement: h, Fragment, Component, useState, useReducer, useEffect, useLayoutEffect, useMemo, useRef, useContext, createContext } = React;
   const useApresRendu = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
@@ -507,6 +508,7 @@
     if (!aide) return null;
     return h('div', { className: 'panneau-aide', role: 'dialog', 'aria-label': aide.titre },
       h('h3', { className: 'gill' }, aide.titre), aide.textes.map((t, i) => h('p', { key: i }, t)),
+      h('p', { className: 'doux petit' }, 'PostsOP, version ' + VERSION + '.'),
       h(Bouton, { onClick: () => dispatch({ type: 'aide', ouverte: false }) }, 'Compris'));
   }
 
@@ -800,7 +802,7 @@
 
   // Zone de texte qui surligne les fautes directement dans ton texte.
   // Le texte est affiché deux fois, exactement superposé : derrière, avec les surlignages ; devant, modifiable.
-  function EditeurTexte({ valeur, onChange, marques, active, zoneRef, onCurseur }) {
+  function EditeurTexte({ valeur, onChange, marques, active, zoneRef, onCurseur, onSelection }) {
     const fond = useRef(null);
     const ajuster = () => {
       const el = zoneRef.current;
@@ -820,7 +822,7 @@
     morceaux.push(valeur.slice(curseur) + '\n');
     return h('div', { className: 'editeur' },
       h('div', { className: 'editeur-fond', ref: fond, 'aria-hidden': 'true' }, morceaux),
-      h('textarea', { ref: zoneRef, className: 'editeur-zone', value: valeur, spellCheck: true, lang: 'fr', 'aria-label': 'Texte de l’article', onChange: (e) => onChange(e.target.value, e.target), onSelect: onCurseur ? (e) => onCurseur(e.target.selectionStart) : undefined }));
+      h('textarea', { ref: zoneRef, className: 'editeur-zone', value: valeur, spellCheck: true, lang: 'fr', 'aria-label': 'Texte de l’article', onChange: (e) => onChange(e.target.value, e.target), onSelect: (e) => { if (onCurseur) onCurseur(e.target.selectionStart); if (onSelection) onSelection(e.target.selectionStart, e.target.selectionEnd); } }));
   }
 
   function extraitAvecMarque(texte, debut, longueur) {
@@ -907,8 +909,30 @@
       montrer(p.id);
     }
     const choisir = (id, depuis) => { maj({ actif: id }); montrer(id, { texte: depuis !== 'texte', carte: depuis !== 'carte' }); };
+    // Suggestion sur un passage choisi : la réponse devient une carte, validée comme une proposition de relecture.
+    async function suggerer(debut, fin, action) {
+      const config = IA.active();
+      if (!config || fin <= debut) return;
+      const source = texteComplet;
+      const passage = source.slice(debut, fin);
+      maj({ suggestion: { etat: 'encours', action } });
+      try {
+        const reponse = await IA.demander(config, { systeme: R.consigneSuggestion(action), texte: R.consigneSuggestionTexte(source, passage), maxJetons: 2000, delai: 90000 });
+        const s = R.lireSuggestion(reponse, passage);
+        const x = dernier.current;
+        const n = (x.compteurSuggestions || 0) + 1;
+        const brute = { id: 's' + n, type: R.ACTIONS[action].libelle, avant: passage, apres: s.proposition, debut, fin, contexteAvant: '', contexteApres: '', pourquoi: s.pourquoi, vigilance: s.vigilance, statut: 'attente', apercu: R.apercu(source, { debut, fin, apres: s.proposition }) };
+        const [carte] = R.recaler(source, x.source, [brute]);
+        if (!carte) { remplacer({ ...x, suggestion: { etat: 'erreur', detail: 'Le passage a changé pendant la rédaction : sélectionne-le de nouveau.' } }); return; }
+        const autres = x.props.filter((q) => !(q.statut === 'attente' && q.debut < carte.fin && q.fin > carte.debut));
+        remplacer({ ...x, props: trier(autres.concat([carte])), actif: carte.id, compteurSuggestions: n, suggestion: { etat: 'fait' }, edition: null, brouillon: '' });
+        montrer(carte.id);
+      } catch (erreur) {
+        maj({ suggestion: { etat: 'erreur', detail: erreur.message } });
+      }
+    }
     return {
-      ...r, relire, accepter, refuser, annuler, choisir,
+      ...r, relire, accepter, refuser, annuler, choisir, suggerer,
       modifier: (p) => maj({ edition: p.id, brouillon: p.apres, actif: p.id }),
       saisir: (v) => maj({ brouillon: v }),
       abandonner: () => maj({ edition: null, brouillon: '' }),
@@ -1006,6 +1030,15 @@
     const relectureIA = !!configIA && !secours;
     const marquesRelecture = relectureIA ? rel.props.filter((p) => p.statut === 'attente').map((p) => ({ debut: p.debut, fin: p.fin })) : [];
     const actifRelecture = relectureIA && rel.actif ? (rel.props.find((p) => p.id === rel.actif) || {}).debut : undefined;
+    const [selection, setSelection] = useState(null);
+    const choisirSelection = (debut, fin) => setSelection(fin - debut >= 3 ? { debut, fin } : null);
+    // Sélection au doigt (iPad) ou au clavier : on suit aussi les changements de sélection du document.
+    useEffect(() => {
+      const suivre = () => { const el = zone.current; if (el && document.activeElement === el) choisirSelection(el.selectionStart, el.selectionEnd); };
+      document.addEventListener('selectionchange', suivre);
+      return () => document.removeEventListener('selectionchange', suivre);
+    }, []);
+    const passageChoisi = selection && texteComplet.slice(selection.debut, selection.fin);
     const typo = useMemo(() => T.correctionsArticle(article), [article.texte, article.slides, article.langue]);
     // Après une correction typographique, le curseur reste juste après ce que tu viens de taper.
     useApresRendu(() => {
@@ -1071,7 +1104,7 @@
     return h('div', { className: 'deux-colonnes defilement-separe', ref: cadre, style: hauteur ? { '--hauteur-texte': hauteur + 'px' } : undefined },
       h('div', { className: 'colonne-principale' },
         h(Carte, { titre: 'Texte de l’article', info: 'Ton texte est la référence : les slides suivent chaque modification, sans changer leur mise en page.', sousTitre: `${article.texte.length} paragraphes · ${M.compterMots(texteComplet)} mots. Une ligne vide sépare deux paragraphes. Les slides se mettent à jour à chaque modification.`, actions: h(Bouton, { variante: 'petit', onClick: () => setRemplacer('') }, 'Remplacer tout le texte') },
-          h(EditeurTexte, { valeur: texteComplet, onChange: modifierTexte, marques: marquesRelecture.concat(verification.erreurs.map((e) => ({ debut: e.offset, fin: e.offset + e.length }))), active: actifRelecture !== undefined ? actifRelecture : active, zoneRef: zone, onCurseur: relectureIA ? rel.curseur : undefined }))),
+          h(EditeurTexte, { valeur: texteComplet, onChange: modifierTexte, marques: marquesRelecture.concat(verification.erreurs.map((e) => ({ debut: e.offset, fin: e.offset + e.length }))), active: actifRelecture !== undefined ? actifRelecture : active, zoneRef: zone, onCurseur: relectureIA ? rel.curseur : undefined, onSelection: choisirSelection }))),
       h('aside', { className: 'panneau' },
         relectureIA && h(PanneauRelecture, { rel, nomIA: IA.FOURNISSEURS[configIA.fournisseur].nom, onSecours: () => setSecours(true) }),
         !relectureIA && h(Carte, { titre: 'Orthographe et grammaire', info: 'Vérification par LanguageTool, un service gratuit. Rien n’est corrigé sans ton accord.', sousTitre: 'Les fautes sont surlignées dans ton texte.', actions: h(Bouton, { variante: 'principal', onClick: verifier, disabled: verification.etat === 'encours' }, verification.etat === 'encours' ? 'Vérification…' : 'Vérifier') },
@@ -1098,7 +1131,15 @@
               h('p', { className: 'petit' }, typo.total === 1 ? 'Reste 1 correction : ' + T.resume(typo.liste) + '.' : 'Restent ' + T.resume(typo.liste) + '.'),
               h(Bouton, { variante: 'principal', onClick: () => majA(T.corrigerArticle, null, 'Typographie corrigée : ' + T.resume(typo.liste) + '.') }, 'Corriger la typographie'))
             : h('p', { className: 'ok petit' }, 'Ton article respecte ces règles.')),
-        h(Carte, { titre: 'Suggestions de style', sousTitre: 'Pas encore disponible. Bientôt, tu sélectionneras un passage dans ton texte, et un petit menu te proposera : clarifier, raccourcir, restructurer, rendre plus percutant.' })),
+        h(Carte, { titre: 'Suggestions de style', info: 'La proposition arrive sous forme de carte, en haut de ce panneau : tu l’acceptes, la modifies ou la refuses. Les paroles entre guillemets ne sont jamais reformulées.', sousTitre: relectureIA ? 'Sélectionne un passage dans ton texte, puis choisis ce que ' + IA.FOURNISSEURS[configIA.fournisseur].nom + ' doit en faire.' : 'Pour retravailler un passage avec l’IA, ajoute une clé dans Configuration, onglet IA.' },
+          relectureIA && (passageChoisi
+            ? h(Fragment, null,
+              h('p', { className: 'passage-choisi' }, '« ' + (passageChoisi.length > 140 ? passageChoisi.slice(0, 140).replace(/\s\S*$/, '') + '…' : passageChoisi) + ' »'),
+              passageChoisi.length > R.MAX_PASSAGE
+                ? h('p', { className: 'erreur petit' }, 'Passage trop long : choisis au plus un ou deux paragraphes.')
+                : h('div', { className: 'actions-ligne' }, Object.keys(R.ACTIONS).map((cle) => h(Bouton, { key: cle, disabled: rel.suggestion && rel.suggestion.etat === 'encours', onClick: () => rel.suggerer(selection.debut, selection.fin, cle) }, rel.suggestion && rel.suggestion.etat === 'encours' && rel.suggestion.action === cle ? 'Rédaction…' : R.ACTIONS[cle].libelle))))
+            : h('p', { className: 'doux petit' }, 'Aucun passage sélectionné.')),
+          relectureIA && rel.suggestion && rel.suggestion.etat === 'erreur' && h('p', { className: 'erreur petit', role: 'status' }, rel.suggestion.detail))),
       remplacer !== null && h(Feuille, { titre: 'Remplacer tout le texte', onAnnuler: () => setRemplacer(null), action: h(Bouton, { variante: 'principal', disabled: !remplacer.trim(), onClick: remplacerTout }, 'Remplacer') },
         h('p', { className: 'note' }, 'Le nouveau texte est redécoupé en slides avec la même mise en page : fond, format, gabarits et logo. Tu pourras l’annuler juste après.'),
         h(ZoneTexteTypo, { className: 'zone-texte', rows: 12, valeur: remplacer, onValeur: setRemplacer, placeholder: 'Colle ici le nouveau texte.', 'aria-label': 'Nouveau texte' })));

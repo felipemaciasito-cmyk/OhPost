@@ -711,10 +711,35 @@
       onValeur(T.appliquer(valeur, T.retablir(valeur, note.base, note.inverses)));
       setNote(null);
     }
+    // Notes de travail (en-tête, question entre parenthèses, « Titre : … ») : signalées, retirées seulement si tu le décides.
+    const notes = useMemo(() => T.notesDeTravail(valeur), [valeur]);
+    const [gardees, setGardees] = useState([]);
+    const [decochees, setDecochees] = useState([]);
+    const [retrait, setRetrait] = useState(null);
+    const visibles = notes.filter((n) => !gardees.includes(n.texte));
+    const aRetirer = visibles.filter((n) => !decochees.includes(n.texte));
+    const extrait = (t) => (t.length > 90 ? t.slice(0, 90).replace(/\s\S*$/, '') + '…' : t);
+    function retirer() {
+      setRetrait({ avant: valeur, nombre: aRetirer.length });
+      setGardees(gardees.concat(visibles.filter((n) => decochees.includes(n.texte)).map((n) => n.texte)));
+      onValeur(T.retirerLignes(valeur, aRetirer.map((n) => n.ligne)));
+    }
+    const pluriel = (n, un, plusieurs) => (n > 1 ? plusieurs : un);
     return h(Fragment, null,
       h('textarea', { ...attributs, ref: zone, value: valeur, onChange: changer }),
       note && h('p', { className: 'doux petit', role: 'status' }, 'Typographie corrigée : ' + note.texte + '. ',
-        h('button', { type: 'button', className: 'lien fort', onClick: annuler }, 'Annuler')));
+        h('button', { type: 'button', className: 'lien fort', onClick: annuler }, 'Annuler')),
+      visibles.length > 0 && h('div', { className: 'notes-travail', role: 'status' },
+        h('p', null, h('strong', null, `${visibles.length} ${pluriel(visibles.length, 'ligne ressemble', 'lignes ressemblent')} à des notes de travail.`), ' Elles finiraient dans le carrousel. Décoche celles à garder.'),
+        h('ul', null, visibles.map((n) => h('li', { key: n.ligne + n.texte },
+          h('label', null,
+            h('input', { type: 'checkbox', checked: !decochees.includes(n.texte), onChange: () => setDecochees(decochees.includes(n.texte) ? decochees.filter((x) => x !== n.texte) : decochees.concat([n.texte])) }),
+            h('span', null, h('span', { className: 'notes-extrait' }, extrait(n.texte)), h('span', { className: 'petit' }, ' · ' + n.raison)))))),
+        h('div', { className: 'actions-ligne' },
+          h(Bouton, { variante: 'principal', disabled: aRetirer.length === 0, onClick: retirer }, aRetirer.length > 1 ? `Retirer les ${aRetirer.length} lignes cochées` : 'Retirer la ligne cochée'),
+          h(Bouton, { variante: 'lien', onClick: () => setGardees(gardees.concat(visibles.map((n) => n.texte))) }, 'Tout garder'))),
+      retrait && h('p', { className: 'doux petit', role: 'status' }, `${retrait.nombre} ${pluriel(retrait.nombre, 'ligne retirée', 'lignes retirées')}. `,
+        h('button', { type: 'button', className: 'lien fort', onClick: () => { onValeur(retrait.avant); setRetrait(null); setGardees([]); } }, 'Annuler')));
   }
 
   function FeuilleNouvelArticle({ etat, dispatch }) {

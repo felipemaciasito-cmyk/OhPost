@@ -326,7 +326,31 @@
     return liste.length ? L.remplacerPassages(article, liste) : article;
   }
 
-  const api = { NB, corrections, appliquer, placer, inverser, retablir, zoneModifiee, corrigerSaisie, resume, enFrancais, correctionsArticle, corrigerArticle, appliquerSurBloc, annulerTrace };
+  /* ---------- Notes de travail dans un texte collé ----------
+   * Un fichier Word contient parfois des notes pour soi (en-tête, question entre parenthèses, « Titre : … »).
+   * On les signale au collage ; c'est la personne qui décide de les retirer (rien ne disparaît en silence). */
+  const LIBELLES_NOTE = /^(titres?|notes?|nb|n\.b\.|à faire|a faire|todo|rappels?|idées?|questions?|remarques?|brouillon|versions?|consignes?|mots-clés|hashtags?|sources?|commentaires?)\b[^:\n]{0,50}\s?:/i;
+  function notesDeTravail(texte) {
+    const notes = [];
+    let rang = 0;
+    String(texte || '').split('\n').forEach((brute, ligne) => {
+      const l = brute.trim();
+      if (!l) return;
+      rang++;
+      let raison = null;
+      if (/^\(.*\)$/.test(l) || /^\[.*\]$/.test(l)) raison = 'entre parenthèses';
+      else if (LIBELLES_NOTE.test(l)) raison = 'commence par « ' + l.split(':')[0].trim() + ' : »';
+      else if (rang <= 2 && !/[.!?…»:]$/.test(l) && /(linkedin|instagram|\bposts?\b|brouillon|version\s*\d)/i.test(l)) raison = 'ressemble à un en-tête de document';
+      if (raison) notes.push({ ligne, texte: l, raison });
+    });
+    return notes;
+  }
+  function retirerLignes(texte, lignes) {
+    const a = new Set(lignes);
+    return String(texte || '').split('\n').filter((_, i) => !a.has(i)).join('\n').replace(/\n{3,}/g, '\n\n').replace(/^\s*\n/, '');
+  }
+
+  const api = { notesDeTravail, retirerLignes, NB, corrections, appliquer, placer, inverser, retablir, zoneModifiee, corrigerSaisie, resume, enFrancais, correctionsArticle, corrigerArticle, appliquerSurBloc, annulerTrace };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else racine.PostsOPTypographie = api;
 })(typeof window !== 'undefined' ? window : globalThis);

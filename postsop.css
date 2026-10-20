@@ -215,12 +215,13 @@ input[type="range"] { width: 220px; accent-color: var(--action); }
 .note { background: var(--info-fond); color: var(--info-texte); border-radius: 12px; padding: 12px 16px; font-size: 14px; margin-bottom: 16px; }
 /* Message flottant, en bas : il ne pousse jamais le contenu (sinon les slides sauteraient sous le doigt, sur iPad). */
 .message {
-  position: fixed; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 45;
+  position: fixed; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 55; /* au-dessus des fenêtres (calendrier, feuilles) pour que « Annuler » reste à portée */
   display: flex; justify-content: space-between; align-items: center; gap: 12px;
   width: max-content; max-width: min(680px, calc(100vw - 24px)); padding: 12px 18px; background: var(--texte); color: var(--fond); border-radius: 14px; font-size: 15px;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
 }
 .message .lien { color: var(--touche); }
+.theme-sombre .message .lien { color: var(--fond); text-decoration: underline; } /* en sombre, le message est clair : vert sur clair était illisible */
 .mention { font-size: 12px; color: var(--doux); margin: 10px 0 0; }
 .mention a { color: inherit; }
 
@@ -736,3 +737,36 @@ canvas.slide.editable { cursor: text; }
 
 /* Suggestions sur un passage */
 .passage-choisi { margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; background: var(--fond); font-size: 15px; line-height: 1.5; font-style: italic; }
+
+/* ---------- Calendrier de publication ---------- */
+.fenetre-calendrier { width: min(1180px, 100%); max-height: 94vh; display: flex; flex-direction: column; }
+.calendrier-tete { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--trait); }
+.calendrier-tete h2 { margin: 0; display: flex; align-items: center; gap: 10px; font-size: 24px; }
+.calendrier-corps { display: flex; flex-wrap: wrap; gap: 18px; padding: 16px 18px 22px; overflow: auto; }
+.calendrier-mois { flex: 1 1 620px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.calendrier-nav { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+.calendrier-nom-mois { min-width: 180px; text-align: center; font-size: 22px; text-transform: capitalize; }
+.calendrier-grille { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.calendrier-jour-nom { padding: 0 6px; font-size: 13px; font-weight: 600; color: var(--doux); }
+.calendrier-case { min-height: 92px; padding: 6px; border-radius: 12px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--trait); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.calendrier-grille.en-choix .calendrier-case { box-shadow: inset 0 0 0 1px var(--action); }
+.calendrier-numero { align-self: flex-start; min-width: 32px; height: 32px; padding: 0 6px; border: 0; border-radius: 16px; background: transparent; color: var(--texte); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.calendrier-grille.en-choix .calendrier-numero { background: var(--touche-doux); color: var(--touche-texte); }
+.calendrier-case.aujourdhui .calendrier-numero { background: var(--action); color: var(--sur-action, #FFFFFF); }
+.calendrier-item { display: flex; align-items: center; gap: 4px; width: 100%; min-height: 30px; padding: 3px 6px; border: 1px solid var(--trait); border-radius: 8px; background: var(--touche-doux); color: var(--touche-texte); font: inherit; font-size: 13px; font-weight: 600; text-align: left; cursor: pointer; }
+.calendrier-item span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.calendrier-item.publie { background: var(--fond); color: var(--doux); }
+.calendrier-item.actif { outline: 2px solid var(--action); outline-offset: 1px; }
+.calendrier-cote { flex: 0 1 300px; min-width: 260px; display: flex; flex-direction: column; gap: 14px; }
+.calendrier-cote .carte { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.calendrier-liste { display: flex; flex-direction: column; gap: 8px; }
+.calendrier-a-programmer { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 52px; padding: 8px 10px; border: 2px solid transparent; border-radius: 12px; background: var(--fond); color: var(--texte); font: inherit; text-align: left; cursor: pointer; }
+.calendrier-a-programmer.actif { border-color: var(--action); }
+.calendrier-boutons { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+.calendrier-boutons p { margin: 0; }
+.calendrier-boutons .bouton { width: 100%; white-space: normal; text-align: center; justify-content: center; }
+.calendrier-champs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.calendrier-champs label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 600; }
+.calendrier-champs input { width: 100%; min-width: 0; box-sizing: border-box; }
+.calendrier-fiche p { margin: 0; }
+@media (max-width: 700px) { .calendrier-case { min-height: 64px; } .calendrier-item span { display: none; } }

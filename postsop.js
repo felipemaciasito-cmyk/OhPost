@@ -18,7 +18,7 @@
   const T = racine.PostsOPTypographie || require('./typographie.js');
   const IA = racine.PostsOPIA || require('./ia.js');
   const R = racine.PostsOPRelecture || require('./relecture.js');
-  const VERSION = '2026-10-20.3'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-20.4'; // à changer à chaque livraison (affichée dans l'aide « i »)
   const { createElement: h, Fragment, Component, useState, useReducer, useEffect, useLayoutEffect, useMemo, useRef, useContext, createContext } = React;
   const useApresRendu = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
@@ -85,12 +85,12 @@
   const etapeDe = (cible) => (cible === 'structure' || cible === 'design' ? 'composition' : cible);
 
   const AIDES = {
-    bibliotheque: { titre: 'Tes articles', textes: ['Trois sections : En cours, Publiés (validés par toi) et Corbeille, d’où tu peux restaurer un article.', 'Le menu « … » d’une carte permet de dupliquer, d’utiliser un article comme modèle pour un nouveau texte, de le marquer comme publié ou de le mettre à la corbeille.', 'Trie et affiche tes articles comme tu veux, en grille ou en liste. « Annuler » et ⌘Z (Ctrl+Z) reviennent en arrière à tout moment.'] },
+    bibliotheque: { titre: 'Tes articles', textes: ['Trois sections : En cours, Publiés (validés par toi) et Corbeille, d’où tu peux restaurer un article.', 'Le menu « … » d’une carte permet de dupliquer, d’utiliser un article comme modèle pour un nouveau texte, de le marquer comme publié ou de le mettre à la corbeille.', 'Trie et affiche tes articles comme tu veux, en grille ou en liste. « Annuler » et ⌘Z (Ctrl+Z) reviennent en arrière à tout moment.', 'Calendrier : place tes articles sur une date, puis « Programmer un rappel » ajoute une alerte au calendrier de ton appareil. La publication automatique arrivera plus tard.'] },
     configuration: { titre: 'La configuration', textes: ['Charte : tes couleurs et tes tailles de texte. Tout changement s’applique à tous tes carrousels.', 'Ressources : tes polices, ton logo et tes fleurs, importés une fois et retrouvés sur tous tes appareils.', 'Réglages : le comportement de l’outil. Synchronisation : la liaison avec ton dépôt GitHub privé.', 'IA : le fournisseur d’intelligence artificielle et sa clé. Comme la clé GitHub, elle reste sur l’appareil : à saisir une fois sur chacun.'] },
     texte: { titre: 'Étape 1 · Texte', textes: ['Ton texte est la référence du carrousel : chaque modification ici met les slides à jour, sans toucher à leur mise en page. Et un paragraphe modifié dans Design modifie aussi ce texte.', 'Avec une IA active (Configuration, onglet IA), « Relire avec Claude » propose des corrections sous forme de cartes : accepte, modifie ou refuse chacune ; rien n’est appliqué sans toi. Sans IA, la vérification LanguageTool surligne les fautes ; pour chacune, choisis la bonne correction ou ignore-la.', 'La typographie française se corrige toute seule quand tu tapes ou colles du texte, ici comme sur les slides : un message montre chaque correction, avec « Annuler ».', 'Les suggestions de style arriveront avec l’IA : tu sélectionneras un passage directement dans ton texte.'] },
     composition: { titre: 'Étape 2 · Composition', textes: ['Tes slides, les unes sous les autres, exactement comme elles seront exportées. Clique dans un paragraphe pour l’écrire à sa place ; sélectionne des mots pour les mettre en forme avec la petite barre qui apparaît.', 'Entrée crée un nouveau paragraphe, ⇧Entrée un retour à la ligne, ⌘↩ (Ctrl+↩) un saut de slide. ⌫ au début d’un paragraphe le réunit au précédent ; au début d’une slide, avec la slide précédente.', 'Les menus en haut regroupent tout le reste : gabarits, fond, logo, redécoupage, et Vérifier pour les points à regarder. Ton texte reste la référence : chaque modification ici le met à jour.'] },
     description: { titre: 'Étape 4 · Description', textes: ['Le texte qui accompagne le carrousel : légende Instagram et texte du post LinkedIn.', 'Avec une IA active, « Proposer avec Claude » écrit une première version à partir de ton article. Tu choisis de l’utiliser ou non, puis tu la modifies : rien n’est publié tout seul.'] },
-    export: { titre: 'Étape 5 · Export', textes: ['Les fichiers à publier : des images PNG pour Instagram, un PDF pour LinkedIn, ou les deux.', 'S’il reste des alertes, l’outil te les rappelle avant d’exporter : à toi de décider.', 'Une fois publié sur le réseau, marque l’article comme publié : il rejoint la section Publiés.'] },
+    export: { titre: 'Étape 5 · Export', textes: ['Les fichiers à publier : des images PNG pour Instagram, un PDF pour LinkedIn, ou les deux.', 'S’il reste des alertes, l’outil te les rappelle avant d’exporter : à toi de décider.', 'Une fois publié sur le réseau, marque l’article comme publié : il rejoint la section Publiés.', 'Calendrier : planifie la date de publication de chaque carrousel, et ajoute un rappel au calendrier de ton appareil.'] },
   };
 
   /* ================================================================== */
@@ -391,7 +391,7 @@
     fusion: 'M8 4v6a4 4 0 004 4h0a4 4 0 014 4v2M16 4v6a4 4 0 01-4 4',
     engrenage: 'M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z',
     points: 'M5 12h.01M12 12h.01M19 12h.01', grille: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z', liste: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
-    coche: 'M5 12l5 5L20 7', partager: 'M12 3v12M8 7l4-4 4 4M5 13v6a2 2 0 002 2h10a2 2 0 002-2v-6', telecharger: 'M12 3v12M8 11l4 4 4-4M5 19h14',
+    coche: 'M5 12l5 5L20 7', calendrier: 'M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2zM3 10h18M8 3v4M16 3v4', partager: 'M12 3v12M8 7l4-4 4 4M5 13v6a2 2 0 002 2h10a2 2 0 002-2v-6', telecharger: 'M12 3v12M8 11l4 4 4-4M5 19h14',
     restaurer: 'M3 12a9 9 0 109-9 9 9 0 00-6.4 2.6L3 8M3 3v5h5', modele: 'M8 8h12v12H8zM16 8V4H4v12h4',
   };
   const Icone = ({ nom, taille = 20 }) => h('svg', { className: 'icone', width: taille, height: taille, viewBox: '0 0 24 24', 'aria-hidden': 'true' },
@@ -612,7 +612,9 @@
     const details = (a) => h(Fragment, null,
       h('span', { className: 'carte-article-titre gill' }, a.titre),
       h('span', { className: 'doux petit bloc' }, `${a.slides.length} slides · ${M.FORMATS[a.format].nom} · ${a.reseau === 'instagram' ? 'Instagram' : 'LinkedIn'}`),
-      h('span', { className: 'carte-article-pied' }, h(Pastille, { ton: TON_STATUT[a.statut] }, a.statut === 'Publié' && a.publie ? 'Publié le ' + new Date(a.publie).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : a.statut === 'Prêt' ? 'Brouillon' : a.statut),
+      h('span', { className: 'carte-article-pied' }, a.programme && a.statut !== 'Publié' && !a.corbeille
+          ? h(Pastille, { ton: 'ok' }, 'Programmé · ' + CAL.libelleCourt(a.programme.date))
+          : h(Pastille, { ton: TON_STATUT[a.statut] }, a.statut === 'Publié' && a.publie ? 'Publié le ' + new Date(a.publie).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : a.statut === 'Prêt' ? 'Brouillon' : a.statut),
         h('span', { className: 'doux petit' }, b.section === 'corbeille' ? 'supprimé ' + dateCourte(a.corbeille) : dateCourte(a.modifie))));
     const outils = (a, i) => h('div', { className: 'barre-edition' },
       etat.edition && reordonnable && h(Fragment, null,
@@ -627,6 +629,7 @@
         h('div', { className: 'tete-page' },
           h('h1', { className: 'gill' }, 'Articles'),
           h('div', { className: 'actions-ligne' },
+            h(Bouton, { onClick: () => dispatch({ type: 'feuille', feuille: 'calendrier' }), 'aria-haspopup': 'dialog' }, h(Icone, { nom: 'calendrier' }), 'Calendrier'),
             h(Bouton, { variante: 'icone', etiquette: 'Configuration', titre: 'Configuration', onClick: () => dispatch({ type: 'ecran', ecran: 'configuration' }) }, h(Icone, { nom: 'engrenage' })),
             h(Bouton, { variante: 'principal', onClick: () => dispatch({ type: 'feuille', feuille: 'nouvel' }) }, h(Icone, { nom: 'plus' }), 'Nouvel article'))),
         h('div', { className: 'outils-bibliotheque' },
@@ -653,6 +656,7 @@
               vignette(a, 64), h('span', { className: 'ligne-article-texte' }, details(a))),
             outils(a, i))))),
       nouvel && h(FeuilleNouvelArticle, { etat, dispatch }),
+      etat.feuille === 'calendrier' && h(FenetreCalendrier, { etat, dispatch }),
       aSupprimer && h(Feuille, {
         titre: 'Supprimer définitivement ?', onAnnuler: () => dispatch({ type: 'feuille', feuille: null }),
         action: h(Bouton, { variante: 'danger plein', onClick: () => dispatch({ type: 'supprimerArticle', id: aSupprimer.id }) }, 'Supprimer'),
@@ -742,6 +746,125 @@
           h(Bouton, { variante: 'lien', onClick: () => setGardees(gardees.concat(visibles.map((n) => n.texte))) }, 'Tout garder'))),
       retrait && h('p', { className: 'doux petit', role: 'status' }, `${retrait.nombre} ${pluriel(retrait.nombre, 'ligne retirée', 'lignes retirées')}. `,
         h('button', { type: 'button', className: 'lien fort', onClick: () => { onValeur(retrait.avant); setRetrait(null); setGardees([]); } }, 'Annuler')));
+  }
+
+  /* ---------- Calendrier de publication (fenêtre au premier plan, décision du 20 octobre 2026) ---------- */
+  const CAL = {
+    JOURS: ['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.'],
+    cle: (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'),
+    date: (cle) => { const [a, m, j] = cle.split('-').map(Number); return new Date(a, m - 1, j); },
+    libelleCourt: (cle) => CAL.date(cle).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }),
+    libelleLong: (cle) => CAL.date(cle).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+    // Les cases d'un mois, semaines commençant le lundi.
+    cases(annee, mois) {
+      const premier = new Date(annee, mois, 1);
+      const decalage = (premier.getDay() + 6) % 7;
+      const jours = new Date(annee, mois + 1, 0).getDate();
+      const cases = [];
+      for (let k = 0; k < decalage; k++) cases.push(null);
+      for (let j = 1; j <= jours; j++) cases.push(CAL.cle(new Date(annee, mois, j)));
+      return cases;
+    },
+    // Rappel pour le calendrier de l'appareil (fichier .ics, heure locale, alerte à l'heure prévue).
+    ics(article) {
+      const p = article.programme;
+      const [h, mi] = (p.heure || '09:00').split(':');
+      const debut = p.date.replace(/-/g, '') + 'T' + h + mi + '00';
+      const fin = p.date.replace(/-/g, '') + 'T' + String((Number(h) + 1) % 24).padStart(2, '0') + mi + '00';
+      const echapper = (t) => String(t).replace(/[\\;,]/g, (c) => '\\' + c).replace(/\n/g, '\\n');
+      const reseau = article.reseau === 'linkedin' ? 'LinkedIn' : 'Instagram';
+      return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//PostsOP//Calendrier//FR', 'BEGIN:VEVENT',
+        'UID:' + article.id + '-' + debut + '@postsop', 'DTSTAMP:' + new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, ''),
+        'DTSTART:' + debut, 'DTEND:' + fin, 'SUMMARY:' + echapper('Publier « ' + article.titre + ' » sur ' + reseau),
+        'DESCRIPTION:' + echapper('Carrousel préparé dans PostsOP.'),
+        'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + echapper('Publier « ' + article.titre + ' »'), 'TRIGGER:PT0M', 'END:VALARM',
+        'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+    },
+  };
+
+  function FenetreCalendrier({ etat, dispatch }) {
+    const aujourdhui = CAL.cle(new Date());
+    const [mois, setMois] = useState(() => { const d = new Date(); return { a: d.getFullYear(), m: d.getMonth() }; });
+    const [choisi, setChoisi] = useState(null); // article à placer sur un jour
+    const [fiche, setFiche] = useState(null);   // article dont on voit la fiche
+    const fermer = () => dispatch({ type: 'feuille', feuille: null });
+    useEffect(() => {
+      const touche = (e) => { if (e.key === 'Escape') fermer(); };
+      racine.addEventListener('keydown', touche);
+      return () => racine.removeEventListener('keydown', touche);
+    }, []);
+    const actifs = etat.articles.filter((a) => !a.corbeille);
+    const majArticle = (id, maj, annonce) => dispatch({ type: 'article', id, maj, groupe: null, annonce });
+    const programmer = (a, date) => {
+      majArticle(a.id, (x) => ({ ...x, programme: { date, heure: (x.programme && x.programme.heure) || '09:00', mode: null } }), `« ${a.titre} » programmé le ${CAL.libelleLong(date)}.`);
+      setChoisi(null); setFiche(a.id);
+    };
+    const aProgrammer = actifs.filter((a) => !a.programme && a.statut !== 'Publié');
+    const duJour = (cle) => actifs.filter((a) => (a.statut === 'Publié' ? a.publie && CAL.cle(new Date(a.publie)) === cle : a.programme && a.programme.date === cle));
+    const cases = CAL.cases(mois.a, mois.m);
+    const nomMois = new Date(mois.a, mois.m, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+    const dansLeMois = actifs.filter((a) => a.programme && a.statut !== 'Publié' && a.programme.date.startsWith(mois.a + '-' + String(mois.m + 1).padStart(2, '0'))).length;
+    const aller = (n) => setMois(({ a, m }) => { const d = new Date(a, m + n, 1); return { a: d.getFullYear(), m: d.getMonth() }; });
+    const f = fiche ? actifs.find((a) => a.id === fiche) : null;
+    function rappel(a) {
+      const blob = new Blob([CAL.ics(a)], { type: 'text/calendar;charset=utf-8' });
+      const lien = document.createElement('a');
+      lien.href = URL.createObjectURL(blob);
+      lien.download = 'Publier ' + a.titre.replace(/[\\/:*?"<>|]/g, '').slice(0, 60) + '.ics';
+      document.body.appendChild(lien); lien.click(); lien.remove();
+      setTimeout(() => URL.revokeObjectURL(lien.href), 4000);
+      majArticle(a.id, (x) => ({ ...x, programme: { ...x.programme, mode: 'rappel' } }));
+      dispatch({ type: 'message', message: 'Rappel créé : ouvre le fichier pour l’ajouter au calendrier de ton appareil.' });
+    }
+    return h('div', { className: 'voile', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Calendrier' },
+      h('div', { className: 'feuille fenetre-calendrier' },
+        h('div', { className: 'calendrier-tete' },
+          h('h2', { className: 'gill' }, h(Icone, { nom: 'calendrier' }), 'Calendrier'),
+          h(Bouton, { variante: 'icone', etiquette: 'Fermer le calendrier', titre: 'Fermer', onClick: fermer }, '×')),
+        h('div', { className: 'calendrier-corps' },
+          h('div', { className: 'calendrier-mois' },
+            h('div', { className: 'calendrier-nav' },
+              h('div', { className: 'actions-ligne' },
+                h(Bouton, { variante: 'icone', etiquette: 'Mois précédent', onClick: () => aller(-1) }, '‹'),
+                h('strong', { className: 'gill calendrier-nom-mois' }, nomMois),
+                h(Bouton, { variante: 'icone', etiquette: 'Mois suivant', onClick: () => aller(1) }, '›'),
+                h(Bouton, { onClick: () => { const d = new Date(); setMois({ a: d.getFullYear(), m: d.getMonth() }); } }, 'Aujourd’hui')),
+              h('span', { className: 'doux petit' }, dansLeMois ? `${dansLeMois} publication${dansLeMois > 1 ? 's' : ''} programmée${dansLeMois > 1 ? 's' : ''}` : 'Aucune publication programmée ce mois-ci')),
+            h('div', { className: cls('calendrier-grille', choisi && 'en-choix') },
+              CAL.JOURS.map((j) => h('span', { key: j, className: 'calendrier-jour-nom' }, j)),
+              cases.map((cle, k) => (cle === null ? h('span', { key: 'v' + k }) : h('div', { key: cle, className: cls('calendrier-case', cle === aujourdhui && 'aujourdhui') },
+                h('button', { type: 'button', className: 'calendrier-numero', 'aria-label': CAL.libelleLong(cle) + (choisi ? ' : programmer ici' : ''), onClick: () => { if (choisi) programmer(actifs.find((a) => a.id === choisi), cle); } }, String(Number(cle.slice(8)))),
+                duJour(cle).map((a) => h('button', { key: a.id, type: 'button', className: cls('calendrier-item', a.statut === 'Publié' && 'publie', fiche === a.id && 'actif'), onClick: () => { setFiche(a.id); setChoisi(null); }, 'aria-label': a.titre + (a.statut === 'Publié' ? ', publié' : ', programmé') },
+                  a.statut === 'Publié' && h(Icone, { nom: 'coche', taille: 14 }), h('span', null, a.titre))))))) ),
+          h('div', { className: 'calendrier-cote' },
+            f && h('div', { className: 'carte calendrier-fiche' },
+              h('div', { className: 'proposition-tete' }, h('strong', { className: 'gill' }, f.titre), h(Bouton, { variante: 'lien', onClick: () => setFiche(null) }, 'Fermer')),
+              f.statut === 'Publié'
+                ? h('p', { className: 'ok petit' }, 'Publié le ' + new Date(f.publie).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }) + '.')
+                : f.programme
+                  ? h(Fragment, null,
+                    h('div', { className: 'calendrier-champs' },
+                      h('label', null, h('span', null, 'Date'), h('input', { className: 'champ-texte', type: 'date', value: f.programme.date, onChange: (e) => e.target.value && majArticle(f.id, (x) => ({ ...x, programme: { ...x.programme, date: e.target.value, mode: null } })) })),
+                      h('label', null, h('span', null, 'Heure'), h('input', { className: 'champ-texte', type: 'time', value: f.programme.heure || '09:00', onChange: (e) => e.target.value && majArticle(f.id, (x) => ({ ...x, programme: { ...x.programme, heure: e.target.value, mode: null } })) }))),
+                    h('p', { className: 'doux petit' }, 'Réseau : ' + (f.reseau === 'linkedin' ? 'LinkedIn' : 'Instagram') + ', celui de l’article.'),
+                    f.programme.mode === 'rappel' && h('p', { className: 'ok petit' }, 'Rappel programmé. Si tu changes la date ou l’heure, programme-le de nouveau.'),
+                    h('div', { className: 'calendrier-boutons' },
+                      h(Bouton, { variante: 'principal', onClick: () => rappel(f) }, h(Icone, { nom: 'calendrier', taille: 18 }), f.programme.mode === 'rappel' ? 'Programmer un nouveau rappel' : 'Programmer un rappel'),
+                      h(Bouton, { disabled: true, titre: 'Bientôt : il faudra d’abord connecter LinkedIn ou Instagram.' }, 'Programmer une publication automatique'),
+                      h('p', { className: 'doux petit' }, 'Publication automatique : bientôt disponible. Il faudra d’abord connecter LinkedIn ou Instagram.')),
+                    h('div', { className: 'actions-ligne' },
+                      h(Bouton, { onClick: () => dispatch({ type: 'ouvrir', id: f.id }) }, 'Ouvrir l’article')),
+                    h('div', { className: 'actions-ligne' },
+                      h(Bouton, { variante: 'lien', onClick: () => dispatch({ type: 'statut', id: f.id, statut: 'Publié' }) }, 'Marquer comme publié'),
+                      h(Bouton, { variante: 'lien', onClick: () => { majArticle(f.id, (x) => { const { programme, ...reste } = x; return reste; }, `« ${f.titre} » déprogrammé.`); setFiche(null); } }, 'Déprogrammer')))
+                  : h('p', { className: 'doux petit' }, 'Pas encore programmé.')),
+            h('div', { className: 'carte' },
+              h('strong', { className: 'gill' }, 'À programmer'),
+              h('p', { className: 'doux petit' }, choisi ? 'Touche maintenant un jour du calendrier.' : 'Touche un article, puis un jour.'),
+              aProgrammer.length
+                ? h('div', { className: 'calendrier-liste' }, aProgrammer.map((a) => h('button', { key: a.id, type: 'button', className: cls('calendrier-a-programmer', choisi === a.id && 'actif'), 'aria-pressed': choisi === a.id, onClick: () => { setChoisi(choisi === a.id ? null : a.id); setFiche(null); } },
+                  h('span', { className: 'gill' }, a.titre), h('span', { className: 'doux petit' }, (a.reseau === 'linkedin' ? 'LinkedIn' : 'Instagram') + ' · ' + a.statut))))
+                : h('p', { className: 'ok petit' }, 'Tous tes articles en cours sont programmés.'))))));
   }
 
   function FeuilleNouvelArticle({ etat, dispatch }) {

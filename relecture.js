@@ -290,18 +290,19 @@
     '4. Ignore la typographie (espaces insécables, forme des guillemets et des apostrophes) : elle est corrigée automatiquement.',
     '5. Chaque proposition remplace un passage du texte : « avant » est copié du texte à l’identique, caractère pour caractère ; « apres » est le nouveau texte.',
     '6. « vigilance » signale ce qui fait bouger une nuance, le ton ou le sens ; sinon, chaîne vide.',
+    '6 bis. Chaque proposition a un « titre » de 2 à 5 mots qui dit l’effet qu’elle apporte (par exemple « Plus direct », « Ton plus chaleureux », « Rythme plus vif »), sans répéter le texte proposé ; deux propositions d’une même réponse n’ont jamais le même titre.',
     '7. « reponse » tutoie la personne, en 2 à 8 phrases ; tu peux aller à la ligne.',
     '8. N’écris rien d’autre que cet objet JSON, une seule fois : ni balise, ni bloc de code, ni commentaire, ni excuse.',
     '',
     'Format :',
-    '{"reponse":"…","propositions":[{"avant":"…","apres":"…","pourquoi":"une phrase courte","vigilance":""}],"pistes":["…","…"]}',
+    '{"reponse":"…","propositions":[{"titre":"2 à 5 mots","avant":"…","apres":"…","pourquoi":"une phrase courte","vigilance":""}],"pistes":["…","…"]}',
   ].join('\n');
   // L'article numéroté par paragraphe, avec l'endroit du passage choisi, pour que l'IA comprenne le contexte.
   function messageDiscussion(article, passage, historique, demande, infos = {}) {
     const paras = String(article || '').split(/\n\s*\n/);
     const ou = passage ? paras.findIndex((p) => p.includes(passage.split('\n')[0].trim().slice(0, 60))) : -1;
     const numerote = paras.map((p, i) => `[${i + 1}]${i === ou ? ' ← le passage choisi est dans ce paragraphe' : ''}\n${p}`).join('\n\n');
-    const fil = (historique || []).slice(-MAX_HISTORIQUE).map((m) => (m.de === 'moi' ? 'Personne : ' : 'Toi : ') + m.texte + ((m.propositions || []).length ? ' [propositions : ' + m.propositions.map((p) => '« ' + p.apres + ' »').join(' ; ') + ']' : '')).join('\n');
+    const fil = (historique || []).slice(-MAX_HISTORIQUE).map((m) => (m.de === 'moi' ? 'Personne : ' : 'Toi : ') + m.texte + ((m.propositions || []).length ? ' [propositions : ' + m.propositions.map((p) => (p.titre ? p.titre + ' : ' : '') + '« ' + p.apres + ' »').join(' ; ') + ']' : '')).join('\n');
     return [
       infos.profil ? 'Profil éditorial de la personne :\n' + infos.profil + '\n' : '',
       `Article${infos.titre ? ' « ' + infos.titre + ' »' : ''}${infos.reseau ? ', publié sur ' + infos.reseau : ''} (${paras.length} paragraphes), entre les balises <article> et </article> :`,
@@ -323,7 +324,7 @@
     const propositions = (Array.isArray(donnees.propositions) ? donnees.propositions : [])
       .filter((p) => p && typeof p.apres === 'string' && p.apres.trim())
       .slice(0, MAX_PROPOSITIONS_DISCUSSION)
-      .map((p) => ({ avant: typeof p.avant === 'string' ? p.avant.trim() : '', apres: p.apres.trim(), pourquoi: typeof p.pourquoi === 'string' ? p.pourquoi.trim() : '', vigilance: typeof p.vigilance === 'string' ? p.vigilance.trim() : '' }));
+      .map((p) => ({ titre: typeof p.titre === 'string' ? p.titre.trim().replace(/^["«“\s]+|["»”\s.]+$/g, '').slice(0, 60) : '', avant: typeof p.avant === 'string' ? p.avant.trim() : '', apres: p.apres.trim(), pourquoi: typeof p.pourquoi === 'string' ? p.pourquoi.trim() : '', vigilance: typeof p.vigilance === 'string' ? p.vigilance.trim() : '' }));
     const pistes = (Array.isArray(donnees.pistes) ? donnees.pistes : []).filter((x) => typeof x === 'string' && x.trim() && x.length <= 120).map((x) => x.trim()).slice(0, 3);
     return { reponse: typeof donnees.reponse === 'string' && donnees.reponse.trim() ? donnees.reponse.trim() : (propositions.length ? 'Voici ce que je te propose.' : 'Je n’ai rien à proposer.'), propositions, pistes };
   }

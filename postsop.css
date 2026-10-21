@@ -835,7 +835,7 @@ canvas.slide.editable { cursor: text; }
 .conversation-item.courante { border: 2px solid var(--action); }
 .conversation-ouvrir { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 0; border: 0; background: transparent; color: var(--texte); font: inherit; text-align: left; cursor: pointer; }
 .discussion-passage.ancien { background: var(--fond); color: var(--texte); align-items: center; }
-.lien-passage { padding: 0; border: 0; background: transparent; font: inherit; font-size: 14px; cursor: pointer; white-space: nowrap; }
+.lien-passage { margin-left: 6px; padding: 0; border: 0; background: transparent; font: inherit; font-size: 14px; cursor: pointer; white-space: nowrap; }
 .editeur-fond mark.passage-discussion { background: var(--touche-doux); box-shadow: 0 0 0 2px var(--touche); border-radius: 3px; color: transparent; }
 .discussion-outils { display: flex; justify-content: space-between; gap: 8px; margin-top: -8px; }
 .fenetre-discussion .proposition-tete h3 { min-width: 0; }
@@ -880,3 +880,16 @@ canvas.slide.editable { cursor: text; }
 .schema-boutons { display: flex; gap: 3px; }
 .schema-bascule { flex: 1 1 0; min-height: 34px; padding: 0; border: 1px solid var(--trait); border-radius: 8px; background: var(--surface); color: var(--texte); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
 .schema-bascule.actif { background: var(--action); color: var(--sur-action, #FFFFFF); border-color: var(--action); }
+
+/* Le petit robot de la discussion */
+.robot { display: inline-block; line-height: 0; }
+.robot svg { display: block; }
+.bouton-robot { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; padding: 0; border: 0; border-radius: 16px; background: #F3F6CE; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.bouton-robot:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 56, 70, 0.18); }
+.bouton-robot:focus-visible { outline: 3px solid var(--action); outline-offset: 2px; }
+.bouton-robot.actif { box-shadow: inset 0 0 0 2px #003846; }
+@media (prefers-reduced-motion: reduce) { .bouton-robot { transition: none; } .bouton-robot:hover { transform: none; } }
+
+/* Discussion : titre de chaque proposition */
+.titre-proposition { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; color: var(--texte); }
+.numero-proposition { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; border-radius: 11px; background: var(--touche-doux); color: var(--touche-texte); font-size: 12px; font-weight: 700; }

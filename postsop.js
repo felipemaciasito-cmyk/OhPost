@@ -18,7 +18,7 @@
   const T = racine.PostsOPTypographie || require('./typographie.js');
   const IA = racine.PostsOPIA || require('./ia.js');
   const R = racine.PostsOPRelecture || require('./relecture.js');
-  const VERSION = '2026-10-21.10'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-21.12'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -1195,6 +1195,10 @@
   const DISCUSSIONS = new Map(); // id d'article → { messages, ouvert }, le temps de la session
   const RACCOURCIS_DISCUSSION = [['Clarifier', 'Clarifie ce passage.'], ['Raccourcir', 'Raccourcis ce passage.'], ['Plus percutant', 'Rends ce passage plus percutant.'], ['3 propositions', 'Donne-moi 3 propositions différentes pour ce passage.']];
 
+  // Le petit robot de la discussion (proposition « Rond », choisie le 21 octobre 2026) : il sourit et tient une fleur.
+  const ROBOT_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="100%" height="100%" focusable="false"><rect x="48" y="96" width="8" height="12" rx="3" fill="#003846"></rect><rect x="64" y="96" width="8" height="12" rx="3" fill="#003846"></rect><rect x="42" y="64" width="36" height="34" rx="12" fill="#003846"></rect><circle cx="60" cy="82" r="4" fill="#C9D420"></circle><path d="M43 76 Q33 80 34 90" fill="none" stroke="#003846" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"></path><path d="M77 76 Q92 74 96 62" fill="none" stroke="#003846" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="96.5" cy="60" r="4.6" fill="#003846"></circle><path d="M97 57 L102 40" fill="none" stroke="#003846" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="103.0" cy="25.5" r="4.7" fill="#FFFFFF" stroke="#003846" stroke-width="1.6"></circle><circle cx="109.2" cy="30.0" r="4.7" fill="#FFFFFF" stroke="#003846" stroke-width="1.6"></circle><circle cx="106.8" cy="37.3" r="4.7" fill="#FFFFFF" stroke="#003846" stroke-width="1.6"></circle><circle cx="99.2" cy="37.3" r="4.7" fill="#FFFFFF" stroke="#003846" stroke-width="1.6"></circle><circle cx="96.8" cy="30.0" r="4.7" fill="#FFFFFF" stroke="#003846" stroke-width="1.6"></circle><circle cx="103" cy="32" r="3.6" fill="#C9D420"></circle><path d="M60 26 V19" fill="none" stroke="#003846" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="60" cy="14" r="5" fill="#C9D420"></circle><rect x="30" y="42" width="6" height="13" rx="3" fill="#C9D420"></rect><rect x="84" y="42" width="6" height="13" rx="3" fill="#C9D420"></rect><rect x="34" y="26" width="52" height="44" rx="22" fill="#003846"></rect><rect x="40" y="33" width="40" height="29" rx="13" fill="#E6EBEC"></rect><circle cx="52" cy="45" r="3.8" fill="#003846"></circle><circle cx="68" cy="45" r="3.8" fill="#003846"></circle><circle cx="53.3" cy="43.6" r="1.3" fill="#FFFFFF"></circle><circle cx="69.3" cy="43.6" r="1.3" fill="#FFFFFF"></circle><circle cx="46.5" cy="52.5" r="2.6" fill="#C9D420"></circle><circle cx="73.5" cy="52.5" r="2.6" fill="#C9D420"></circle><path d="M53 52 Q60 58.5 67 52" fill="none" stroke="#003846" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
+  const Robot = ({ taille = 44 }) => h('span', { className: 'robot', 'aria-hidden': 'true', style: { width: taille + 'px', height: taille + 'px' }, dangerouslySetInnerHTML: { __html: ROBOT_SVG } });
+
   // Les conversations sont gardées sur l'appareil, par article (les 20 dernières), pour les retrouver et naviguer entre elles.
   const CLE_DISCUSSIONS = 'postsop-discussions';
   const MAX_CONVERSATIONS = 20;
@@ -1332,7 +1336,8 @@
         disc.messages.map((m, mi) => h(Fragment, { key: mi },
           h('p', { className: cls('bulle', m.de === 'moi' ? 'moi' : 'ia') }, m.texte),
           (m.propositions || []).map((p, pi) => h('div', { key: pi, className: 'discussion-proposition' },
-            m.propositions.length > 1 && h('div', { className: 'etiquette-mini' }, 'Proposition ' + (pi + 1)),
+            // Un titre court qui dit l'effet de la proposition (donné par l'IA), sinon son numéro.
+            h('div', { className: 'titre-proposition' }, m.propositions.length > 1 && h('span', { className: 'numero-proposition' }, pi + 1), p.titre || (m.propositions.length > 1 ? 'Proposition ' + (pi + 1) : 'Proposition')),
             h('p', { className: 'texte-propose' }, p.apercu || p.apres),
             p.pourquoi && h('p', { className: 'doux petit' }, p.pourquoi),
             p.vigilance && h('div', { className: 'vigilance' }, h('strong', null, 'Point de vigilance. '), p.vigilance),
@@ -1558,8 +1563,7 @@
               h('p', { className: 'petit' }, typo.total === 1 ? 'Reste 1 correction : ' + T.resume(typo.liste) + '.' : 'Restent ' + T.resume(typo.liste) + '.'),
               h(Bouton, { variante: 'principal', onClick: () => majA(T.corrigerArticle, null, 'Typographie corrigée : ' + T.resume(typo.liste) + '.') }, 'Corriger la typographie'))
             : h('p', { className: 'ok petit' }, 'Ton article respecte ces règles.')),
-        h(Carte, { titre: 'Discussion', info: 'Tu donnes tes consignes en langage naturel et tu demandes une ou plusieurs propositions. La conversation reste ouverte pendant que tu travailles ton texte ; ton texte ne change que si tu appliques une proposition.', sousTitre: relectureIA ? 'Donne tes consignes à ' + IA.FOURNISSEURS[configIA.fournisseur].nom + ' et demande-lui plusieurs propositions.' : 'Pour discuter avec l’IA, ajoute une clé dans Configuration, onglet IA.' },
-          relectureIA && h(Bouton, { onClick: disc.ouvert ? disc.fermer : disc.ouvrir, 'aria-expanded': disc.ouvert }, h(Icone, { nom: 'bulle', taille: 18 }), disc.ouvert ? 'Fermer la discussion' : 'Discuter avec ' + IA.FOURNISSEURS[configIA.fournisseur].nom),
+        h(Carte, { titre: 'Discussion', actions: relectureIA && h('button', { type: 'button', className: cls('bouton-robot', disc.ouvert && 'actif'), 'aria-label': disc.ouvert ? 'Fermer la discussion' : 'Discuter avec ' + IA.FOURNISSEURS[configIA.fournisseur].nom, title: disc.ouvert ? 'Fermer la discussion' : 'Discuter avec ' + IA.FOURNISSEURS[configIA.fournisseur].nom, 'aria-expanded': disc.ouvert, onClick: disc.ouvert ? disc.fermer : disc.ouvrir }, h(Robot, { taille: 46 })), info: 'Tu donnes tes consignes en langage naturel et tu demandes une ou plusieurs propositions. La conversation reste ouverte pendant que tu travailles ton texte ; ton texte ne change que si tu appliques une proposition.', sousTitre: relectureIA ? 'Donne tes consignes à ' + IA.FOURNISSEURS[configIA.fournisseur].nom + ' et demande-lui plusieurs propositions.' : 'Pour discuter avec l’IA, ajoute une clé dans Configuration, onglet IA.' },
           relectureIA && disc.messages.length > 0 && !disc.ouvert && h('p', { className: 'doux petit' }, 'Ta conversation est gardée : rouvre-la pour la reprendre.')),
         relectureIA && disc.ouvert && h(FenetreDiscussion, {
           disc, nomIA: IA.FOURNISSEURS[configIA.fournisseur].nom, passage: passageChoisi, onRetirerPassage: () => setSelection(null),

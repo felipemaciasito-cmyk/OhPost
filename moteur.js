@@ -434,10 +434,12 @@
       tropLarge = tropLarge || pile.tropLarge;
       return decaler(pile.elements, y0);
     };
-    const couverture = (taille, couleurTitre, couleurSuite, roleSuite) => [
-      ...(titre ? [{ ...riche(titre), texte: titre.texte, role: 'bold', taille, interligne: 1.1, couleur: couleurTitre, espaceApres: 0 }] : []),
-      ...suite.map((b) => ({ ...riche(b), texte: b.texte, role: roleSuite, taille, interligne: 1.1, couleur: couleurSuite, espaceApres: 0 })),
-    ];
+    // Sur une couverture, le style du paragraphe décide : « titre » prend la couleur du texte, « contrepoint » celle de mise en valeur.
+    // Sans l'un de ces deux styles, c'est la place qui décide (le premier paragraphe en titre, les suivants en contrepoint).
+    const couverture = (taille, couleurTitre, couleurSuite, roleSuite) => blocs.map((b, k) => {
+      const commeTitre = b.style === 'titre' || (b.style !== 'contrepoint' && k === 0);
+      return { ...riche(b), texte: b.texte, role: commeTitre ? 'bold' : roleSuite, taille, interligne: 1.1, couleur: commeTitre ? couleurTitre : couleurSuite, espaceApres: 0 };
+    });
 
     switch (gab) {
       case 'V1': {

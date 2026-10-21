@@ -857,3 +857,7 @@ canvas.slide.editable { cursor: text; }
 .nom-image { flex: 1 1 auto; min-height: 40px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--texte); font: inherit; text-align: left; cursor: pointer; }
 .nom-image:disabled { color: var(--doux); cursor: default; }
 .bouton-image { width: 40px; height: 40px; border: 0; border-radius: 8px; background: var(--fond); color: var(--texte); font: inherit; font-size: 16px; cursor: pointer; }
+
+/* Barre flottante : couleur du filet */
+.outil-couleur-filet { display: inline-flex; align-items: center; gap: 2px; }
+.fleche-mini { font-size: 10px; opacity: 0.7; }

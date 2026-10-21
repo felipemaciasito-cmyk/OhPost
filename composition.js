@@ -327,6 +327,7 @@
       const [selection, setSelection] = useState({ i: null, n: [] });
       const [apercu, setApercu] = useState(null); // la slide telle qu'elle est pendant un glisser (rien n'est enregistré avant le lâcher)
       const [imageChoisie, setImageChoisie] = useState(null); // logo ou fleurs choisis : { i, k }
+      const [dernierFilet, setDernierFilet] = useState('charte'); // dernière couleur de filet choisie, reprise par le bouton de la barre
       const [lasso, setLasso] = useState(null);
       const [guides, setGuides] = useState(null);
       const [survol, setSurvol] = useState(null);
@@ -911,6 +912,7 @@
         const tailles = [...new Set((blocCourant.marques || []).filter((m) => m.debut < fin && m.fin > debut).map((m) => m.taille || 0))];
         return {
           gras: L.partoutVrai(blocCourant.marques, debut, fin, 'gras', base), italique: L.partoutVrai(blocCourant.marques, debut, fin, 'italique', false), souligne: L.partoutVrai(blocCourant.marques, debut, fin, 'souligne', false),
+          filetLignes: L.partoutVrai(blocCourant.marques, debut, fin, 'filet', false),
           taille: tailles.length === 1 && tailles[0] ? tailles[0] : null, alignement: blocCourant.alignement || (M.gabaritParDefaut(article.slides[edition.i], edition.i) === 'F1' ? 'centre' : 'gauche'),
           filet: blocCourant.filet !== undefined ? blocCourant.filet : blocCourant.style === 'citation' && !!fond.filet && ['T1', 'T3', 'T5'].includes(M.gabaritParDefaut(article.slides[edition.i], edition.i)),
           style: blocCourant.style,
@@ -955,7 +957,7 @@
         const couleurs = [['charte', 'Filet de la charte', fond.filet || fond.accent], ['accent', 'Couleur de mise en valeur', fond.accent], ['texte', 'Couleur du texte', fond.texte]]
           .concat(Object.entries(charte.palette || {}).map(([nom, hex]) => { const joli = nom.replace(/([A-Z])/g, ' $1').toLowerCase().replace(/\bpale\b/, 'pâle'); return [hex, 'Charte · ' + joli, hex]; }))
           .filter(([, , hex]) => { const k = String(hex).toLowerCase(); if (vus.has(k)) return false; vus.add(k); return true; });
-        const poser = (v) => (lignes ? formater({ filet: v }, 'Filet ajouté à côté des lignes choisies.') : paragraphe({ filet: true, filetCouleur: v === 'charte' ? null : v }));
+        const poser = (v) => { setDernierFilet(v); if (lignes) formater({ filet: v }, 'Filet ajouté à côté des lignes choisies.'); else paragraphe({ filet: true, filetCouleur: v === 'charte' ? null : v }); };
         return [
           { type: 'titre', libelle: lignes ? 'À côté des lignes choisies' : 'À côté du paragraphe entier (sélectionne des lignes pour les cibler)' },
           ...couleurs.map(([v, nom, hex]) => item(h(Fragment, null, h('span', { className: 'pastille-couleur', style: { background: hex } }), nom), () => poser(v))),
@@ -966,6 +968,15 @@
             : item('Filet sur tout le paragraphe', () => (blocCourant || cibles().length ? basculerFilet() : exigerBloc()), { coche: blocCourant ? st.filet : undefined }),
         ];
       };
+      // Bouton filet de la barre : avec des lignes choisies, il ne touche qu'elles (et les retire si elles ont déjà un filet).
+      const filetLignes = () => {
+        if (!blocCourant) return basculerFilet();
+        const [d, f] = plage();
+        if (f <= d) return basculerFilet();
+        const deja = L.partoutVrai(blocCourant.marques, d, f, 'filet', false);
+        formater({ filet: deja ? null : dernierFilet }, deja ? 'Filet retiré de ces lignes.' : 'Filet ajouté à côté des lignes choisies.');
+      };
+      const couleurFiletVue = dernierFilet === 'charte' ? fond.filet || fond.accent : dernierFilet === 'accent' ? fond.accent : dernierFilet === 'texte' ? fond.texte : dernierFilet;
       const menuAlignement = () => [['gauche', 'Aligner à gauche'], ['centre', 'Centrer'], ['droite', 'Aligner à droite']].map(([v, nom]) => item(nom, () => aligner(v), { coche: blocCourant ? st.alignement === v : undefined }));
       const allerA = (i) => { dispatch({ type: 'slide', index: i }); const page = pagesRef.current && pagesRef.current.querySelector(`[data-index="${i}"]`); if (page) page.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
       const nouveauParagraphe = () => {
@@ -1206,8 +1217,8 @@
         barre && blocCourant && !menu && h(BarreFlottante, {
           position: barre, st, deplie, setDeplie: (v) => { setDeplie(v); ecrirePref('postsop-barre-depliee', v ? 'oui' : 'non'); },
           presets, fond, natures: natures(), sous: sousBarre, setSous: setSousBarre,
-          actions: { basculer, formater, aligner, basculerFilet, effacer, natureDe },
-          menuCouleur, menuTaille,
+          actions: { basculer, formater, aligner, basculerFilet, filetLignes, effacer, natureDe },
+          menuCouleur, menuTaille, menuFilet, couleurFilet: couleurFiletVue,
         }));
     }
 
@@ -1518,7 +1529,8 @@
     }
 
     // Barre flottante « dépliable », sans contour : cinq outils, et une seconde rangée à la demande.
-    function BarreFlottante({ position, st, deplie, setDeplie, presets, fond, natures, sous, setSous, actions, menuCouleur, menuTaille }) {
+    function BarreFlottante({ position, st, deplie, setDeplie, presets, fond, natures, sous, setSous, actions, menuCouleur, menuTaille, menuFilet, couleurFilet }) {
+      const refFilet = useRef(null);
       const ref = useRef(null);
       const refStyle = useRef(null);
       const refCouleur = useRef(null);
@@ -1550,10 +1562,13 @@
             h('span', { className: 'pastille-couleur', style: { background: fond.accent } })),
           ...[['gauche', 'M4 6h16M4 12h10M4 18h14', 'Aligner à gauche'], ['centre', 'M4 6h16M7 12h10M5 18h14', 'Centrer'], ['droite', 'M4 6h16M10 12h10M6 18h14', 'Aligner à droite']].map(([v, d, t]) => h('button', { key: v, type: 'button', className: cls('outil', st.alignement === v && 'actif'), title: t, 'aria-label': t, 'aria-pressed': st.alignement === v, onMouseDown: garder, onClick: () => actions.aligner(v) },
             h('svg', { className: 'icone', width: 18, height: 18, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' })))),
-          bouton(h('span', { className: 'filet-icone', 'aria-hidden': 'true' }), actions.basculerFilet, { titre: 'Filet latéral', actif: st.filet }),
+          bouton(h('span', { className: 'filet-icone', 'aria-hidden': 'true', style: { background: couleurFilet } }), actions.filetLignes, { titre: 'Filet latéral sur les lignes choisies', actif: st.filetLignes || st.filet }),
+          h('button', { ref: refFilet, type: 'button', className: 'outil outil-couleur-filet', title: 'Couleur du filet', 'aria-label': 'Couleur du filet', 'aria-haspopup': 'true', 'aria-expanded': sous === 'filet', onMouseDown: garder, onClick: () => setSous(sous === 'filet' ? null : 'filet') },
+            h('span', { className: 'pastille-couleur', style: { background: couleurFilet } }), h('span', { className: 'fleche-mini', 'aria-hidden': 'true' }, '▾')),
           bouton(h('svg', { className: 'icone', width: 18, height: 18, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d: 'M4 20h16M7 16L17 6M14 3l7 7-7 7', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' })), actions.effacer, { titre: 'Effacer la mise en forme' })),
         sous === 'style' && h(Popover, { ancre: refStyle, fermer: () => setSous(null), etiquette: 'Style', contenu: () => natures.map(([cle, nom]) => ({ type: 'action', libelle: h('span', { className: 'apercu-style ' + cle }, nom), coche: st.style === cle, action: () => actions.natureDe(cle) })) }),
-        sous === 'couleur' && h(Popover, { ancre: refCouleur, fermer: () => setSous(null), etiquette: 'Couleur', contenu: menuCouleur }));
+        sous === 'couleur' && h(Popover, { ancre: refCouleur, fermer: () => setSous(null), etiquette: 'Couleur', contenu: menuCouleur }),
+        sous === 'filet' && h(Popover, { ancre: refFilet, fermer: () => setSous(null), etiquette: 'Couleur du filet', contenu: menuFilet }));
     }
 
     return { EtapeComposition, lireTexte, htmlDuBloc, normaliser };

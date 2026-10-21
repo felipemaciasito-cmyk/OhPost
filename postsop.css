@@ -843,3 +843,17 @@ canvas.slide.editable { cursor: text; }
 /* Filet : couleur libre dans le menu */
 .couleur-libre { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; padding: 4px 12px; font-size: 15px; cursor: pointer; }
 .couleur-libre input[type="color"] { width: 44px; height: 32px; padding: 0; border: 1px solid var(--trait); border-radius: 8px; background: transparent; cursor: pointer; }
+
+/* Logo et fleurs placés à la main */
+.selection-image { position: absolute; border: calc(3px * var(--inv, 1)) dashed var(--action, #003846); border-radius: 8px; pointer-events: none; box-shadow: 0 0 0 calc(2px * var(--inv, 1)) rgba(255, 255, 255, 0.85); }
+.poignee-image { position: absolute; width: calc(26px * var(--inv, 1)); height: calc(26px * var(--inv, 1)); margin: calc(-13px * var(--inv, 1)) 0 0 calc(-13px * var(--inv, 1)); border-radius: 50%; background: #FFFFFF; border: calc(3px * var(--inv, 1)) solid #003846; cursor: nwse-resize; touch-action: none; }
+.barre-image { position: absolute; display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 12px; background: var(--surface, #FFFFFF); box-shadow: 0 6px 20px rgba(0, 30, 40, 0.25); transform: translateY(-100%) scale(var(--inv, 1)); transform-origin: bottom left; white-space: nowrap; color: var(--texte); font-size: 14px; }
+.barre-image strong { padding: 0 8px; }
+.barre-image button { min-height: 36px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--texte); font: inherit; font-weight: 600; cursor: pointer; }
+.barre-image button:hover { background: var(--fond); }
+.barre-image button.danger { color: var(--erreur, #B3261E); }
+.liste-images { display: flex; flex-direction: column; gap: 4px; min-width: 260px; padding: 4px 6px; }
+.ligne-image { display: flex; align-items: center; gap: 4px; }
+.nom-image { flex: 1 1 auto; min-height: 40px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--texte); font: inherit; text-align: left; cursor: pointer; }
+.nom-image:disabled { color: var(--doux); cursor: default; }
+.bouton-image { width: 40px; height: 40px; border: 0; border-radius: 8px; background: var(--fond); color: var(--texte); font: inherit; font-size: 16px; cursor: pointer; }

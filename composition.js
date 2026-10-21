@@ -326,6 +326,7 @@
       const active = Math.min(etat.slide || 0, total - 1);
       const [selection, setSelection] = useState({ i: null, n: [] });
       const [apercu, setApercu] = useState(null); // la slide telle qu'elle est pendant un glisser (rien n'est enregistré avant le lâcher)
+      const [imageChoisie, setImageChoisie] = useState(null); // logo ou fleurs choisis : { i, k }
       const [lasso, setLasso] = useState(null);
       const [guides, setGuides] = useState(null);
       const [survol, setSurvol] = useState(null);
@@ -418,7 +419,20 @@
       /* ---------- Édition ---------- */
       const ouvrirBloc = (i, n, depart) => { selRef.current = depart && depart.sel ? depart.sel : { debut: 0, fin: 0 }; setBarre(null); setSelection({ i: null, n: [] }); setEdition({ i, n, depart, cle: Date.now() }); dispatch({ type: 'slide', index: i }); };
       const vu = useRef({});
-      vu.current = { article, compositions, selection, k, fmt, edition };
+      vu.current = { article, compositions, selection, k, fmt, edition, imageChoisie };
+      // Logo et fleurs d'une slide : placés à la main (slide.images) ou, à défaut, ceux du gabarit, convertis au premier geste.
+      const estImage = (e) => e.type === 'image' && (e.cle === 'fleurs' || e.cle === 'logo' || e.cle === 'logoClair');
+      const imagesSlide = (i) => { const { article: a, compositions: cs } = vu.current; const sl = a.slides[i]; return Array.isArray(sl.images) ? sl.images.map((x) => ({ ...x })) : (cs[i] ? M.imagesDe(cs[i]) : []); };
+      const boitesImages = (i) => { const cs = vu.current.compositions; return cs[i] ? cs[i].elements.filter(estImage) : []; };
+      const imageAuPoint = (i, p) => { const els = boitesImages(i); for (let k = els.length - 1; k >= 0; k--) { const b = els[k]; if (p.x >= b.x && p.x <= b.x + b.l && p.y >= b.y && p.y <= b.y + b.h) return { k, verrou: !!b.verrou }; } return null; };
+      const nomImage = (imgs, k) => { const x = imgs[k]; const memes = imgs.filter((y) => y.type === x.type); return (x.type === 'fleurs' ? 'Fleurs' : 'Logo') + (memes.length > 1 ? ' ' + (memes.indexOf(x) + 1) : ''); };
+      const majImages = (i, images, annonce) => majA(OP.slide(i, { ...vu.current.article.slides[i], images }), null, annonce);
+      const ajouterImage = (type) => {
+        const i = active;
+        const imgs = imagesSlide(i).concat([type === 'fleurs' ? { type, x: 0.31, y: 0.4, w: 0.38 } : { type, x: 0.36, y: 0.44, w: 0.28 }]);
+        majImages(i, imgs, (type === 'fleurs' ? 'Fleurs ajoutées' : 'Logo ajouté') + ' au centre de la slide : glisse pour déplacer, rond blanc pour la taille.');
+        setSelection({ i: null, n: [] }); setEdition(null); setImageChoisie({ i, k: imgs.length - 1 });
+      };
       const coordonnees = (e, i) => {
         const cal = pagesRef.current && pagesRef.current.querySelector(`.page-slide[data-index="${i}"] .calque`);
         const r = cal.getBoundingClientRect();
@@ -463,11 +477,24 @@
       const arreter = () => { document.removeEventListener('pointermove', stables.current.pendant); document.removeEventListener('pointerup', stables.current.fin); document.removeEventListener('pointercancel', stables.current.annuler); };
       useEffect(() => () => arreter(), []);
       function debutPointeur(e, i) {
-        if (e.target.closest('.editeur-bloc')) return;
+        if (e.target.closest('.editeur-bloc') || e.target.closest('.barre-image')) return;
         if (e.pointerType === 'mouse' && e.button !== 0) return;
         const p = coordonnees(e, i);
         const cote = e.target.dataset ? e.target.dataset.cote : undefined;
         const n = cote ? selection.n[0] : blocAuPoint(i, p);
+        const poignee = e.target.dataset ? e.target.dataset.poigneeImage : undefined;
+        // L'élément déjà choisi passe devant le texte pour le geste ; sinon le texte reste prioritaire.
+        const ch = vu.current.imageChoisie;
+        const bch = ch && ch.i === i ? boitesImages(i)[ch.k] : null;
+        const surChoisie = bch && !bch.verrou && p.x >= bch.x && p.x <= bch.x + bch.l && p.y >= bch.y && p.y <= bch.y + bch.h;
+        const touche = surChoisie ? { k: ch.k, verrou: false } : !cote && n === null && poignee === undefined ? imageAuPoint(i, p) : null;
+        if (poignee !== undefined || (touche && !touche.verrou)) {
+          e.preventDefault();
+          if (edition) setEdition(null);
+          geste.current = { type: poignee !== undefined ? 'redimImage' : 'image', i, k: poignee !== undefined ? Number(poignee) : touche.k, x0: e.clientX, y0: e.clientY, p0: p, bouge: false, tactile: e.pointerType === 'touch' };
+          ecouter();
+          return;
+        }
         const tactile = e.pointerType === 'touch';
         if (n !== null || cote) e.preventDefault(); // pas de sélection de texte par le navigateur
         if (edition && !(edition.i === i && edition.n === n)) setEdition(null);
@@ -491,6 +518,28 @@
       function pendantPointeur(e) {
         const g = geste.current;
         if (!g) return;
+        if (g.type === 'image' || g.type === 'redimImage') {
+          if (!g.bouge) {
+            if (Math.hypot(e.clientX - g.x0, e.clientY - g.y0) < 5) return;
+            const ch = vu.current.imageChoisie;
+            // Au doigt, glisser sur un élément non choisi fait défiler la page : on le touche d'abord pour le choisir.
+            if (g.tactile && g.type === 'image' && !(ch && ch.i === g.i && ch.k === g.k)) { arreter(); geste.current = null; return; }
+            g.bouge = true; g.echelle = vu.current.k; g.depart = imagesSlide(g.i);
+            setMenu(null); setBarre(null);
+          }
+          const f = vu.current.compositions[g.i].fmt;
+          const dx = (e.clientX - g.x0) / g.echelle / f.l;
+          const dy = (e.clientY - g.y0) / g.echelle / f.h;
+          // L'élément peut déborder de la slide, mais jamais de plus de la moitié : sa poignée reste toujours à portée.
+          const hauteur = (x) => x.w * (x.type === 'fleurs' ? 275 / 696 : M.RATIO_LOGO) * f.l / f.h;
+          const borne = (v, a, b) => Math.max(a, Math.min(b, v));
+          const imgs = g.depart.map((x, k) => (k !== g.k ? x : g.type === 'image'
+            ? { ...x, x: borne(x.x + dx, -x.w / 2, 1 - x.w / 2), y: borne(x.y + dy, -hauteur(x) / 2, 1 - hauteur(x) / 2) }
+            : { ...x, w: borne(x.w + dx, 0.06, Math.min(0.95, 1.2 - x.x)) }));
+          g.final = { ...vu.current.article.slides[g.i], images: imgs };
+          setApercu({ i: g.i, slide: g.final });
+          return;
+        }
         if (!g.bouge) {
           if (Math.hypot(e.clientX - g.x0, e.clientY - g.y0) < 5) return;
           const sel = vu.current.selection;
@@ -565,6 +614,12 @@
         if (!g) return;
         clearTimeout(g.minuterie);
         setGuides(null); setCible(null);
+        if (g.type === 'image' || g.type === 'redimImage') {
+          if (g.bouge && g.final) { majA(OP.slide(g.i, g.final), null); setApercu(null); }
+          setImageChoisie({ i: g.i, k: g.k }); setSelection({ i: null, n: [] }); dispatch({ type: 'slide', index: g.i });
+          return;
+        }
+        setImageChoisie(null);
         if (!g.bouge) {
           if (g.type === 'bloc') {
             if (g.appuiLong) return;
@@ -986,6 +1041,10 @@
           item('Saut de slide', sautDeSlide, { raccourci: '⌘↩' }),
           { type: 'note', texte: 'Le texte qui suit le curseur part sur une nouvelle slide.' },
           trait,
+          item('Logo', () => ajouterImage('logo')),
+          item('Fleurs', () => ajouterImage('fleurs')),
+          { type: 'note', texte: 'Ils se placent derrière le texte : glisse-les où tu veux.' },
+          trait,
           item('Slide après celle-ci', slideVide),
         ] },
         { nom: 'Format', contenu: () => [
@@ -1034,6 +1093,19 @@
               ? item('★ Retirer de mes favoris', () => dispatch({ type: 'projet', maj: (pr) => ({ ...pr, favoris: (pr.favoris || []).filter((f) => f.id !== deja.id) }) }))
               : item('☆ Garder dans mes favoris', () => { dispatch({ type: 'projet', maj: (pr) => ({ ...pr, favoris: [nouveauFavori(article.slides[active], active, article)].concat(pr.favoris || []) }) }); dispatch({ type: 'message', message: `Slide ${active + 1} gardée dans tes favoris : « Appliquer un style favori » la réutilise sur n’importe quelle slide.` }); });
           })(),
+          { type: 'sous', libelle: 'Logo et fleurs', contenu: () => [{ type: 'libre', rendu: () => {
+            const i = active;
+            const imgs = imagesSlide(i);
+            const sl = article.slides[i];
+            return h('div', { className: 'liste-images' },
+              h('div', { className: 'titre-section' }, 'Derrière le texte, devant le fond'),
+              !imgs.length && h('p', { className: 'doux petit' }, 'Aucun sur cette slide. Menu Insertion : Logo, Fleurs.'),
+              imgs.map((x, k) => h('div', { key: k, className: 'ligne-image' },
+                h('button', { type: 'button', className: 'nom-image', onMouseDown: garder, disabled: x.verrou, onClick: () => { setImageChoisie({ i, k }); setMenu(null); } }, nomImage(imgs, k) + (x.verrou ? ' · verrouillé' : '')),
+                h('button', { type: 'button', className: 'bouton-image', onMouseDown: garder, 'aria-label': (x.verrou ? 'Déverrouiller ' : 'Verrouiller ') + nomImage(imgs, k), title: x.verrou ? 'Déverrouiller' : 'Verrouiller', onClick: () => majImages(i, imgs.map((y, j) => (j === k ? { ...y, verrou: !y.verrou } : y)), x.verrou ? nomImage(imgs, k) + ' déverrouillé.' : nomImage(imgs, k) + ' verrouillé.') }, x.verrou ? '🔒' : '🔓'),
+                h('button', { type: 'button', className: 'bouton-image', onMouseDown: garder, 'aria-label': 'Retirer ' + nomImage(imgs, k), onClick: () => { majImages(i, imgs.filter((_, j) => j !== k)); setImageChoisie(null); } }, '×'))),
+              Array.isArray(sl.images) && h('button', { type: 'button', className: 'lien fort', onMouseDown: garder, onClick: () => { const { images, ...reste } = sl; majA(OP.slide(i, reste), null, 'Logo et fleurs replacés par le gabarit.'); setImageChoisie(null); } }, 'Revenir au placement du gabarit'));
+          } }] },
           { type: 'sous', libelle: 'Appliquer un style favori', contenu: () => [{ type: 'libre', rendu: (fermer) => h(GalerieFavoris, {
             favoris: (etat.projet && etat.projet.favoris) || [], slide: article.slides[active], index: active, total, article,
             appliquer: (f) => { fermer(); majA(OP.slide(active, appliquerFavori(article.slides[active], f)), null, `Style favori appliqué à la slide ${active + 1} : son texte n’a pas changé.`); setEdition(null); },
@@ -1104,6 +1176,20 @@
                   h('div', { className: 'echelle', style: { width: fmt.l + 'px', height: fmt.h + 'px', transform: `scale(${k})`, '--inv': 1 / k } },
                     (marges || (guides && guides.i === i)) && h('div', { className: 'repere-marges', style: { left: M.MARGES.gauche + 'px', top: M.MARGES.haute + 'px', width: fmt.l - M.MARGES.gauche - M.MARGES.droite + 'px', height: fmt.h - M.MARGES.haute - M.MARGES.basse + 'px' } }),
                     survol && survol.i === i && !(selection.i === i && selection.n.includes(survol.n)) && !(enEdition && edition.n === survol.n) && (() => { const b = boiteDe(i, survol.n); return b && h('div', { className: 'survol-bloc', style: { left: b.x - 8 + 'px', top: b.y - 8 + 'px', width: b.l + 16 + 'px', height: b.h + 16 + 'px' } }); })(),
+                    imageChoisie && imageChoisie.i === i && (() => {
+                      const b = (c ? c.elements.filter(estImage) : [])[imageChoisie.k];
+                      if (!b || b.verrou) return null;
+                      const imgs = imagesSlide(i);
+                      const k2 = imageChoisie.k;
+                      return h(Fragment, null,
+                        h('div', { className: 'selection-image', style: { left: b.x - 6 + 'px', top: b.y - 6 + 'px', width: b.l + 12 + 'px', height: b.h + 12 + 'px' } }),
+                        !(apercu && apercu.i === i) && h('div', { className: 'poignee-image', 'data-poignee-image': k2, title: 'Taille', style: { left: Math.min(b.x + b.l, (c ? c.fmt.l : 1080) - 16) + 'px', top: Math.min(b.y + b.h, (c ? c.fmt.h : 1080) - 16) + 'px' } }),
+                        !(apercu && apercu.i === i) && h('div', { className: 'barre-image', style: { left: b.x + 'px', top: Math.max(0, b.y - 12) + 'px' } },
+                          h('strong', null, imgs[k2] ? nomImage(imgs, k2) : ''),
+                          h('button', { type: 'button', onClick: () => { majImages(i, imgs.map((x, j) => (j === k2 ? { ...x, verrou: true } : x)), 'Verrouillé : il ne bouge plus. Pour le déverrouiller : menu Slide, « Logo et fleurs ».'); setImageChoisie(null); } }, 'Verrouiller'),
+                          h('button', { type: 'button', onClick: () => { const n = imgs.concat([{ ...imgs[k2], x: imgs[k2].x + 0.03, y: imgs[k2].y + 0.03, verrou: false }]); majImages(i, n); setImageChoisie({ i, k: n.length - 1 }); } }, 'Dupliquer'),
+                          h('button', { type: 'button', className: 'danger', onClick: () => { majImages(i, imgs.filter((_, j) => j !== k2), nomImage(imgs, k2) + ' retiré de la slide.'); setImageChoisie(null); } }, 'Supprimer')));
+                    })(),
                     selection.i === i && selection.n.map((n) => { const b = boiteDe(i, n); return b && h('div', { key: 'sel' + n, className: 'selection-bloc', style: { left: b.x - 8 + 'px', top: b.y - 8 + 'px', width: b.l + 16 + 'px', height: b.h + 16 + 'px' } }); }),
                     selection.i === i && selection.n.length === 1 && (!apercu || apercu.cote) && (() => { const b = boiteDe(i, selection.n[0]); return b && h(Fragment, null,
                       h('div', { className: cls('poignee-redim', apercu && apercu.cote === 'g' && 'actif'), 'data-cote': 'g', title: 'Largeur', style: { left: b.x - 8 + 'px', top: b.y + b.h / 2 + 'px' } }),

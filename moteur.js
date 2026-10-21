@@ -44,6 +44,13 @@
   const MARGES = { gauche: 81, droite: 162, haute: 110, basse: 110 };
   const SIGNATURE = { l: 220, h: 90, ecart: 40 };
   const LOGO_PARTOUT = { l: 170, h: 64, bas: 70 };
+  const RATIO_LOGO = 100 / 260; // hauteur / largeur du logo
+  // Le logo et les fleurs d'une slide, en proportions de la slide, à partir de sa composition (pour passer du placement du gabarit au placement à la main).
+  function imagesDe(compo) {
+    const L = compo.fmt.l, H = compo.fmt.h;
+    return compo.elements.filter((e) => e.type === 'image' && (e.cle === 'fleurs' || e.cle === 'logo' || e.cle === 'logoClair'))
+      .map((e) => ({ type: e.cle === 'fleurs' ? 'fleurs' : 'logo', x: e.x / L, y: e.y / H, w: e.l / L, verrou: !!e.verrou }));
+  }
 
   // Natures de paragraphe : ce que le texte EST. Le gabarit décide comment il s'affiche.
   const NATURES = {
@@ -606,6 +613,17 @@
       });
     }
 
+    // Logo et fleurs placés à la main (slide.images) : ils remplacent ceux du gabarit et passent derrière le texte, devant le fond.
+    if (Array.isArray(slideBrute.images)) {
+      elements = elements.filter((e) => !(e.type === 'image' && (e.cle === 'fleurs' || e.cle === 'logo' || e.cle === 'logoClair')));
+      const manuels = slideBrute.images.map((im, k) => {
+        const l = Math.max(20, Math.round((im.w || 0.25) * L));
+        const cle = im.type === 'fleurs' ? 'fleurs' : cleLogo(choixLogo, fond.fond);
+        return { type: 'image', cle, x: Math.round((im.x || 0) * L), y: Math.round((im.y || 0) * H), l, h: Math.round(l * (im.type === 'fleurs' ? 275 / 696 : RATIO_LOGO)), libelle: im.type === 'fleurs' ? 'Fleurs' : libelleLogo(cle), couleur: fond.texte, image: k, verrou: !!im.verrou };
+      });
+      elements = manuels.concat(elements);
+    }
+
     return {
       fmt, fond, gabarit: gab, elements, tailleTexte: T(39), libre: !!slideBrute.libre,
       italiqueSimule: elements.some((e) => e.type === 'ligne' && e.police && e.police.simulee),
@@ -872,7 +890,7 @@
     return solutions;
   }
 
-  const api = {
+  const api = { imagesDe, RATIO_LOGO,
     PALETTE, FONDS, CHARTE_DEFAUT, construireFonds, fondsDe, naturesUtiles, natureAffichee, FORMATS, MARGES, NATURES, GABARITS, LIMITES_SLIDES,
     policeExacte, policeSysteme, fondFonce, cleLogo, couperLignes, composer, dessiner, gabaritParDefaut,
     compterMots, passagesManquants, textesAjoutes, controler, solutionsDebordement, figerSlide, revenirAuGabarit, decouperMecaniquement, proposerPresentation,

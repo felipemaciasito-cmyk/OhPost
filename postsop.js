@@ -18,7 +18,18 @@
   const T = racine.PostsOPTypographie || require('./typographie.js');
   const IA = racine.PostsOPIA || require('./ia.js');
   const R = racine.PostsOPRelecture || require('./relecture.js');
-  const VERSION = '2026-10-20.7'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-21.1'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
+  // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
+  const FICHIERS_A_RENVOYER = (() => {
+    const manque = [];
+    const verifier = (module, nom, fonctions) => { if (!module || fonctions.some((f) => typeof module[f] !== 'function')) manque.push(nom); };
+    verifier(R, 'relecture.js', ['messageDiscussion', 'lireDiscussion', 'placerPassage', 'consigneDescription', 'lireSuggestion']);
+    verifier(racine.PostsOPTypographie || (typeof require === 'function' ? require('./typographie.js') : null), 'typographie.js', ['notesDeTravail', 'retirerLignes', 'corrections']);
+    verifier(racine.PostsOPIA || (typeof require === 'function' ? require('./ia.js') : null), 'ia.js', ['demander', 'active']);
+    if (typeof window !== 'undefined') verifier(racine.PostsOPPropositions, 'propositions.js', ['lireReponse', 'construireSlides', 'adapterRecette']);
+    return manque;
+  })();
   const { createElement: h, Fragment, Component, useState, useReducer, useEffect, useLayoutEffect, useMemo, useRef, useContext, createContext } = React;
   const useApresRendu = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
@@ -1975,6 +1986,9 @@
     const ecrans = { bibliotheque: Bibliotheque, atelier: Atelier, configuration: Configuration };
     return h(Contexte.Provider, { value: contexte },
       h('div', { className: 'app theme-' + mode },
+        FICHIERS_A_RENVOYER.length > 0 && h('div', { className: 'alerte-mise-a-jour', role: 'alert' },
+          h('strong', null, 'Mise à jour incomplète. '),
+          `Renvoie sur GitHub ${FICHIERS_A_RENVOYER.length > 1 ? 'ces fichiers' : 'ce fichier'} de la dernière livraison : ${FICHIERS_A_RENVOYER.join(', ')}. Sans ${FICHIERS_A_RENVOYER.length > 1 ? 'eux' : 'lui'}, certaines fonctions ne marchent pas.`),
         etat.pret ? h(ecrans[etat.ecran], { etat, dispatch, actions }) : h('div', { className: 'chargement gill' }, 'Chargement de tes articles…')));
   }
 

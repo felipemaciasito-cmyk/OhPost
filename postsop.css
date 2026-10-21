@@ -816,3 +816,6 @@ canvas.slide.editable { cursor: text; }
 .etoile-slide:hover, .etoile-slide:focus-visible { opacity: 1; background: #FFFFFF; color: #12313A; text-shadow: none; }
 .etoile-slide.gardee { opacity: 1; background: var(--touche); color: #12313A; text-shadow: none; }
 .propositions-discussion { position: absolute; top: 76px; right: 24px; }
+
+/* Mise en ligne incomplète */
+.alerte-mise-a-jour { position: sticky; top: 0; z-index: 70; padding: 10px 20px; background: #FFF3D6; color: #6B4A00; font-size: 15px; line-height: 1.4; }

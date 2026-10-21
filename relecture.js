@@ -242,7 +242,59 @@
     return { proposition, pourquoi: typeof donnees.pourquoi === 'string' ? donnees.pourquoi.trim() : '', vigilance: typeof donnees.vigilance === 'string' ? donnees.vigilance.trim() : '' };
   }
 
-  const api = { ACTIONS, MAX_PASSAGE, consigneSuggestion, consigneSuggestionTexte, lireSuggestion, RESEAUX, consigneDescription, nettoyerDescription, SYSTEME, consigne, lireReponse, simplifier, trouver, localiser, appliquer, apercu, recaler, TYPES, MAX_PROPOSITIONS };
+  /* ---------- Discussion avec l'IA (consignes en langage naturel, plusieurs propositions) ---------- */
+  const MAX_HISTORIQUE = 12;
+  const MAX_PROPOSITIONS_DISCUSSION = 5;
+  const SYSTEME_DISCUSSION = [
+    'Tu aides la personne qui a écrit cet article (en français, pour LinkedIn et Instagram) à le retravailler. Elle te parle en langage naturel : elle donne des consignes, pose des questions, demande une ou plusieurs propositions.',
+    '',
+    'Règles impératives :',
+    '1. Ne change jamais le sens. Ne renforce ni n’affaiblis une affirmation. N’ajoute aucun fait.',
+    '2. Garde la voix de l’auteur : même personne, même ton, mots familiers voulus.',
+    '3. Les paroles rapportées entre guillemets restent mot pour mot, sauf demande explicite.',
+    '4. Ignore la typographie (espaces insécables, forme des guillemets et des apostrophes) : elle est corrigée automatiquement.',
+    '5. Si un passage est choisi, travaille sur lui ; sinon, sur le passage que la personne désigne.',
+    '6. Chaque proposition remplace un passage du texte : « avant » est copié du texte à l’identique, caractère pour caractère ; « apres » est le nouveau texte.',
+    '7. Si la personne demande plusieurs propositions, donne-en autant (au plus ' + MAX_PROPOSITIONS_DISCUSSION + ') ; sinon une seule. Si elle pose seulement une question, réponds sans proposition.',
+    '8. « vigilance » signale ce qui pourrait faire bouger une nuance, le ton ou le sens ; sinon, chaîne vide.',
+    '9. « reponse » est courte (une à trois phrases), en tutoyant la personne.',
+    '',
+    'Réponds uniquement avec un objet JSON, sans aucun texte autour :',
+    '{"reponse":"…","propositions":[{"avant":"…","apres":"…","pourquoi":"une phrase courte","vigilance":""}]}',
+  ].join('\n');
+  function messageDiscussion(article, passage, historique, demande) {
+    const fil = (historique || []).slice(-MAX_HISTORIQUE).map((m) => (m.de === 'moi' ? 'Personne : ' : 'Toi : ') + m.texte + ((m.propositions || []).length ? ' [propositions : ' + m.propositions.map((p) => '« ' + p.apres + ' »').join(' ; ') + ']' : '')).join('\n');
+    return consigne(article)
+      + (passage ? '\n\nPassage choisi, entre les balises <passage> et </passage> :\n<passage>\n' + passage + '\n</passage>' : '\n\nAucun passage n’est choisi.')
+      + (fil ? '\n\nDébut de la conversation :\n' + fil : '')
+      + '\n\nNouvelle demande de la personne :\n' + demande;
+  }
+  function lireDiscussion(brut) {
+    const t = String(brut || '').replace(/```(?:json)?/gi, '');
+    const d = t.indexOf('{');
+    const f = t.lastIndexOf('}');
+    let donnees = null;
+    try { donnees = JSON.parse(t.slice(d, f + 1)); } catch (e) { donnees = null; }
+    if (!donnees) {
+      const simple = String(brut || '').trim();
+      if (!simple) throw new Error('La réponse de l’IA est vide. Réessaie.');
+      return { reponse: simple, propositions: [] };
+    }
+    const propositions = (Array.isArray(donnees.propositions) ? donnees.propositions : [])
+      .filter((p) => p && typeof p.apres === 'string' && p.apres.trim())
+      .slice(0, MAX_PROPOSITIONS_DISCUSSION)
+      .map((p) => ({ avant: typeof p.avant === 'string' ? p.avant.trim() : '', apres: p.apres.trim(), pourquoi: typeof p.pourquoi === 'string' ? p.pourquoi.trim() : '', vigilance: typeof p.vigilance === 'string' ? p.vigilance.trim() : '' }));
+    return { reponse: typeof donnees.reponse === 'string' && donnees.reponse.trim() ? donnees.reponse.trim() : (propositions.length ? 'Voici ce que je te propose.' : 'Je n’ai rien à proposer.'), propositions };
+  }
+  // Où se trouve un passage dans le texte : de préférence dans le passage choisi, sinon une seule occurrence dans tout le texte.
+  function placerPassage(source, cherche, zone) {
+    if (!cherche) return null;
+    if (zone) { const dedans = trouver(source, cherche, zone.debut, zone.fin); if (dedans.length) return dedans[0]; }
+    const partout = trouver(source, cherche);
+    return partout.length === 1 ? partout[0] : null;
+  }
+
+  const api = { SYSTEME_DISCUSSION, messageDiscussion, lireDiscussion, placerPassage, MAX_HISTORIQUE, ACTIONS, MAX_PASSAGE, consigneSuggestion, consigneSuggestionTexte, lireSuggestion, RESEAUX, consigneDescription, nettoyerDescription, SYSTEME, consigne, lireReponse, simplifier, trouver, localiser, appliquer, apercu, recaler, TYPES, MAX_PROPOSITIONS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else racine.PostsOPRelecture = api;
 })(typeof window !== 'undefined' ? window : globalThis);

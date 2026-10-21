@@ -18,7 +18,7 @@
   const T = racine.PostsOPTypographie || require('./typographie.js');
   const IA = racine.PostsOPIA || require('./ia.js');
   const R = racine.PostsOPRelecture || require('./relecture.js');
-  const VERSION = '2026-10-21.9'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-21.10'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -878,6 +878,88 @@
                 : h('p', { className: 'ok petit' }, 'Tous tes articles en cours sont programmés.'))))));
   }
 
+  /* ---------- Schéma « Logo et fleurs » du nouvel article (maquette validée le 21 octobre 2026) ----------
+   * Le gabarit décide (par défaut), ou on place soi-même le logo et les fleurs sur un schéma de la slide,
+   * puis on choisit slide par slide où ils apparaissent. Ensuite, tout reste ajustable dans Composition. */
+  const REGLES_PRESENCE = {
+    toutes: (n) => Array.from({ length: n }, () => true),
+    couverture: (n) => Array.from({ length: n }, (_, i) => i === 0),
+    derniere: (n) => Array.from({ length: n }, (_, i) => i === n - 1),
+    aucune: (n) => Array.from({ length: n }, () => false),
+    'couverture-derniere': (n) => Array.from({ length: n }, (_, i) => i === 0 || i === n - 1),
+  };
+  const SCHEMA_DEPART = { logo: { x: 0.62, y: 0.86, w: 0.3 }, fleurs: { x: 0.6, y: 0.03, w: 0.36 }, presence: { logo: { regle: 'toutes' }, fleurs: { regle: 'couverture-derniere' } } };
+  const presenceDe = (p, n) => (p.regle ? REGLES_PRESENCE[p.regle](n) : Array.from({ length: n }, (_, i) => !!(p.liste || [])[i]));
+  function imagesSelonSchema(schema, i, n) {
+    const imgs = [];
+    if (presenceDe(schema.presence.fleurs, n)[i]) imgs.push({ type: 'fleurs', ...schema.fleurs });
+    if (presenceDe(schema.presence.logo, n)[i]) imgs.push({ type: 'logo', ...schema.logo });
+    return imgs;
+  }
+
+  function SchemaLogoFleurs({ schema, onChange, slides, format, fond }) {
+    const { choisirPolice, charte, reglages } = useContext(Contexte);
+    const [element, setElement] = useState('logo');
+    const glisse = useRef(null);
+    const zone = useRef(null);
+    const n = Math.max(1, slides.length);
+    const LARGEUR = 300;
+    const fmt = M.FORMATS[format];
+    const echelle = LARGEUR / fmt.l;
+    const exemple = { ...(slides[0] || { role: 'Couverture', blocs: [{ style: 'titre', texte: 'Ton titre' }] }), images: [{ type: 'fleurs', ...schema.fleurs }, { type: 'logo', ...schema.logo }] };
+    const compo = M.composer(exemple, format, fond, choisirPolice, { charte, reglages, index: 0, total: n });
+    const boites = compo.elements.filter((e) => e.type === 'image');
+    const borne = (v, a, b) => Math.max(a, Math.min(b, v));
+    const point = (e) => { const r = zone.current.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }; };
+    const commencer = (e, el, mode) => {
+      e.preventDefault(); e.stopPropagation();
+      e.currentTarget.setPointerCapture && e.currentTarget.setPointerCapture(e.pointerId);
+      setElement(el);
+      glisse.current = { el, mode, p0: point(e), depart: { ...schema[el] } };
+    };
+    const bouger = (e) => {
+      const g = glisse.current; if (!g) return;
+      const p = point(e); const d = g.depart;
+      const ratio = (g.el === 'fleurs' ? 275 / 696 : M.RATIO_LOGO) * fmt.l / fmt.h;
+      const nouveau = g.mode === 'deplacer'
+        ? { ...d, x: borne(d.x + p.x - g.p0.x, -d.w / 2, 1 - d.w / 2), y: borne(d.y + p.y - g.p0.y, -(d.w * ratio) / 2, 1 - (d.w * ratio) / 2) }
+        : { ...d, w: borne(d.w + p.x - g.p0.x, 0.08, 0.9) };
+      onChange({ ...schema, [g.el]: nouveau });
+    };
+    const lacher = () => { glisse.current = null; };
+    const presence = (el) => presenceDe(schema.presence[el], n);
+    const poserRegle = (regle) => onChange({ ...schema, presence: { ...schema.presence, [element]: { regle } } });
+    const basculer = (el, i) => { const l = presence(el).slice(); l[i] = !l[i]; onChange({ ...schema, presence: { ...schema.presence, [el]: { liste: l } } }); };
+    const regleActuelle = schema.presence[element].regle || null;
+    const compte = (el) => presence(el).filter(Boolean).length;
+    return h('div', { className: 'schema-logo' },
+      h('div', { className: 'schema-tete' },
+        h(Segmente, { etiquette: 'Élément', valeur: element, onChange: setElement, options: [{ valeur: 'logo', libelle: 'Logo' }, { valeur: 'fleurs', libelle: 'Fleurs' }] })),
+      h('div', { className: 'schema-corps' },
+        h('div', { className: 'schema-slide', ref: zone, style: { width: LARGEUR + 'px' } },
+          h(SlideCanvas, { slide: exemple, formatId: format, fondId: fond, largeur: LARGEUR, index: 0, total: n }),
+          boites.map((b, k) => {
+            const el = k === 0 ? 'fleurs' : 'logo';
+            const choisi = el === element;
+            return h('div', {
+              key: el, className: cls('schema-element', choisi && 'choisi'), role: 'button', tabIndex: 0, 'aria-label': (el === 'logo' ? 'Logo' : 'Fleurs') + ' : glisser pour placer',
+              style: { left: b.x * echelle + 'px', top: b.y * echelle + 'px', width: b.l * echelle + 'px', height: b.h * echelle + 'px' },
+              onPointerDown: (e) => commencer(e, el, 'deplacer'), onPointerMove: bouger, onPointerUp: lacher, onPointerCancel: lacher,
+            }, choisi && h('span', { className: 'schema-poignee', 'aria-hidden': 'true', onPointerDown: (e) => commencer(e, el, 'taille'), onPointerMove: bouger, onPointerUp: lacher }));
+          })),
+        h('div', { className: 'schema-reglages' },
+          h('div', { className: 'etiquette-mini' }, 'Raccourcis pour ' + (element === 'logo' ? 'le logo' : 'les fleurs')),
+          h(Segmente, { etiquette: 'Raccourcis', valeur: regleActuelle, onChange: poserRegle, options: [{ valeur: 'toutes', libelle: 'Toutes' }, { valeur: 'couverture', libelle: 'Couverture' }, { valeur: 'derniere', libelle: 'Dernière' }, { valeur: 'aucune', libelle: 'Aucune' }] }),
+          h('p', { className: 'doux petit' }, 'Glisse le logo et les fleurs sur la slide, tire le rond blanc pour la taille. Ou choisis slide par slide, en dessous.'))),
+      h('div', { className: 'etiquette-mini' }, 'Slide par slide'),
+      h('div', { className: 'schema-apercu' }, slides.map((sl, i) => h('div', { key: i, className: 'schema-vignette' },
+        h(SlideCanvas, { slide: { ...sl, images: imagesSelonSchema(schema, i, n) }, formatId: format, fondId: fond, largeur: 88, index: i, total: n }),
+        h('div', { className: 'schema-boutons' },
+          h('button', { type: 'button', className: cls('schema-bascule', presence('logo')[i] && 'actif'), 'aria-pressed': presence('logo')[i], 'aria-label': (presence('logo')[i] ? 'Retirer' : 'Mettre') + ' le logo sur la slide ' + (i + 1), onClick: () => basculer('logo', i) }, 'Logo'),
+          h('button', { type: 'button', className: cls('schema-bascule', presence('fleurs')[i] && 'actif'), 'aria-pressed': presence('fleurs')[i], 'aria-label': (presence('fleurs')[i] ? 'Retirer' : 'Mettre') + ' les fleurs sur la slide ' + (i + 1), onClick: () => basculer('fleurs', i) }, 'Fleurs'))))),
+      h('p', { className: 'doux petit' }, `Logo sur ${compte('logo')} slide${compte('logo') > 1 ? 's' : ''}, fleurs sur ${compte('fleurs')} slide${compte('fleurs') > 1 ? 's' : ''}. Tu pourras encore tout déplacer slide par slide dans Composition.`));
+  }
+
   function FeuilleNouvelArticle({ etat, dispatch }) {
     const r = etat.projet.reglages;
     const modele = etat.feuille && etat.feuille.modele ? etat.articles.find((a) => a.id === etat.feuille.modele) : null;
@@ -887,10 +969,17 @@
     const [fond, setFond] = useState(modele ? modele.fond : 'bleu');
     const { choisirPolice, charte, reglages } = useContext(Contexte);
     const paragraphes = texte.split(/\n\s*\n|\n/).map((p) => p.trim()).filter(Boolean);
+    const [schema, setSchema] = useState(null); // null : le gabarit place le logo et les fleurs
+    const decoupage = useMemo(() => {
+      if (!paragraphes.length) return [];
+      let sl = M.decouperMecaniquement(paragraphes, format, fond, choisirPolice, { charte, reglages });
+      if (modele) sl = appliquerModele(sl, modele);
+      return sl;
+    }, [texte, format, fond, choisirPolice, charte, reglages]);
     function creer() {
       const premier = paragraphes[0] || 'Nouvel article';
-      let slides = M.decouperMecaniquement(paragraphes, format, fond, choisirPolice, { charte, reglages });
-      if (modele) slides = appliquerModele(slides, modele);
+      let slides = decoupage.length ? decoupage : M.decouperMecaniquement(paragraphes, format, fond, choisirPolice, { charte, reglages });
+      if (schema) slides = slides.map((sl, i) => ({ ...sl, images: imagesSelonSchema(schema, i, slides.length) }));
       dispatch({
         type: 'creer',
         article: L.lierArticle({ id: nouvelId(), titre: premier.length > 48 ? premier.slice(0, 48) + '…' : premier, statut: 'Brouillon', reseau, format, fond, logo: modele ? modele.logo || 'auto' : 'auto', modifie: maintenant(), texte: paragraphes, slides, descriptions: DESCRIPTIONS_VIDES }),
@@ -903,7 +992,12 @@
       h('p', { className: 'doux petit' }, paragraphes.length ? `${paragraphes.length} paragraphe(s) · ${M.compterMots(texte)} mots. Le découpage en slides se fera sans IA, paragraphe par paragraphe.` : 'Colle le texte de ton article : la typographie française est corrigée au passage.'),
       h(Ligne, { etiquette: 'Réseau', aide: 'Fixe le format d’export : images pour Instagram, PDF pour LinkedIn.' }, h(Segmente, { valeur: reseau, onChange: setReseau, options: [{ valeur: 'instagram', libelle: 'Instagram' }, { valeur: 'linkedin', libelle: 'LinkedIn' }] })),
       h(Ligne, { etiquette: 'Format', aide: '1:1 comme tes carrousels actuels, 4:5 pour plus de place.' }, h(Segmente, { valeur: format, onChange: setFormat, options: [{ valeur: 'carre', libelle: '1:1' }, { valeur: 'portrait', libelle: '4:5' }] })),
-      h(Ligne, { etiquette: 'Fond', aide: 'Il pourra changer ensuite.' }, h(SelecteurFond, { valeur: fond, onChange: setFond })));
+      h(Ligne, { etiquette: 'Fond', aide: 'Il pourra changer ensuite.' }, h(SelecteurFond, { valeur: fond, onChange: setFond })),
+      h(Ligne, { etiquette: 'Logo et fleurs', aide: 'Laisse le gabarit les placer, ou place-les toi-même.' },
+        h(Segmente, { etiquette: 'Logo et fleurs', valeur: schema ? 'moi' : 'gabarit', onChange: (v) => setSchema(v === 'moi' ? (schema || SCHEMA_DEPART) : null), options: [{ valeur: 'gabarit', libelle: 'Le gabarit décide' }, { valeur: 'moi', libelle: 'Je les place' }] })),
+      schema && (decoupage.length
+        ? h(SchemaLogoFleurs, { schema, onChange: setSchema, slides: decoupage, format, fond })
+        : h('p', { className: 'doux petit' }, 'Colle d’abord ton texte : le schéma montrera tes vraies slides.')));
   }
 
   /* ================================================================== */

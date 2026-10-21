@@ -864,3 +864,19 @@ canvas.slide.editable { cursor: text; }
 
 /* Barre flottante : fond du paragraphe */
 .icone-fond { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 5px; background: var(--touche-doux, #E6EBB0); color: var(--touche-texte, #3F4600); font-weight: 700; font-size: 14px; }
+
+/* Nouvel article : schéma du logo et des fleurs */
+.schema-logo { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; padding: 14px; border-radius: 16px; background: var(--fond); }
+.schema-corps { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.schema-slide { position: relative; flex: none; touch-action: none; }
+.schema-element { position: absolute; border-radius: 6px; outline: 2px dashed transparent; outline-offset: 3px; cursor: grab; touch-action: none; }
+.schema-element:hover { outline-color: rgba(255, 255, 255, 0.6); }
+.schema-element.choisi { outline: 2px dashed #FFFFFF; box-shadow: 0 0 0 4px rgba(0, 56, 70, 0.35); }
+.schema-poignee { position: absolute; right: -12px; bottom: -12px; width: 24px; height: 24px; border-radius: 50%; background: #FFFFFF; border: 3px solid #003846; cursor: nwse-resize; touch-action: none; }
+.schema-reglages { flex: 1 1 200px; min-width: 200px; display: flex; flex-direction: column; gap: 8px; }
+.schema-reglages p { margin: 0; }
+.schema-apercu { display: flex; flex-wrap: wrap; gap: 10px; }
+.schema-vignette { display: flex; flex-direction: column; gap: 4px; width: 88px; }
+.schema-boutons { display: flex; gap: 3px; }
+.schema-bascule { flex: 1 1 0; min-height: 34px; padding: 0; border: 1px solid var(--trait); border-radius: 8px; background: var(--surface); color: var(--texte); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.schema-bascule.actif { background: var(--action); color: var(--sur-action, #FFFFFF); border-color: var(--action); }

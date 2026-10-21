@@ -308,6 +308,25 @@
       const { choisirPolice, reglages, charte, images } = ctx;
       const [edition, setEdition] = useState(null);
       const [propositionsOuvertes, setPropositionsOuvertes] = useState(false);
+      // Assistant IA (bouton robot) : propositions de mise en page et discussion sur un passage, comme dans l'étape Texte.
+      const outilsIA = d.ia();
+      const IA = racine.PostsOPIA;
+      const R = racine.PostsOPRelecture;
+      const configIA = IA && IA.active();
+      const nomIA = configIA ? IA.FOURNISSEURS[configIA.fournisseur].nom : 'Claude';
+      const texteArticle = article.texte.join('\n\n');
+      const [zoneIA, setZoneIA] = useState(null);
+      const passageIA = zoneIA ? texteArticle.slice(zoneIA.d, zoneIA.f) : '';
+      const disc = outilsIA.useDiscussion(article, texteArticle, majA, (d0, f0) => setZoneIA({ d: d0, f: f0 }), (etat.projet && etat.projet.profilEditorial) || '');
+      const [menuIA, setMenuIA] = useState(false);
+      const refRobot = useRef(null);
+      useEffect(() => {
+        if (!menuIA) return undefined;
+        const touche = (e) => { if (e.key === 'Escape') setMenuIA(false); };
+        racine.addEventListener('keydown', touche);
+        return () => racine.removeEventListener('keydown', touche);
+      }, [menuIA]);
+      const choisirPassageIA = (t) => { const pos = t ? R.placerPassage(texteArticle, t, null) : null; setZoneIA(pos ? { d: pos[0], f: pos[1] } : null); return !!pos; };
       const [version, setVersion] = useState(0);
       const [menu, setMenu] = useState(null);
       const [tailleEcran, setTailleEcran] = useState(() => lirePref('postsop-taille-slides', 'moyennes'));
@@ -1011,6 +1030,25 @@
           item('Revenir au fond du gabarit', () => (blocCourant || cibles().length ? paragraphe({ fondBloc: null }) : exigerBloc())),
         ];
       };
+      // Le passage sélectionné dans le bloc en cours d'écriture (pour l'assistant).
+      const texteChoisi = () => { if (!blocCourant) return ''; const [dd, ff] = plage(); return ff > dd ? blocCourant.texte.slice(dd, ff) : ''; };
+      const ouvrirDiscussion = (texte, demande) => {
+        setMenuIA(false); setSousBarre(null);
+        if (texte) choisirPassageIA(texte);
+        disc.ouvrir();
+        if (demande) setTimeout(() => disc.envoyer(demande, texte || passageIA), 0);
+      };
+      const menuAssistant = (depuisBarre) => {
+        if (!configIA) return [{ type: 'titre', libelle: 'Assistant IA' }, { type: 'note', texte: 'Pour utiliser l’IA, ajoute une clé dans Configuration, onglet IA.' }];
+        const sel = texteChoisi();
+        const rapides = [['Clarifier', 'Clarifie ce passage.'], ['Raccourcir', 'Raccourcis ce passage.'], ['Plus percutant', 'Rends ce passage plus percutant.'], ['3 propositions', 'Donne-moi 3 propositions différentes pour ce passage.']];
+        return [
+          { type: 'titre', libelle: 'Assistant IA' },
+          ...(sel ? [item('Discuter de ce passage avec ' + nomIA, () => ouvrirDiscussion(sel)), ...rapides.map(([nom, demande]) => item(nom, () => ouvrirDiscussion(sel, demande)))] : [item('Discuter avec ' + nomIA, () => ouvrirDiscussion(''))]),
+          ...(depuisBarre ? [] : [trait, item('Propositions de mise en page…', () => { setMenuIA(false); setPropositionsOuvertes(true); })]),
+          ...(!sel && !depuisBarre ? [{ type: 'note', texte: 'Sélectionne un passage dans un bloc pour le retravailler avec l’IA.' }] : []),
+        ];
+      };
       const menuAlignement = () => [['gauche', 'Aligner à gauche'], ['centre', 'Centrer'], ['droite', 'Aligner à droite']].map(([v, nom]) => item(nom, () => aligner(v), { coche: blocCourant ? st.alignement === v : undefined }));
       const allerA = (i) => { dispatch({ type: 'slide', index: i }); const page = pagesRef.current && pagesRef.current.querySelector(`[data-index="${i}"]`); if (page) page.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
       const nouveauParagraphe = () => {
@@ -1168,8 +1206,6 @@
           item('Supprimer la slide', () => { majA(OP.supprimerSlide(active), null, `Slide ${active + 1} supprimée. Son texte reste dans l’article.`); dispatch({ type: 'slide', index: Math.max(0, active - 1) }); setEdition(null); }, { danger: true, desactive: total <= 1 }),
         ] },
         { nom: 'Carrousel', contenu: () => [
-          item('Propositions de mise en page…', () => setPropositionsOuvertes(true)),
-          trait,
           { type: 'sous', libelle: 'Fond', contenu: () => [{ type: 'libre', rendu: (fermer) => h(Nuancier, { valeur: article.fond, choisir: (f) => { fermer(); majA(OP.champ('fond', f), null, `Fond ${M.fondsDe(charte.palette)[f].nom.toLowerCase()}.`); setEdition(null); } }) }] },
           { type: 'sous', libelle: 'Format', contenu: () => [['carre', 'Carré · 1:1'], ['portrait', 'Portrait · 4:5']].map(([v, nom]) => item(nom, () => { majA(OP.champ('format', v)); setEdition(null); }, coche(article.format === v))) },
           { type: 'sous', libelle: 'Réseau', contenu: () => [['instagram', 'Instagram (images)'], ['linkedin', 'LinkedIn (PDF)']].map(([v, nom]) => item(nom, () => majA(OP.champ('reseau', v)), coche(article.reseau === v))) },
@@ -1192,9 +1228,16 @@
       if (zoneEdition) zoneMemoire.current = zoneEdition;
       const zoneAffichee = zoneEdition || (edition && zoneMemoire.current) || null;
       const historique = h('span', { className: 'historique-menus' },
-        h('span', { className: 'position' }, `Slide ${active + 1} sur ${total}`));
+        h('span', { className: 'position' }, `Slide ${active + 1} sur ${total}`),
+        h('button', { ref: refRobot, type: 'button', className: cls('bouton-robot', 'bouton-robot-menu', (menuIA || disc.ouvert) && 'actif'), 'aria-label': 'Assistant IA', title: 'Assistant IA', 'aria-haspopup': 'true', 'aria-expanded': menuIA, onMouseDown: garder, onClick: () => { setMenu(null); setMenuIA(!menuIA); } }, h(outilsIA.Robot, { taille: 34 })),
+        menuIA && h('div', { className: 'voile-menu', 'aria-hidden': 'true', onPointerDown: () => setMenuIA(false) }),
+        menuIA && h(Popover, { ancre: refRobot, fermer: () => setMenuIA(false), etiquette: 'Assistant IA', contenu: () => menuAssistant(false) }));
       return h('div', { className: 'composition' },
         propositionsOuvertes && h(FenetrePropositions, { etat, dispatch, article, majA, fermer: () => setPropositionsOuvertes(false) }),
+        configIA && disc.ouvert && h(outilsIA.FenetreDiscussion, {
+          disc, nomIA, passage: passageIA, onRetirerPassage: () => setZoneIA(null),
+          onChoisirPassage: (t) => { if (!choisirPassageIA(t)) disc.signaler('Ce passage n’est plus dans ton texte tel quel : sélectionne-le de nouveau dans un bloc.'); },
+        }),
         h(BarreMenus, { menus, ouvert: menu, setOuvert: setMenu, droite: historique }),
         h('div', { className: 'pages-composition', ref: pagesRef },
           article.slides.map((s, i) => {
@@ -1253,7 +1296,7 @@
           position: barre, st, deplie, setDeplie: (v) => { setDeplie(v); ecrirePref('postsop-barre-depliee', v ? 'oui' : 'non'); },
           presets, fond, natures: natures(), sous: sousBarre, setSous: setSousBarre,
           actions: { basculer, formater, aligner, basculerFilet, filetLignes, effacer, natureDe },
-          menuCouleur, menuTaille, menuFilet, couleurFilet: couleurFiletVue, menuFond,
+          menuCouleur, menuTaille, menuFilet, couleurFilet: couleurFiletVue, menuFond, menuAssistant: () => menuAssistant(true), Robot: outilsIA.Robot,
         }));
     }
 
@@ -1564,8 +1607,9 @@
     }
 
     // Barre flottante « dépliable », sans contour : cinq outils, et une seconde rangée à la demande.
-    function BarreFlottante({ position, st, deplie, setDeplie, presets, fond, natures, sous, setSous, actions, menuCouleur, menuTaille, menuFilet, couleurFilet, menuFond }) {
+    function BarreFlottante({ position, st, deplie, setDeplie, presets, fond, natures, sous, setSous, actions, menuCouleur, menuTaille, menuFilet, couleurFilet, menuFond, menuAssistant, Robot }) {
       const refFilet = useRef(null);
+      const refRobotBarre = useRef(null);
       const refFond = useRef(null);
       const ref = useRef(null);
       const refStyle = useRef(null);
@@ -1590,6 +1634,7 @@
           bouton(h('b', null, 'B'), () => actions.basculer('gras'), { titre: 'Gras (⌘B)', actif: st.gras }),
           bouton(h('i', { className: 'serif' }, 'I'), () => actions.basculer('italique'), { titre: 'Italique (⌘I)', actif: st.italique }),
           bouton(h('u', null, 'U'), () => actions.basculer('souligne'), { titre: 'Souligné (⌘U)', actif: st.souligne }),
+          h('button', { ref: refRobotBarre, type: 'button', className: cls('outil', 'outil-robot', sous === 'ia' && 'actif'), title: 'Assistant IA', 'aria-label': 'Assistant IA', 'aria-haspopup': 'true', 'aria-expanded': sous === 'ia', onMouseDown: garder, onClick: () => setSous(sous === 'ia' ? null : 'ia') }, h(Robot, { taille: 30 })),
           bouton(h('svg', { className: cls('icone', deplie && 'retournee'), width: 18, height: 18, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d: 'M6 9l6 6 6-6', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' })), () => setDeplie(!deplie), { titre: deplie ? 'Moins d’outils' : 'Plus d’outils', classe: 'deplier' })),
         deplie && h('div', { className: 'rang second' },
           presets.map(([nom, px]) => bouton(String(px), () => actions.formater({ taille: px }), { titre: `${nom} · ${px} px`, actif: st.taille === px, classe: 'puce-taille' })),
@@ -1607,7 +1652,8 @@
         sous === 'style' && h(Popover, { ancre: refStyle, fermer: () => setSous(null), etiquette: 'Style', contenu: () => natures.map(([cle, nom]) => ({ type: 'action', libelle: h('span', { className: 'apercu-style ' + cle }, nom), coche: st.style === cle, action: () => actions.natureDe(cle) })) }),
         sous === 'couleur' && h(Popover, { ancre: refCouleur, fermer: () => setSous(null), etiquette: 'Couleur', contenu: menuCouleur }),
         sous === 'filet' && h(Popover, { ancre: refFilet, fermer: () => setSous(null), etiquette: 'Couleur du filet', contenu: menuFilet }),
-        sous === 'fond' && h(Popover, { ancre: refFond, fermer: () => setSous(null), etiquette: 'Fond du paragraphe', contenu: menuFond }));
+        sous === 'fond' && h(Popover, { ancre: refFond, fermer: () => setSous(null), etiquette: 'Fond du paragraphe', contenu: menuFond }),
+        sous === 'ia' && h(Popover, { ancre: refRobotBarre, fermer: () => setSous(null), etiquette: 'Assistant IA', contenu: menuAssistant }));
     }
 
     return { EtapeComposition, lireTexte, htmlDuBloc, normaliser };

@@ -893,3 +893,9 @@ canvas.slide.editable { cursor: text; }
 /* Discussion : titre de chaque proposition */
 .titre-proposition { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; color: var(--texte); }
 .numero-proposition { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; border-radius: 11px; background: var(--touche-doux); color: var(--touche-texte); font-size: 12px; font-weight: 700; }
+
+/* Robot de l'assistant dans Composition : barre de menus et barre flottante */
+.historique-menus { display: inline-flex; align-items: center; gap: 8px; }
+.bouton-robot-menu { width: 44px; height: 44px; border-radius: 12px; }
+.outil-robot { display: inline-flex; align-items: center; justify-content: center; padding: 2px 4px; border-radius: 10px; background: #F3F6CE; }
+.outil-robot.actif { box-shadow: inset 0 0 0 2px #003846; }

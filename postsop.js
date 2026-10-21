@@ -18,7 +18,7 @@
   const T = racine.PostsOPTypographie || require('./typographie.js');
   const IA = racine.PostsOPIA || require('./ia.js');
   const R = racine.PostsOPRelecture || require('./relecture.js');
-  const VERSION = '2026-10-21.12'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-21.13'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -1578,7 +1578,8 @@
 
   /* ---------- Étape 2 : Composition (fichier composition.js) ---------- */
 
-  const { EtapeComposition } = (racine.PostsOPComposition || require('./composition.js'))({ React, M, L, T, OP, Contexte, Icone, Bouton, SlideCanvas, cls });
+  // ia : donné à la demande (ces éléments sont définis plus bas dans ce fichier).
+  const { EtapeComposition } = (racine.PostsOPComposition || require('./composition.js'))({ React, M, L, T, OP, Contexte, Icone, Bouton, SlideCanvas, cls, ia: () => ({ useDiscussion, FenetreDiscussion, Robot }) });
 
   /* ---------- Étapes 4 et 5 ---------- */
 

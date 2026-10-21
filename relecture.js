@@ -16,8 +16,9 @@
 
   const TYPES = {
     orthographe: 'Orthographe', grammaire: 'Grammaire', conjugaison: 'Conjugaison', ponctuation: 'Ponctuation',
-    vocabulaire: 'Vocabulaire', repetition: 'Répétition', clarte: 'Clarté',
+    vocabulaire: 'Vocabulaire', repetition: 'Répétition', clarte: 'Clarté', style: 'Style',
   };
+  const MAX_FORMULATIONS = 6; // la proposition principale et ses autres formulations
   const MAX_PROPOSITIONS = 30;
 
   const SYSTEME = [
@@ -27,13 +28,14 @@
     '- orthographe, accords, conjugaison, grammaire ;',
     '- ponctuation (virgules, points), sauf la typographie décrite plus bas ;',
     '- vocabulaire impropre ou calqué sur l’anglais, répétitions gênantes ;',
-    '- phrases peu claires, seulement si une reformulation courte les éclaircit vraiment.',
+    '- phrases peu claires, seulement si une reformulation courte les éclaircit vraiment ;',
+    '- tournures qu’on peut rendre plus justes, plus précises ou plus vivantes, même si elles sont correctes (type « style »).',
     '',
     'Règles impératives :',
     '1. Ne change jamais le sens. Ne renforce ni n’affaiblis une affirmation. N’ajoute aucun fait.',
     '2. Respecte la voix de l’auteur : tutoiement ou vouvoiement, ton, phrases courtes, mots familiers choisis exprès. Un style oral volontaire n’est pas une faute.',
     '3. Les paroles rapportées entre guillemets sont citées telles qu’elles ont été dites : leur oralité (« je sais plus », « c’est pas juste », « y’a pire ») est voulue. N’y corrige qu’une faute d’orthographe évidente, et signale-le en point de vigilance.',
-    '4. Ne reformule pas une phrase correcte par simple goût : propose seulement ce qui corrige une faute ou lève une vraie ambiguïté.',
+    '4. Dans « alternatives », donne 2 ou 3 autres formulations du même passage (synonymes, tournures différentes), chacune pouvant remplacer « avant » telle quelle. Pour une simple faute d’orthographe, d’accord ou de conjugaison, laisse « alternatives » vide.',
     '5. Ignore la typographie : espaces insécables, forme des guillemets et des apostrophes, points de suspension. Elle est corrigée automatiquement.',
     '6. Chaque proposition porte sur un passage court, au plus une phrase, à l’intérieur d’un seul paragraphe.',
     '7. « avant » est copié du texte à l’identique, caractère pour caractère. « phrase » est la phrase entière qui le contient, copiée à l’identique.',
@@ -41,7 +43,7 @@
     '9. Si le texte est correct, renvoie une liste vide. Au plus ' + MAX_PROPOSITIONS + ' propositions, dans l’ordre du texte.',
     '',
     'Réponds uniquement avec un objet JSON, sans aucun texte autour :',
-    '{"propositions":[{"type":"orthographe|grammaire|conjugaison|ponctuation|vocabulaire|repetition|clarte","avant":"…","apres":"…","phrase":"…","pourquoi":"une phrase courte","vigilance":""}]}',
+    '{"propositions":[{"type":"orthographe|grammaire|conjugaison|ponctuation|vocabulaire|repetition|clarte|style","avant":"…","apres":"…","alternatives":["…","…"],"phrase":"…","pourquoi":"une phrase courte","vigilance":""}]}',
   ].join('\n');
 
   const consigne = (texte) => 'Voici l’article à relire, entre les balises <article> et </article> :\n<article>\n' + texte + '\n</article>';
@@ -128,6 +130,8 @@
         contexteApres: raccourcir(source.slice(fin, Math.max(pf, fin)), 60, false),
         pourquoi: typeof p.pourquoi === 'string' ? p.pourquoi.trim() : '',
         vigilance: typeof p.vigilance === 'string' ? p.vigilance.trim() : '',
+        formulations: formulationsDe(apres, p.alternatives, source.slice(debut, fin)),
+        choix: 0,
       });
     });
     retenues.sort((a, b) => a.debut - b.debut);
@@ -294,7 +298,36 @@
     return partout.length === 1 ? partout[0] : null;
   }
 
-  const api = { SYSTEME_DISCUSSION, messageDiscussion, lireDiscussion, placerPassage, MAX_HISTORIQUE, ACTIONS, MAX_PASSAGE, consigneSuggestion, consigneSuggestionTexte, lireSuggestion, RESEAUX, consigneDescription, nettoyerDescription, SYSTEME, consigne, lireReponse, simplifier, trouver, localiser, appliquer, apercu, recaler, TYPES, MAX_PROPOSITIONS };
+  /* ---------- Formulations : la proposition principale et ses variantes (synonymes, autres tournures) ---------- */
+  function formulationsDe(apres, alternatives, avant, deja = []) {
+    const vues = new Set(deja.map((x) => simplifier(x).texte).concat([simplifier(avant).texte]));
+    const liste = deja.slice();
+    [apres].concat(Array.isArray(alternatives) ? alternatives : []).forEach((x) => {
+      if (typeof x !== 'string' || !x.trim()) return;
+      const cle = simplifier(x.trim()).texte;
+      if (vues.has(cle) && !(liste.length === 0 && x === apres)) return;
+      vues.add(cle);
+      liste.push(x.trim());
+    });
+    return liste.slice(0, MAX_FORMULATIONS);
+  }
+  const SYSTEME_FORMULATIONS = [
+    'Tu proposes d’autres formulations pour un passage d’un article en français destiné à LinkedIn et Instagram.',
+    'Règles : garde le sens exact, sans renforcer ni affaiblir ; garde la voix de l’auteur ; chaque formulation doit pouvoir remplacer le passage telle quelle dans sa phrase ; elles doivent être différentes de celles déjà proposées et différentes entre elles (synonymes, tournures, images).',
+    'Réponds uniquement avec un objet JSON, sans aucun texte autour : {"formulations":["…","…","…"]}',
+  ].join('\n');
+  const messageFormulations = (article, phrase, passage, deja) => consigne(article)
+    + '\n\nPhrase concernée :\n' + phrase + '\n\nPassage à reformuler :\n<passage>' + passage + '</passage>'
+    + '\n\nDéjà proposées (à ne pas répéter) :\n' + deja.map((x) => '- ' + x).join('\n') + '\n\nPropose 3 nouvelles formulations.';
+  function lireFormulations(brut) {
+    const t = String(brut || '').replace(/```(?:json)?/gi, '');
+    let donnees = null;
+    try { donnees = JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1)); } catch (e) { donnees = null; }
+    if (!donnees || !Array.isArray(donnees.formulations)) throw new Error('La réponse de l’IA est illisible. Réessaie.');
+    return donnees.formulations.filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim());
+  }
+
+  const api = { formulationsDe, SYSTEME_FORMULATIONS, messageFormulations, lireFormulations, MAX_FORMULATIONS, SYSTEME_DISCUSSION, messageDiscussion, lireDiscussion, placerPassage, MAX_HISTORIQUE, ACTIONS, MAX_PASSAGE, consigneSuggestion, consigneSuggestionTexte, lireSuggestion, RESEAUX, consigneDescription, nettoyerDescription, SYSTEME, consigne, lireReponse, simplifier, trouver, localiser, appliquer, apercu, recaler, TYPES, MAX_PROPOSITIONS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else racine.PostsOPRelecture = api;
 })(typeof window !== 'undefined' ? window : globalThis);

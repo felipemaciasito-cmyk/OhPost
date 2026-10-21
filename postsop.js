@@ -18,13 +18,13 @@
   const T = racine.PostsOPTypographie || require('./typographie.js');
   const IA = racine.PostsOPIA || require('./ia.js');
   const R = racine.PostsOPRelecture || require('./relecture.js');
-  const VERSION = '2026-10-21.1'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-21.2'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
     const manque = [];
     const verifier = (module, nom, fonctions) => { if (!module || fonctions.some((f) => typeof module[f] !== 'function')) manque.push(nom); };
-    verifier(R, 'relecture.js', ['messageDiscussion', 'lireDiscussion', 'placerPassage', 'consigneDescription', 'lireSuggestion']);
+    verifier(R, 'relecture.js', ['messageDiscussion', 'lireDiscussion', 'placerPassage', 'consigneDescription', 'lireSuggestion', 'formulationsDe', 'lireFormulations']);
     verifier(racine.PostsOPTypographie || (typeof require === 'function' ? require('./typographie.js') : null), 'typographie.js', ['notesDeTravail', 'retirerLignes', 'corrections']);
     verifier(racine.PostsOPIA || (typeof require === 'function' ? require('./ia.js') : null), 'ia.js', ['demander', 'active']);
     if (typeof window !== 'undefined') verifier(racine.PostsOPPropositions, 'propositions.js', ['lireReponse', 'construireSlides', 'adapterRecette']);
@@ -1008,6 +1008,27 @@
         maj({ etat: 'erreur', detail: erreur.message });
       }
     }
+    // Autres formulations : en choisir une (l'aperçu « Après » suit), ou en demander de nouvelles à l'IA.
+    function choisirFormulation(p, k) {
+      maj((x) => ({ ...x, props: x.props.map((q) => (q.id !== p.id ? q : { ...q, choix: k, apres: q.formulations[k], apercu: R.apercu(texteComplet, { ...q, apres: q.formulations[k] }) })) }));
+    }
+    async function autresFormulations(p) {
+      const config = IA.active();
+      if (!config) return;
+      const majP = (f) => maj((x) => ({ ...x, props: x.props.map((q) => (q.id === p.id ? f(q) : q)) }));
+      majP((q) => ({ ...q, chargement: true, erreurFormulations: '' }));
+      try {
+        const deja = p.formulations && p.formulations.length ? p.formulations : [p.apres];
+        const brut = await IA.demander(config, { systeme: R.SYSTEME_FORMULATIONS, texte: R.messageFormulations(texteComplet, p.contexteAvant + p.avant + p.contexteApres, p.avant, deja), maxJetons: 800, delai: 60000 });
+        const nouvelles = R.lireFormulations(brut);
+        majP((q) => {
+          const liste = R.formulationsDe(q.formulations[0] || q.apres, nouvelles, q.avant, q.formulations && q.formulations.length ? q.formulations : [q.apres]);
+          return { ...q, chargement: false, formulations: liste, erreurFormulations: liste.length > (q.formulations || []).length ? '' : 'Pas de nouvelle formulation cette fois. Réessaie ou écris la tienne avec « Modifier ».' };
+        });
+      } catch (erreur) {
+        majP((q) => ({ ...q, chargement: false, erreurFormulations: erreur.message }));
+      }
+    }
     function accepter(p, texte) {
       const source = texteComplet;
       if (source.slice(p.debut, p.fin) !== p.avant) { maj((x) => ({ ...x, props: x.props.filter((q) => q.id !== p.id) })); return; }
@@ -1066,7 +1087,7 @@
       }
     }
     return {
-      ...r, relire, accepter, refuser, annuler, choisir, suggerer,
+      ...r, relire, accepter, refuser, annuler, choisir, suggerer, choisirFormulation, autresFormulations,
       modifier: (p) => maj({ edition: p.id, brouillon: p.apres, actif: p.id }),
       saisir: (v) => maj({ brouillon: v }),
       abandonner: () => maj({ edition: null, brouillon: '' }),
@@ -1203,6 +1224,15 @@
         h('p', null, p.contexteAvant, h('span', { className: 'ajoute' }, p.apercu || p.apres), p.contexteApres)),
       p.pourquoi && h('div', null, h('div', { className: 'etiquette-mini' }, 'Pourquoi'), h('p', { className: 'pourquoi' }, p.pourquoi)),
       p.vigilance && h('div', { className: 'vigilance' }, h('strong', null, 'Point de vigilance. '), p.vigilance),
+      !enEdition && p.formulations && h('div', { className: 'formulations' },
+        p.formulations.length > 1 && h(Fragment, null,
+          h('div', { className: 'etiquette-mini' }, 'Formulations : touche celle que tu préfères'),
+          h('div', { className: 'formulations-liste', role: 'radiogroup', 'aria-label': 'Formulations proposées' }, p.formulations.map((f, k) => h('button', {
+            key: k, type: 'button', role: 'radio', 'aria-checked': (p.choix || 0) === k, className: cls('formulation', (p.choix || 0) === k && 'choisie'),
+            onClick: () => rel.choisirFormulation(p, k),
+          }, f)))),
+        h(Bouton, { variante: 'lien', disabled: p.chargement, onClick: () => rel.autresFormulations(p) }, p.chargement ? 'Recherche de formulations…' : p.formulations.length > 1 ? 'D’autres formulations' : 'Proposer d’autres formulations'),
+        p.erreurFormulations && h('p', { className: 'erreur petit', role: 'status' }, p.erreurFormulations)),
       enEdition
         ? h(Fragment, null,
           h('textarea', { className: 'zone-texte', rows: 3, value: rel.brouillon, onChange: (e) => rel.saisir(e.target.value), 'aria-label': 'Ta version du passage' }),

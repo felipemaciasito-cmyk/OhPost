@@ -819,3 +819,9 @@ canvas.slide.editable { cursor: text; }
 
 /* Mise en ligne incomplète */
 .alerte-mise-a-jour { position: sticky; top: 0; z-index: 70; padding: 10px 20px; background: #FFF3D6; color: #6B4A00; font-size: 15px; line-height: 1.4; }
+
+/* Relecture : autres formulations d'une proposition */
+.formulations { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.formulations-liste { display: flex; flex-direction: column; gap: 6px; align-self: stretch; }
+.formulation { min-height: 40px; padding: 8px 12px; border: 1px solid var(--trait); border-radius: 12px; background: var(--surface); color: var(--texte); font: inherit; font-size: 15px; line-height: 1.4; text-align: left; cursor: pointer; }
+.formulation.choisie { border: 2px solid var(--action); background: var(--touche-doux); color: var(--touche-texte); font-weight: 600; }

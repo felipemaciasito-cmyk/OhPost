@@ -240,11 +240,21 @@
   }
 
   // Empile des paragraphes dans une colonne. Les éléments sont exprimés depuis le haut de la pile.
+  // Le fond choisi à la main remplace celui du gabarit (encadré ou surlignage) pour ce paragraphe.
+  function fondDuBloc(s) {
+    if (!s.fondPerso) return s;
+    if (s.fondPerso === 'aucun') return { ...s, carte: null, surligne: null };
+    const f = s.fondPerso;
+    if (f.forme === 'lignes') return { ...s, carte: null, surligne: f.couleur, surligneRayon: f.droits ? 0 : 8 };
+    return { ...s, surligne: null, carte: { ...(s.carte || {}), fond: f.couleur, marge: (s.carte && s.carte.marge) || 36 }, carteRayon: f.droits ? 0 : 28 };
+  }
+
   function empiler(specs, zone, choisirPolice) {
     const elements = [];
     let y = 0;
     let tropLarge = false;
-    specs.forEach((s, i) => {
+    specs.forEach((s0, i) => {
+      const s = fondDuBloc(s0);
       const police = choisirPolice(s.role);
       const hl = s.taille * s.interligne;
       const base = (hl - (police.asc + police.desc) * s.taille) / 2 + police.asc * s.taille;
@@ -272,7 +282,7 @@
           let x = placer(ligne.largeur);
           if (s.surligne && ligne.morceaux.length) {
             const hb = t * 1.18;
-            locaux.push({ type: 'rect', x: x - 10, y: y + (hlL - hb) / 2, l: ligne.largeur + 20, h: hb, couleur: s.surligne });
+            locaux.push({ type: 'rect', x: x - 10, y: y + (hlL - hb) / 2, l: ligne.largeur + 20, h: hb, couleur: s.surligne, rayon: s.surligneRayon || 0 });
           }
           for (const m of ligne.morceaux) {
             locaux.push({ type: 'ligne', texte: m.texte, x, y: y + baseL, police: m.police, taille: m.taille, couleur: m.couleur || s.couleur });
@@ -302,7 +312,7 @@
           const x = placer(l);
           if (s.surligne) {
             const hb = s.taille * 1.18;
-            locaux.push({ type: 'rect', x: x - 10, y: y + (hl - hb) / 2, l: l + 20, h: hb, couleur: s.surligne });
+            locaux.push({ type: 'rect', x: x - 10, y: y + (hl - hb) / 2, l: l + 20, h: hb, couleur: s.surligne, rayon: s.surligneRayon || 0 });
           }
           locaux.push({ type: 'ligne', texte, x, y: y + base, police, taille: s.taille, couleur: s.couleur });
           y += hl;
@@ -310,7 +320,7 @@
       }
       if (s.carte) {
         y += marge;
-        locaux.unshift({ type: 'rect', x: zone.x, y: debut, l: zone.largeur, h: y - debut, couleur: s.carte.fond, rayon: 28 });
+        locaux.unshift({ type: 'rect', x: zone.x, y: debut, l: zone.largeur, h: y - debut, couleur: s.carte.fond, rayon: s.carteRayon !== undefined ? s.carteRayon : 28 });
       }
       // Filet latéral : celui de la charte (citations), ou celui que tu ajoutes ou retires toi-même.
       let filet = s.filetPerso === undefined ? s.filet : s.filetPerso ? s.filet || s.couleurFilet : null;
@@ -400,6 +410,9 @@
       if (indice >= 0) r.bloc = indice;
       if (b.filet !== undefined) { r.filetPerso = b.filet; r.couleurFilet = fond.filet || fond.accent; }
       if (b.filetCouleur) r.couleurFiletPerso = couleurFiletDe(b.filetCouleur);
+      // Fond du paragraphe choisi à la main : aucun, ou une couleur en rectangle ou suivant les lignes, angles arrondis ou droits.
+      if (b.fondBloc === 'aucun') r.fondPerso = 'aucun';
+      else if (b.fondBloc && typeof b.fondBloc === 'object') r.fondPerso = { couleur: couleurFiletDe(b.fondBloc.couleur || 'accent'), forme: b.fondBloc.forme === 'lignes' ? 'lignes' : 'rectangle', droits: b.fondBloc.angles === 'droits' };
       return r;
     };
     const optionsTexte = { tailleTexte: T(39), riche };
@@ -656,7 +669,7 @@
     ctx.fillRect(0, 0, fmt.l, fmt.h);
     for (const e of compo.elements) {
       if (e.type === 'bloc') continue;
-      if (options.masquer !== undefined && e.bloc === options.masquer) continue;
+      if (options.masquer !== undefined && e.bloc === options.masquer && e.type !== 'rect') continue; // en écriture : le texte est caché, son fond reste
       if (e.type === 'rect') {
         ctx.fillStyle = e.couleur;
         if (e.rayon) { rectArrondi(ctx, e.x, e.y, e.l, e.h, e.rayon); ctx.fill(); } else ctx.fillRect(e.x, e.y, e.l, e.h);

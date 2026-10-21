@@ -272,29 +272,44 @@
   const MAX_HISTORIQUE = 12;
   const MAX_PROPOSITIONS_DISCUSSION = 5;
   const SYSTEME_DISCUSSION = [
-    'Tu aides la personne qui a écrit cet article (en français, pour LinkedIn et Instagram) à le retravailler. Elle te parle en langage naturel : elle donne des consignes, pose des questions, demande une ou plusieurs propositions.',
+    'Tu es le partenaire d’écriture de la personne qui a écrit cet article, en français, publié en carrousel sur LinkedIn ou Instagram. Tu discutes avec elle comme un éditeur expérimenté et bienveillant : tu réponds à ses questions, tu la conseilles, tu l’aiguilles, tu lui proposes des formulations, des styles et des tournures.',
+    '',
+    'Comment tu travailles :',
+    '- Lis tout l’article avant de répondre : son sujet, sa structure (accroche, récit, déclic, morale…), son ton, son public, et la place du passage choisi dans l’ensemble (ce qui le précède et ce qui le suit). Appuie chaque conseil sur ce contexte : cohérence du registre avec le reste du texte, répétitions avec d’autres paragraphes, transitions, rythme, effet recherché sur le lecteur.',
+    '- Tiens compte du profil éditorial s’il est fourni : public, ton, valeurs.',
+    '- Sois concret : cite les mots en question et explique en une phrase pourquoi une tournure fonctionne mieux.',
+    '- Donne ton avis franchement : dis quand le texte est déjà bon, et préviens quand une demande risque d’affaiblir le propos (registre décalé pour le public, nuance perdue), tout en proposant ce qui est demandé.',
+    '- Si la demande est floue, propose une première piste et pose une question pour affiner.',
+    '- Propose des formulations dès qu’elles aident, même sans demande explicite ; si on t’en demande plusieurs, donne-en autant (au plus ' + MAX_PROPOSITIONS_DISCUSSION + '), vraiment différentes entre elles.',
+    '- Termine en proposant 2 ou 3 suites utiles dans « pistes », formulées comme de courtes demandes que la personne pourrait t’envoyer.',
     '',
     'Règles impératives :',
-    '1. Ne change jamais le sens. Ne renforce ni n’affaiblis une affirmation. N’ajoute aucun fait.',
-    '2. Garde la voix de l’auteur : même personne, même ton, mots familiers voulus.',
+    '1. Ne change jamais le sens sans le signaler. Ne renforce ni n’affaiblis une affirmation en silence. N’ajoute aucun fait.',
+    '2. Garde la voix de l’auteur, sauf si on te demande explicitement un autre registre.',
     '3. Les paroles rapportées entre guillemets restent mot pour mot, sauf demande explicite.',
     '4. Ignore la typographie (espaces insécables, forme des guillemets et des apostrophes) : elle est corrigée automatiquement.',
-    '5. Si un passage est choisi, travaille sur lui ; sinon, sur le passage que la personne désigne.',
-    '6. Chaque proposition remplace un passage du texte : « avant » est copié du texte à l’identique, caractère pour caractère ; « apres » est le nouveau texte.',
-    '7. Si la personne demande plusieurs propositions, donne-en autant (au plus ' + MAX_PROPOSITIONS_DISCUSSION + ') ; sinon une seule. Si elle pose seulement une question, réponds sans proposition.',
-    '8. « vigilance » signale ce qui pourrait faire bouger une nuance, le ton ou le sens ; sinon, chaîne vide.',
-    '9. « reponse » est courte (une à trois phrases), en tutoyant la personne.',
-    '10. N’écris rien d’autre que cet objet JSON, une seule fois : ni balise, ni bloc de code, ni commentaire, ni excuse.',
+    '5. Chaque proposition remplace un passage du texte : « avant » est copié du texte à l’identique, caractère pour caractère ; « apres » est le nouveau texte.',
+    '6. « vigilance » signale ce qui fait bouger une nuance, le ton ou le sens ; sinon, chaîne vide.',
+    '7. « reponse » tutoie la personne, en 2 à 8 phrases ; tu peux aller à la ligne.',
+    '8. N’écris rien d’autre que cet objet JSON, une seule fois : ni balise, ni bloc de code, ni commentaire, ni excuse.',
     '',
-    'Réponds uniquement avec un objet JSON, sans aucun texte autour :',
-    '{"reponse":"…","propositions":[{"avant":"…","apres":"…","pourquoi":"une phrase courte","vigilance":""}]}',
+    'Format :',
+    '{"reponse":"…","propositions":[{"avant":"…","apres":"…","pourquoi":"une phrase courte","vigilance":""}],"pistes":["…","…"]}',
   ].join('\n');
-  function messageDiscussion(article, passage, historique, demande) {
+  // L'article numéroté par paragraphe, avec l'endroit du passage choisi, pour que l'IA comprenne le contexte.
+  function messageDiscussion(article, passage, historique, demande, infos = {}) {
+    const paras = String(article || '').split(/\n\s*\n/);
+    const ou = passage ? paras.findIndex((p) => p.includes(passage.split('\n')[0].trim().slice(0, 60))) : -1;
+    const numerote = paras.map((p, i) => `[${i + 1}]${i === ou ? ' ← le passage choisi est dans ce paragraphe' : ''}\n${p}`).join('\n\n');
     const fil = (historique || []).slice(-MAX_HISTORIQUE).map((m) => (m.de === 'moi' ? 'Personne : ' : 'Toi : ') + m.texte + ((m.propositions || []).length ? ' [propositions : ' + m.propositions.map((p) => '« ' + p.apres + ' »').join(' ; ') + ']' : '')).join('\n');
-    return consigne(article)
-      + (passage ? '\n\nPassage choisi, entre les balises <passage> et </passage> :\n<passage>\n' + passage + '\n</passage>' : '\n\nAucun passage n’est choisi.')
-      + (fil ? '\n\nDébut de la conversation :\n' + fil : '')
-      + '\n\nNouvelle demande de la personne :\n' + demande;
+    return [
+      infos.profil ? 'Profil éditorial de la personne :\n' + infos.profil + '\n' : '',
+      `Article${infos.titre ? ' « ' + infos.titre + ' »' : ''}${infos.reseau ? ', publié sur ' + infos.reseau : ''} (${paras.length} paragraphes), entre les balises <article> et </article> :`,
+      '<article>\n' + numerote + '\n</article>',
+      passage ? '\nPassage choisi' + (ou >= 0 ? ` (paragraphe ${ou + 1} sur ${paras.length})` : '') + ', entre les balises <passage> et </passage> :\n<passage>\n' + passage + '\n</passage>' : '\nAucun passage n’est choisi : la personne parle de l’article en général ou désigne un passage dans sa demande.',
+      fil ? '\nDébut de la conversation :\n' + fil : '',
+      '\nNouvelle demande de la personne :\n' + demande,
+    ].filter(Boolean).join('\n');
   }
   function lireDiscussion(brut) {
     const donnees = premierObjet(brut, (o) => typeof o.reponse === 'string' || Array.isArray(o.propositions));
@@ -309,7 +324,8 @@
       .filter((p) => p && typeof p.apres === 'string' && p.apres.trim())
       .slice(0, MAX_PROPOSITIONS_DISCUSSION)
       .map((p) => ({ avant: typeof p.avant === 'string' ? p.avant.trim() : '', apres: p.apres.trim(), pourquoi: typeof p.pourquoi === 'string' ? p.pourquoi.trim() : '', vigilance: typeof p.vigilance === 'string' ? p.vigilance.trim() : '' }));
-    return { reponse: typeof donnees.reponse === 'string' && donnees.reponse.trim() ? donnees.reponse.trim() : (propositions.length ? 'Voici ce que je te propose.' : 'Je n’ai rien à proposer.'), propositions };
+    const pistes = (Array.isArray(donnees.pistes) ? donnees.pistes : []).filter((x) => typeof x === 'string' && x.trim() && x.length <= 120).map((x) => x.trim()).slice(0, 3);
+    return { reponse: typeof donnees.reponse === 'string' && donnees.reponse.trim() ? donnees.reponse.trim() : (propositions.length ? 'Voici ce que je te propose.' : 'Je n’ai rien à proposer.'), propositions, pistes };
   }
   // Où se trouve un passage dans le texte : de préférence dans le passage choisi, sinon une seule occurrence dans tout le texte.
   function placerPassage(source, cherche, zone) {

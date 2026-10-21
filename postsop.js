@@ -18,7 +18,7 @@
   const T = racine.PostsOPTypographie || require('./typographie.js');
   const IA = racine.PostsOPIA || require('./ia.js');
   const R = racine.PostsOPRelecture || require('./relecture.js');
-  const VERSION = '2026-10-21.3'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-21.4'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -1101,7 +1101,7 @@
   const DISCUSSIONS = new Map(); // id d'article → { messages, ouvert }, le temps de la session
   const RACCOURCIS_DISCUSSION = [['Clarifier', 'Clarifie ce passage.'], ['Raccourcir', 'Raccourcis ce passage.'], ['Plus percutant', 'Rends ce passage plus percutant.'], ['3 propositions', 'Donne-moi 3 propositions différentes pour ce passage.']];
 
-  function useDiscussion(article, texteComplet, majA, choisirZone) {
+  function useDiscussion(article, texteComplet, majA, choisirZone, profil) {
     const [d, setD] = useState(() => DISCUSSIONS.get(article.id) || { messages: [], ouvert: false, etat: 'repos', detail: '' });
     const dernier = useRef(d);
     dernier.current = d;
@@ -1114,10 +1114,10 @@
       const historique = avant.messages;
       maj({ ...avant, messages: historique.concat([{ de: 'moi', texte }]), etat: 'encours', detail: '' });
       try {
-        const brut = await IA.demander(config, { systeme: R.SYSTEME_DISCUSSION, texte: R.messageDiscussion(texteComplet, passage || '', historique, texte), maxJetons: 3000, delai: 120000 });
+        const brut = await IA.demander(config, { systeme: R.SYSTEME_DISCUSSION, texte: R.messageDiscussion(texteComplet, passage || '', historique, texte, { profil, titre: article.titre, reseau: article.reseau === 'linkedin' ? 'LinkedIn' : 'Instagram' }), maxJetons: 4000, delai: 120000 });
         const r = R.lireDiscussion(brut);
         const x = dernier.current;
-        maj({ ...x, etat: 'repos', messages: x.messages.concat([{ de: 'ia', texte: r.reponse, passage: passage || '', propositions: r.propositions.map((q) => ({ ...q, apercu: T.appliquer(q.apres, T.corrections(q.apres)), statut: 'attente' })) }]) });
+        maj({ ...x, etat: 'repos', messages: x.messages.concat([{ de: 'ia', texte: r.reponse, pistes: r.pistes || [], passage: passage || '', propositions: r.propositions.map((q) => ({ ...q, apercu: T.appliquer(q.apres, T.corrections(q.apres)), statut: 'attente' })) }]) });
       } catch (erreur) {
         maj({ ...dernier.current, etat: 'erreur', detail: erreur.message });
       }
@@ -1189,7 +1189,13 @@
             p.statut === 'appliquee'
               ? h('div', { className: 'actions-ligne' }, h(Pastille, { ton: 'ok' }, 'Appliquée'), h(Bouton, { variante: 'lien', onClick: () => disc.annuler(mi, pi) }, 'Annuler'))
               : h(Bouton, { variante: 'principal', onClick: () => disc.appliquer(mi, pi) }, 'Appliquer'))))),
-        encours && h('p', { className: 'bulle ia doux' }, nomIA + ' réfléchit…')),
+        encours && h('p', { className: 'bulle ia doux' }, nomIA + ' réfléchit…'),
+        !encours && (() => {
+          const dernier = disc.messages[disc.messages.length - 1];
+          return dernier && dernier.de === 'ia' && dernier.pistes && dernier.pistes.length > 0 && h('div', { className: 'discussion-pistes' },
+            h('div', { className: 'etiquette-mini' }, 'Pour continuer'),
+            dernier.pistes.map((t) => h('button', { key: t, type: 'button', className: 'puce piste', onClick: () => envoyer(t) }, t)));
+        })()),
       disc.etat === 'erreur' && h('p', { className: 'erreur petit', role: 'status' }, disc.detail),
       h('div', { className: 'discussion-raccourcis' }, RACCOURCIS_DISCUSSION.map(([libelle, demande]) => h('button', { key: libelle, type: 'button', className: 'puce', disabled: encours, onClick: () => envoyer(demande) }, libelle))),
       h('div', { className: 'discussion-saisie' },
@@ -1261,7 +1267,7 @@
       rel.props.map((p) => h(CarteProposition, { key: p.id, p, rel })));
   }
 
-  function EtapeTexte({ dispatch, article, majA }) {
+  function EtapeTexte({ etat, dispatch, article, majA }) {
     const zone = useRef(null);
     const curseur = useRef(null);
     const avantSaisie = useAvantSaisie(zone);
@@ -1304,7 +1310,7 @@
       return () => document.removeEventListener('selectionchange', suivre);
     }, []);
     const passageChoisi = selection && texteComplet.slice(selection.debut, selection.fin);
-    const disc = useDiscussion(article, texteComplet, majA, choisirSelection);
+    const disc = useDiscussion(article, texteComplet, majA, choisirSelection, etat && etat.projet ? etat.projet.profilEditorial || '' : '');
     const typo = useMemo(() => T.correctionsArticle(article), [article.texte, article.slides, article.langue]);
     // Après une correction typographique, le curseur reste juste après ce que tu viens de taper.
     useApresRendu(() => {
@@ -1682,7 +1688,16 @@
     ],
   };
 
-  function OngletIA() {
+  const EXEMPLE_PROFIL = 'Oh ! Potentiel : Anne Litique, coach en accompagnement individuel et collectif, médiatrice des conflits au travail et formatrice, en Nouvelle-Aquitaine.\nPublic : dirigeants, managers, équipes, surtout sur LinkedIn.\nValeurs : authenticité, développement, performance.\nTon : chaleureux, humain et structuré, à la première personne. Des histoires vraies d’accompagnement, avec les paroles des personnes entre guillemets et une leçon à la fin. Pas de jargon ni de promesses exagérées.';
+  function ProfilEditorial({ etat, dispatch }) {
+    const valeur = (etat.projet && etat.projet.profilEditorial) || '';
+    const changer = (t) => dispatch({ type: 'projet', maj: (pr) => ({ ...pr, profilEditorial: t }) });
+    return h(Carte, { titre: 'Ton profil éditorial', info: 'Ton public, ton ton, tes valeurs. La discussion avec l’IA s’en sert pour te conseiller au plus juste. Enregistré avec ta charte, donc sur tous tes appareils.' },
+      h('textarea', { className: 'zone-texte', rows: 6, value: valeur, placeholder: 'Qui tu es, pour qui tu écris, le ton que tu veux garder…', 'aria-label': 'Ton profil éditorial', onChange: (e) => changer(e.target.value) }),
+      !valeur && h(Bouton, { variante: 'lien', onClick: () => changer(EXEMPLE_PROFIL) }, 'Partir d’une proposition, à vérifier et compléter'));
+  }
+
+  function OngletIA({ etat, dispatch }) {
     const [config, setConfig] = useState(() => IA.lire());
     const [fournisseur, setFournisseur] = useState(config.fournisseur);
     const [cle, setCle] = useState('');
@@ -1724,6 +1739,7 @@
     const douteuse = cle.trim() && f.prefixe && !cle.trim().startsWith(f.prefixe);
     return h(Fragment, null,
       h('p', { className: 'note' }, 'L’IA proposera, tu décideras : rien ne sera appliqué sans ta validation. Ces réglages restent sur cet appareil, comme ta clé GitHub.'),
+      etat && h(ProfilEditorial, { etat, dispatch }),
       h(Carte, { titre: 'État' },
         h('p', null, actif
           ? h(Fragment, null, h(Pastille, { ton: 'ok' }, `${IA.FOURNISSEURS[actif.fournisseur].nom} actif`), ' ', h('span', { className: 'doux petit' }, `Modèle ${actif.modele}.`))

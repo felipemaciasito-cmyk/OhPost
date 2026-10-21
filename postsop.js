@@ -18,7 +18,7 @@
   const T = racine.PostsOPTypographie || require('./typographie.js');
   const IA = racine.PostsOPIA || require('./ia.js');
   const R = racine.PostsOPRelecture || require('./relecture.js');
-  const VERSION = '2026-10-21.13'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-21.14'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -1530,7 +1530,15 @@
 
     return h('div', { className: 'deux-colonnes defilement-separe', ref: cadre, style: hauteur ? { '--hauteur-texte': hauteur + 'px' } : undefined },
       h('div', { className: 'colonne-principale' },
-        h(Carte, { titre: 'Texte de l’article', info: 'Ton texte est la référence : les slides suivent chaque modification, sans changer leur mise en page.', sousTitre: `${article.texte.length} paragraphes · ${M.compterMots(texteComplet)} mots. Une ligne vide sépare deux paragraphes. Les slides se mettent à jour à chaque modification.`, actions: h(Bouton, { variante: 'petit', onClick: () => setRemplacer('') }, 'Remplacer tout le texte') },
+        h(Carte, { titre: 'Texte de l’article', info: 'Ton texte est la référence : les slides suivent chaque modification, sans changer leur mise en page.', sousTitre: `${article.texte.length} paragraphes · ${M.compterMots(texteComplet)} mots. Une ligne vide sépare deux paragraphes. Les slides se mettent à jour à chaque modification.`, actions: h('div', { className: 'actions-texte' },
+            h(Bouton, { variante: 'petit', onClick: () => setRemplacer('') }, 'Nouveau texte'),
+            h('button', {
+              type: 'button', className: cls('bouton-robot', disc.ouvert && 'actif'),
+              'aria-label': !relectureIA ? 'Discuter avec l’IA' : disc.ouvert ? 'Fermer la discussion' : 'Discuter avec ' + IA.FOURNISSEURS[configIA.fournisseur].nom,
+              title: !relectureIA ? 'Discuter avec l’IA' : disc.ouvert ? 'Fermer la discussion' : 'Discuter avec ' + IA.FOURNISSEURS[configIA.fournisseur].nom,
+              'aria-expanded': relectureIA ? disc.ouvert : undefined,
+              onClick: () => (!relectureIA ? dispatch({ type: 'message', message: 'Pour discuter avec l’IA, ajoute une clé dans Configuration, onglet IA.' }) : disc.ouvert ? disc.fermer() : disc.ouvrir()),
+            }, h(Robot, { taille: 46 }))) },
           h(EditeurTexte, { valeur: texteComplet, onChange: modifierTexte, marques: (() => {
               const autres = marquesRelecture.concat(verification.erreurs.map((e) => ({ debut: e.offset, fin: e.offset + e.length })));
               if (!(relectureIA && disc.ouvert && selection)) return autres;
@@ -1563,13 +1571,11 @@
               h('p', { className: 'petit' }, typo.total === 1 ? 'Reste 1 correction : ' + T.resume(typo.liste) + '.' : 'Restent ' + T.resume(typo.liste) + '.'),
               h(Bouton, { variante: 'principal', onClick: () => majA(T.corrigerArticle, null, 'Typographie corrigée : ' + T.resume(typo.liste) + '.') }, 'Corriger la typographie'))
             : h('p', { className: 'ok petit' }, 'Ton article respecte ces règles.')),
-        h(Carte, { titre: 'Discussion', actions: relectureIA && h('button', { type: 'button', className: cls('bouton-robot', disc.ouvert && 'actif'), 'aria-label': disc.ouvert ? 'Fermer la discussion' : 'Discuter avec ' + IA.FOURNISSEURS[configIA.fournisseur].nom, title: disc.ouvert ? 'Fermer la discussion' : 'Discuter avec ' + IA.FOURNISSEURS[configIA.fournisseur].nom, 'aria-expanded': disc.ouvert, onClick: disc.ouvert ? disc.fermer : disc.ouvrir }, h(Robot, { taille: 46 })), info: 'Tu donnes tes consignes en langage naturel et tu demandes une ou plusieurs propositions. La conversation reste ouverte pendant que tu travailles ton texte ; ton texte ne change que si tu appliques une proposition.', sousTitre: relectureIA ? 'Donne tes consignes à ' + IA.FOURNISSEURS[configIA.fournisseur].nom + ' et demande-lui plusieurs propositions.' : 'Pour discuter avec l’IA, ajoute une clé dans Configuration, onglet IA.' },
-          relectureIA && disc.messages.length > 0 && !disc.ouvert && h('p', { className: 'doux petit' }, 'Ta conversation est gardée : rouvre-la pour la reprendre.')),
         relectureIA && disc.ouvert && h(FenetreDiscussion, {
           disc, nomIA: IA.FOURNISSEURS[configIA.fournisseur].nom, passage: passageChoisi, onRetirerPassage: () => setSelection(null),
           onChoisirPassage: (t) => { const pos = R.placerPassage(texteComplet, t, null); if (pos) setSelection({ debut: pos[0], fin: pos[1] }); else disc.signaler('Ce passage n’est plus dans ton texte tel quel : sélectionne-le de nouveau.'); },
         })),
-      remplacer !== null && h(Feuille, { titre: 'Remplacer tout le texte', onAnnuler: () => setRemplacer(null), action: h(Bouton, { variante: 'principal', disabled: !remplacer.trim(), onClick: remplacerTout }, 'Remplacer') },
+      remplacer !== null && h(Feuille, { titre: 'Nouveau texte', onAnnuler: () => setRemplacer(null), action: h(Bouton, { variante: 'principal', disabled: !remplacer.trim(), onClick: remplacerTout }, 'Remplacer') },
         h('p', { className: 'note' }, 'Le nouveau texte est redécoupé en slides avec la même mise en page : fond, format, gabarits et logo. Tu pourras l’annuler juste après.'),
         h(ZoneTexteTypo, { className: 'zone-texte', rows: 12, valeur: remplacer, onValeur: setRemplacer, placeholder: 'Colle ici le nouveau texte.', 'aria-label': 'Nouveau texte' })));
   }

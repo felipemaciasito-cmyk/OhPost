@@ -899,3 +899,6 @@ canvas.slide.editable { cursor: text; }
 .bouton-robot-menu { width: 44px; height: 44px; border-radius: 12px; }
 .outil-robot { display: inline-flex; align-items: center; justify-content: center; padding: 2px 4px; border-radius: 10px; background: #F3F6CE; }
 .outil-robot.actif { box-shadow: inset 0 0 0 2px #003846; }
+
+/* Étape Texte : « Nouveau texte » et le robot en dessous */
+.actions-texte { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }

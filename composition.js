@@ -892,6 +892,25 @@
         item(h(Fragment, null, h('span', { className: 'pastille-couleur', style: { background: fond.accent } }), 'Couleur de mise en valeur'), () => formater({ couleur: 'accent' })),
         item('Couleur d’origine', () => formater({ couleur: null })),
       ];
+      // Filet latéral : à côté des lignes choisies (sélection pendant l'écriture) ou du paragraphe entier ; couleurs de la charte ou couleur libre.
+      const menuFilet = () => {
+        const [d, f] = blocCourant ? plage() : [0, 0];
+        const lignes = !!blocCourant && f > d;
+        const vus = new Set();
+        const couleurs = [['charte', 'Filet de la charte', fond.filet || fond.accent], ['accent', 'Couleur de mise en valeur', fond.accent], ['texte', 'Couleur du texte', fond.texte]]
+          .concat(Object.entries(charte.palette || {}).map(([nom, hex]) => { const joli = nom.replace(/([A-Z])/g, ' $1').toLowerCase().replace(/\bpale\b/, 'pâle'); return [hex, 'Charte · ' + joli, hex]; }))
+          .filter(([, , hex]) => { const k = String(hex).toLowerCase(); if (vus.has(k)) return false; vus.add(k); return true; });
+        const poser = (v) => (lignes ? formater({ filet: v }, 'Filet ajouté à côté des lignes choisies.') : paragraphe({ filet: true, filetCouleur: v === 'charte' ? null : v }));
+        return [
+          { type: 'titre', libelle: lignes ? 'À côté des lignes choisies' : 'À côté du paragraphe entier (sélectionne des lignes pour les cibler)' },
+          ...couleurs.map(([v, nom, hex]) => item(h(Fragment, null, h('span', { className: 'pastille-couleur', style: { background: hex } }), nom), () => poser(v))),
+          { type: 'libre', rendu: () => h('label', { className: 'couleur-libre' }, h('span', null, 'Couleur libre'), h('input', { type: 'color', defaultValue: '#003846', 'aria-label': 'Choisir une couleur libre pour le filet', onChange: (e) => poser(e.target.value) })) },
+          trait,
+          lignes
+            ? item('Retirer le filet de ces lignes', () => formater({ filet: null }))
+            : item('Filet sur tout le paragraphe', () => (blocCourant || cibles().length ? basculerFilet() : exigerBloc()), { coche: blocCourant ? st.filet : undefined }),
+        ];
+      };
       const menuAlignement = () => [['gauche', 'Aligner à gauche'], ['centre', 'Centrer'], ['droite', 'Aligner à droite']].map(([v, nom]) => item(nom, () => aligner(v), { coche: blocCourant ? st.alignement === v : undefined }));
       const allerA = (i) => { dispatch({ type: 'slide', index: i }); const page = pagesRef.current && pagesRef.current.querySelector(`[data-index="${i}"]`); if (page) page.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
       const nouveauParagraphe = () => {
@@ -979,7 +998,7 @@
           { type: 'sous', libelle: 'Couleur', contenu: menuCouleur },
           trait,
           { type: 'sous', libelle: 'Alignement', contenu: menuAlignement },
-          item('Filet latéral', () => blocCourant ? basculerFilet() : exigerBloc(), { coche: blocCourant ? st.filet : undefined }),
+          { type: 'sous', libelle: 'Filet latéral', contenu: menuFilet },
           trait,
           item('Effacer la mise en forme', () => (blocCourant ? effacer() : exigerBloc())),
         ] },

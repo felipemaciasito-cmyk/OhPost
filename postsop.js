@@ -18,7 +18,7 @@
   const T = racine.PostsOPTypographie || require('./typographie.js');
   const IA = racine.PostsOPIA || require('./ia.js');
   const R = racine.PostsOPRelecture || require('./relecture.js');
-  const VERSION = '2026-10-21.4'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-21.6'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -950,7 +950,7 @@
     [...marques].sort((a, b) => a.debut - b.debut).forEach((m, i) => {
       if (m.debut < curseur) return;
       morceaux.push(valeur.slice(curseur, m.debut));
-      morceaux.push(h('mark', { key: i, className: cls(active === m.debut && 'active') }, valeur.slice(m.debut, m.fin)));
+      morceaux.push(h('mark', { key: i, className: cls(active === m.debut && 'active', m.classe) }, valeur.slice(m.debut, m.fin)));
       curseur = m.fin;
     });
     morceaux.push(valeur.slice(curseur) + '\n');
@@ -1101,18 +1101,40 @@
   const DISCUSSIONS = new Map(); // id d'article → { messages, ouvert }, le temps de la session
   const RACCOURCIS_DISCUSSION = [['Clarifier', 'Clarifie ce passage.'], ['Raccourcir', 'Raccourcis ce passage.'], ['Plus percutant', 'Rends ce passage plus percutant.'], ['3 propositions', 'Donne-moi 3 propositions différentes pour ce passage.']];
 
+  // Les conversations sont gardées sur l'appareil, par article (les 20 dernières), pour les retrouver et naviguer entre elles.
+  const CLE_DISCUSSIONS = 'postsop-discussions';
+  const MAX_CONVERSATIONS = 20;
+  function lireConversations(id) { try { return JSON.parse(localStorage.getItem(CLE_DISCUSSIONS) || '{}')[id] || []; } catch (e) { return []; } }
+  function ecrireConversations(id, liste) {
+    try { const tout = JSON.parse(localStorage.getItem(CLE_DISCUSSIONS) || '{}'); tout[id] = liste.slice(0, MAX_CONVERSATIONS); localStorage.setItem(CLE_DISCUSSIONS, JSON.stringify(tout)); } catch (e) { /* stockage plein ou indisponible : la session continue */ }
+  }
+  const nouvelIdConversation = () => 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
   function useDiscussion(article, texteComplet, majA, choisirZone, profil) {
-    const [d, setD] = useState(() => DISCUSSIONS.get(article.id) || { messages: [], ouvert: false, etat: 'repos', detail: '' });
+    const [d, setD] = useState(() => DISCUSSIONS.get(article.id) || (() => {
+      const conversations = lireConversations(article.id);
+      const derniere = conversations[0];
+      return { conversations, courante: derniere ? derniere.id : nouvelIdConversation(), messages: derniere ? derniere.messages : [], passageConv: derniere ? derniere.passage || '' : '', vue: 'conversation', ouvert: false, etat: 'repos', detail: '' };
+    })());
     const dernier = useRef(d);
     dernier.current = d;
-    const maj = (y) => { dernier.current = y; DISCUSSIONS.set(article.id, y); setD(y); };
+    const maj = (y) => {
+      // La conversation en cours est rangée en tête de liste dès qu'elle a un message.
+      let conversations = (y.conversations || []).filter((c) => c.id !== y.courante);
+      if (y.messages.length) {
+        const ancienne = (y.conversations || []).find((c) => c.id === y.courante);
+        conversations = [{ id: y.courante, cree: ancienne ? ancienne.cree : Date.now(), maj: Date.now(), passage: y.passageConv || '', titre: (y.messages.find((m) => m.de === 'moi') || {}).texte || '', messages: y.messages }].concat(conversations);
+      }
+      y = { ...y, conversations };
+      dernier.current = y; DISCUSSIONS.set(article.id, y); ecrireConversations(article.id, conversations); setD(y);
+    };
     async function envoyer(demande, passage) {
       const config = IA.active();
       const texte = String(demande || '').trim();
       if (!config || !texte) return;
       const avant = dernier.current;
       const historique = avant.messages;
-      maj({ ...avant, messages: historique.concat([{ de: 'moi', texte }]), etat: 'encours', detail: '' });
+      maj({ ...avant, passageConv: historique.length ? avant.passageConv : (passage || ''), messages: historique.concat([{ de: 'moi', texte }]), etat: 'encours', detail: '' });
       try {
         const brut = await IA.demander(config, { systeme: R.SYSTEME_DISCUSSION, texte: R.messageDiscussion(texteComplet, passage || '', historique, texte, { profil, titre: article.titre, reseau: article.reseau === 'linkedin' ? 'LinkedIn' : 'Instagram' }), maxJetons: 4000, delai: 120000 });
         const r = R.lireDiscussion(brut);
@@ -1156,27 +1178,61 @@
     return {
       ...d, envoyer, appliquer, annuler,
       ouvrir: () => maj({ ...dernier.current, ouvert: true }), fermer: () => maj({ ...dernier.current, ouvert: false }),
-      effacer: () => maj({ ...dernier.current, messages: [], etat: 'repos', detail: '' }),
+      nouvelle: () => maj({ ...dernier.current, courante: nouvelIdConversation(), messages: [], passageConv: '', vue: 'conversation', etat: 'repos', detail: '' }),
+      voirHistorique: () => maj({ ...dernier.current, vue: 'historique' }),
+      voirConversation: () => maj({ ...dernier.current, vue: 'conversation' }),
+      ouvrirConversation: (id) => { const c = dernier.current.conversations.find((x) => x.id === id); if (c) maj({ ...dernier.current, courante: id, messages: c.messages, passageConv: c.passage || '', vue: 'conversation', etat: 'repos', detail: '' }); },
+      supprimerConversation: (id) => { const x = dernier.current; maj({ ...x, conversations: x.conversations.filter((c) => c.id !== id), ...(id === x.courante ? { courante: nouvelIdConversation(), messages: [], passageConv: '' } : {}) }); },
+      signaler: (detail) => maj({ ...dernier.current, etat: 'erreur', detail }),
     };
   }
 
-  function FenetreDiscussion({ disc, nomIA, passage, onRetirerPassage }) {
+  function FenetreDiscussion({ disc, nomIA, passage, onRetirerPassage, onChoisirPassage }) {
     const [saisie, setSaisie] = useState('');
+    const [passageEntier, setPassageEntier] = useState(false);
+    const [passageConvEntier, setPassageConvEntier] = useState(false);
     const fil = useRef(null);
     useEffect(() => { if (fil.current) fil.current.scrollTop = fil.current.scrollHeight; }, [disc.messages.length, disc.etat]);
     const encours = disc.etat === 'encours';
     const envoyer = (t) => { if (!encours && t.trim()) { disc.envoyer(t, passage); setSaisie(''); } };
-    const extrait = passage && (passage.length > 110 ? passage.slice(0, 110).replace(/\s\S*$/, '') + '…' : passage);
+    const couper = (t, n) => (t && t.length > n ? t.slice(0, n).replace(/\s\S*$/, '') + '…' : t);
+    const extrait = passage && (passageEntier ? passage : couper(passage, 110));
+    const autrePassage = disc.passageConv && disc.passageConv.trim() !== (passage || '').trim() && disc.passageConv;
+    const quand = (t) => new Date(t).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    if (disc.vue === 'historique') {
+      return h('div', { className: 'fenetre-discussion', role: 'dialog', 'aria-label': 'Conversations avec ' + nomIA },
+        h('div', { className: 'proposition-tete' },
+          h(Bouton, { variante: 'lien', onClick: disc.voirConversation }, '‹ Retour'),
+          h('h3', { className: 'gill' }, 'Conversations'),
+          h(Bouton, { variante: 'icone', etiquette: 'Fermer la discussion', onClick: disc.fermer }, '×')),
+        h('div', { className: 'discussion-fil' },
+          !disc.conversations.length && h('p', { className: 'doux petit' }, 'Aucune conversation pour cet article.'),
+          disc.conversations.map((c) => h('div', { key: c.id, className: cls('conversation-item', c.id === disc.courante && 'courante') },
+            h('button', { type: 'button', className: 'conversation-ouvrir', onClick: () => disc.ouvrirConversation(c.id) },
+              h('strong', null, couper(c.titre || 'Conversation', 70)),
+              c.passage && h('span', { className: 'doux petit' }, '« ' + couper(c.passage, 60) + ' »'),
+              h('span', { className: 'doux petit' }, quand(c.maj) + ' · ' + c.messages.length + ' message' + (c.messages.length > 1 ? 's' : '') + (c.id === disc.courante ? ' · en cours' : ''))),
+            h(Bouton, { variante: 'icone', etiquette: 'Supprimer cette conversation', onClick: () => disc.supprimerConversation(c.id) }, '×')))),
+        h(Bouton, { variante: 'principal', onClick: disc.nouvelle }, 'Nouvelle conversation'));
+    }
     return h('div', { className: 'fenetre-discussion', role: 'dialog', 'aria-label': 'Discuter avec ' + nomIA },
       h('div', { className: 'proposition-tete' },
         h('h3', { className: 'gill' }, 'Discuter avec ' + nomIA),
-        h('div', { className: 'actions-ligne' },
-          disc.messages.length > 0 && h(Bouton, { variante: 'lien', onClick: disc.effacer }, 'Nouvelle'),
-          h(Bouton, { variante: 'icone', etiquette: 'Fermer la discussion', titre: 'Fermer (la conversation est gardée)', onClick: disc.fermer }, '×'))),
+        h(Bouton, { variante: 'icone', etiquette: 'Fermer la discussion', titre: 'Fermer (la conversation est gardée)', onClick: disc.fermer }, '×')),
+      (disc.conversations.length > 0 || disc.messages.length > 0) && h('div', { className: 'discussion-outils' },
+        disc.conversations.length > 0 && h(Bouton, { variante: 'lien', onClick: disc.voirHistorique }, 'Historique (' + disc.conversations.length + ')'),
+        disc.messages.length > 0 && h(Bouton, { variante: 'lien', onClick: disc.nouvelle }, 'Nouvelle conversation')),
       passage
-        ? h('div', { className: 'discussion-passage' }, h('span', null, h('strong', null, 'Passage choisi : '), '« ' + extrait + ' »'), h(Bouton, { variante: 'icone', etiquette: 'Retirer le passage choisi', onClick: onRetirerPassage }, '×'))
+        ? h('div', { className: 'discussion-passage' },
+          h('span', null, h('strong', null, 'Passage choisi : '), '« ' + extrait + ' »',
+            passage.length > 110 && h('button', { type: 'button', className: 'lien fort lien-passage', onClick: () => setPassageEntier(!passageEntier) }, passageEntier ? ' Réduire' : ' Voir en entier')),
+          h(Bouton, { variante: 'icone', etiquette: 'Retirer le passage choisi', onClick: onRetirerPassage }, '×'))
         : h('p', { className: 'doux petit' }, 'Aucun passage choisi : sélectionne-en un dans ton texte, ou cite-le dans ta demande.'),
       passage && passage.length > R.MAX_PASSAGE && h('p', { className: 'erreur petit' }, 'Passage trop long : choisis au plus un ou deux paragraphes.'),
+      autrePassage && h('div', { className: 'discussion-passage ancien' },
+        h('span', null, h('strong', null, 'Cette conversation portait sur : '), '« ' + (passageConvEntier ? autrePassage : couper(autrePassage, 90)) + ' »',
+          autrePassage.length > 90 && h('button', { type: 'button', className: 'lien fort lien-passage', onClick: () => setPassageConvEntier(!passageConvEntier) }, passageConvEntier ? ' Réduire' : ' Voir en entier')),
+        h(Bouton, { variante: 'petit', onClick: () => onChoisirPassage(autrePassage) }, 'Le choisir')),
       h('div', { className: 'discussion-fil', ref: fil },
         !disc.messages.length && h('p', { className: 'bulle ia' }, `Dis-moi ce que tu veux en langage naturel : « trois versions plus courtes », « garde la citation telle quelle », « plus chaleureux »… Je te propose, tu choisis. Ton texte ne change que si tu appliques une proposition.`),
         disc.messages.map((m, mi) => h(Fragment, { key: mi },
@@ -1376,7 +1432,12 @@
     return h('div', { className: 'deux-colonnes defilement-separe', ref: cadre, style: hauteur ? { '--hauteur-texte': hauteur + 'px' } : undefined },
       h('div', { className: 'colonne-principale' },
         h(Carte, { titre: 'Texte de l’article', info: 'Ton texte est la référence : les slides suivent chaque modification, sans changer leur mise en page.', sousTitre: `${article.texte.length} paragraphes · ${M.compterMots(texteComplet)} mots. Une ligne vide sépare deux paragraphes. Les slides se mettent à jour à chaque modification.`, actions: h(Bouton, { variante: 'petit', onClick: () => setRemplacer('') }, 'Remplacer tout le texte') },
-          h(EditeurTexte, { valeur: texteComplet, onChange: modifierTexte, marques: marquesRelecture.concat(verification.erreurs.map((e) => ({ debut: e.offset, fin: e.offset + e.length }))), active: actifRelecture !== undefined ? actifRelecture : active, zoneRef: zone, onCurseur: relectureIA ? rel.curseur : undefined, onSelection: choisirSelection }))),
+          h(EditeurTexte, { valeur: texteComplet, onChange: modifierTexte, marques: (() => {
+              const autres = marquesRelecture.concat(verification.erreurs.map((e) => ({ debut: e.offset, fin: e.offset + e.length })));
+              if (!(relectureIA && disc.ouvert && selection)) return autres;
+              // Pendant la discussion, le passage choisi reste surligné dans le texte.
+              return [{ debut: selection.debut, fin: selection.fin, classe: 'passage-discussion' }].concat(autres.filter((m) => m.fin <= selection.debut || m.debut >= selection.fin));
+            })(), active: actifRelecture !== undefined ? actifRelecture : active, zoneRef: zone, onCurseur: relectureIA ? rel.curseur : undefined, onSelection: choisirSelection }))),
       h('aside', { className: 'panneau' },
         relectureIA && h(PanneauRelecture, { rel, nomIA: IA.FOURNISSEURS[configIA.fournisseur].nom, onSecours: () => setSecours(true) }),
         !relectureIA && h(Carte, { titre: 'Orthographe et grammaire', info: 'Vérification par LanguageTool, un service gratuit. Rien n’est corrigé sans ton accord.', sousTitre: 'Les fautes sont surlignées dans ton texte.', actions: h(Bouton, { variante: 'principal', onClick: verifier, disabled: verification.etat === 'encours' }, verification.etat === 'encours' ? 'Vérification…' : 'Vérifier') },
@@ -1406,7 +1467,10 @@
         h(Carte, { titre: 'Discussion', info: 'Tu donnes tes consignes en langage naturel et tu demandes une ou plusieurs propositions. La conversation reste ouverte pendant que tu travailles ton texte ; ton texte ne change que si tu appliques une proposition.', sousTitre: relectureIA ? 'Donne tes consignes à ' + IA.FOURNISSEURS[configIA.fournisseur].nom + ' et demande-lui plusieurs propositions.' : 'Pour discuter avec l’IA, ajoute une clé dans Configuration, onglet IA.' },
           relectureIA && h(Bouton, { onClick: disc.ouvert ? disc.fermer : disc.ouvrir, 'aria-expanded': disc.ouvert }, h(Icone, { nom: 'bulle', taille: 18 }), disc.ouvert ? 'Fermer la discussion' : 'Discuter avec ' + IA.FOURNISSEURS[configIA.fournisseur].nom),
           relectureIA && disc.messages.length > 0 && !disc.ouvert && h('p', { className: 'doux petit' }, 'Ta conversation est gardée : rouvre-la pour la reprendre.')),
-        relectureIA && disc.ouvert && h(FenetreDiscussion, { disc, nomIA: IA.FOURNISSEURS[configIA.fournisseur].nom, passage: passageChoisi, onRetirerPassage: () => setSelection(null) })),
+        relectureIA && disc.ouvert && h(FenetreDiscussion, {
+          disc, nomIA: IA.FOURNISSEURS[configIA.fournisseur].nom, passage: passageChoisi, onRetirerPassage: () => setSelection(null),
+          onChoisirPassage: (t) => { const pos = R.placerPassage(texteComplet, t, null); if (pos) setSelection({ debut: pos[0], fin: pos[1] }); else disc.signaler('Ce passage n’est plus dans ton texte tel quel : sélectionne-le de nouveau.'); },
+        })),
       remplacer !== null && h(Feuille, { titre: 'Remplacer tout le texte', onAnnuler: () => setRemplacer(null), action: h(Bouton, { variante: 'principal', disabled: !remplacer.trim(), onClick: remplacerTout }, 'Remplacer') },
         h('p', { className: 'note' }, 'Le nouveau texte est redécoupé en slides avec la même mise en page : fond, format, gabarits et logo. Tu pourras l’annuler juste après.'),
         h(ZoneTexteTypo, { className: 'zone-texte', rows: 12, valeur: remplacer, onValeur: setRemplacer, placeholder: 'Colle ici le nouveau texte.', 'aria-label': 'Nouveau texte' })));

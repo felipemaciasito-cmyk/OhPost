@@ -41,7 +41,7 @@
    * marques : [{ debut, fin, gras?, italique?, souligne?, taille? }], positions dans le texte affiché du paragraphe.
    * Une valeur null retire l'attribut ; false force l'absence (du gras sur un titre déjà gras, par exemple). */
 
-  const ATTRIBUTS = ['gras', 'italique', 'souligne', 'taille', 'couleur'];
+  const ATTRIBUTS = ['gras', 'italique', 'souligne', 'taille', 'couleur', 'filet']; // filet : barre latérale à côté des lignes de cette plage (couleur)
 
   function normaliserMarques(marques, longueur) {
     const bornes = new Set([0, longueur]);

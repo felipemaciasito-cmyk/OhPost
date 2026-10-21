@@ -189,11 +189,12 @@
           if ('souligne' in m) st.souligne = !!m.souligne;
           if (m.taille) st.taille = m.taille;
           if (m.couleurHex) st.couleur = m.couleurHex;
+          if (m.filetHex) st.filet = m.filetHex;
         }
       }
       return st;
     };
-    const cle = (st) => `${+st.gras}${+st.italique}${+st.souligne}${st.taille}${st.couleur}`;
+    const cle = (st) => `${+st.gras}${+st.italique}${+st.souligne}${st.taille}${st.couleur}${st.filet || ''}`;
     const morceaux = (p, q) => {
       const sortie = [];
       let k = p;
@@ -204,7 +205,7 @@
         while (j < q && cle(styleA(j)) === c) j++;
         const t = texte.slice(k, j);
         const police = choisirPolice((st.gras ? 'bold' : 'light') + (st.italique ? 'Italic' : ''));
-        sortie.push({ texte: t, police, taille: st.taille, souligne: st.souligne, couleur: st.couleur, largeur: police.mesurer(t, st.taille) });
+        sortie.push({ texte: t, police, taille: st.taille, souligne: st.souligne, couleur: st.couleur, filet: st.filet || null, largeur: police.mesurer(t, st.taille) });
         k = j;
       }
       return sortie;
@@ -254,7 +255,9 @@
       const placer = (l) => (aligne === 'centre' ? zone.x + marge + (largeur - l) / 2 : aligne === 'droite' ? zone.x + marge + largeur - l : zone.x + marge);
       if (s.marques && s.marques.length) {
         // Paragraphe mis en forme : chaque ligne prend la hauteur de son plus grand morceau.
+        const filetsLignes = []; // filet à côté de certaines lignes seulement : { y0, y1, couleur } par ligne
         for (const ligne of couperLignesRiches(s, largeur, choisirPolice)) {
+          const avecFilet = ligne.morceaux.find((mo) => mo.filet && mo.texte.trim());
           const t = ligne.morceaux.length ? Math.max(...ligne.morceaux.map((m) => m.taille)) : s.taille;
           const hlL = t * s.interligne;
           const baseL = (hlL - (police.asc + police.desc) * t) / 2 + police.asc * t;
@@ -273,7 +276,17 @@
             }
             x += m.largeur;
           }
+          filetsLignes.push({ y0: y, y1: y + hlL, couleur: avecFilet ? avecFilet.filet : null });
           y += hlL;
+        }
+        // Les lignes voisines de même couleur forment un seul filet continu.
+        for (let k = 0; k < filetsLignes.length; k++) {
+          const c = filetsLignes[k].couleur;
+          if (!c) continue;
+          let j = k;
+          while (j + 1 < filetsLignes.length && filetsLignes[j + 1].couleur === c) j++;
+          locaux.push({ type: 'rect', x: zone.x - 30, y: filetsLignes[k].y0 + 8, l: 5, h: filetsLignes[j].y1 - filetsLignes[k].y0 - 16, couleur: c });
+          k = j;
         }
       } else {
         for (const texte of couperLignes(police, s.texte, s.taille, largeur)) {
@@ -293,7 +306,8 @@
         locaux.unshift({ type: 'rect', x: zone.x, y: debut, l: zone.largeur, h: y - debut, couleur: s.carte.fond, rayon: 28 });
       }
       // Filet latéral : celui de la charte (citations), ou celui que tu ajoutes ou retires toi-même.
-      const filet = s.filetPerso === undefined ? s.filet : s.filetPerso ? s.filet || s.couleurFilet : null;
+      let filet = s.filetPerso === undefined ? s.filet : s.filetPerso ? s.filet || s.couleurFilet : null;
+      if (filet && s.couleurFiletPerso) filet = s.couleurFiletPerso;
       if (filet) locaux.push({ type: 'rect', x: zone.x - 30, y: debut + 8, l: 5, h: y - debut - 16, couleur: filet });
       if (s.bloc !== undefined) {
         // Les éléments de ce paragraphe sont marqués, et sa zone est mémorisée (jamais dessinée).
@@ -367,15 +381,18 @@
     const C = (n) => Math.round(n * kC);
     const LIGNE = T(39) * 1.25;
     // Mise en forme propre au paragraphe : passages en gras, italique, souligné ou d'une autre taille ; alignement ; filet.
+    // Couleur d'un filet : un rôle de la charte (charte, accent, texte) ou une couleur libre (#rrggbb).
+    const couleurFiletDe = (v) => (v === 'charte' ? fond.filet || fond.accent : v === 'accent' ? fond.accent : v === 'texte' ? fond.texte : v);
     const riche = (b, retire = 0) => {
       const r = {};
       if (b.marques && b.marques.length) {
-        r.marques = b.marques.map((m) => ({ ...m, debut: m.debut - retire, fin: m.fin - retire, ...(m.taille ? { taille: Math.round(m.taille * echelle) } : {}), ...(m.couleur ? { couleurHex: m.couleur === 'accent' ? fond.accent : fond.texte } : {}) })).filter((m) => m.fin > 0);
+        r.marques = b.marques.map((m) => ({ ...m, debut: m.debut - retire, fin: m.fin - retire, ...(m.taille ? { taille: Math.round(m.taille * echelle) } : {}), ...(m.couleur ? { couleurHex: m.couleur === 'accent' ? fond.accent : fond.texte } : {}), ...(m.filet ? { filetHex: couleurFiletDe(m.filet) } : {}) })).filter((m) => m.fin > 0);
       }
       if (b.alignement) r.alignement = b.alignement;
       const indice = slide.blocs.indexOf(b);
       if (indice >= 0) r.bloc = indice;
       if (b.filet !== undefined) { r.filetPerso = b.filet; r.couleurFilet = fond.filet || fond.accent; }
+      if (b.filetCouleur) r.couleurFiletPerso = couleurFiletDe(b.filetCouleur);
       return r;
     };
     const optionsTexte = { tailleTexte: T(39), riche };

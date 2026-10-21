@@ -829,3 +829,17 @@ canvas.slide.editable { cursor: text; }
 /* Discussion : pistes pour continuer */
 .discussion-pistes { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .puce.piste { min-height: 36px; padding: 6px 12px; border-radius: 14px; text-align: left; line-height: 1.35; background: var(--touche-doux); color: var(--touche-texte); border-color: transparent; }
+
+/* Discussion : historique des conversations, passage visible en entier, passage surligné dans le texte */
+.conversation-item { display: flex; align-items: flex-start; gap: 6px; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--trait); }
+.conversation-item.courante { border: 2px solid var(--action); }
+.conversation-ouvrir { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 0; border: 0; background: transparent; color: var(--texte); font: inherit; text-align: left; cursor: pointer; }
+.discussion-passage.ancien { background: var(--fond); color: var(--texte); align-items: center; }
+.lien-passage { padding: 0; border: 0; background: transparent; font: inherit; font-size: 14px; cursor: pointer; white-space: nowrap; }
+.editeur-fond mark.passage-discussion { background: var(--touche-doux); box-shadow: 0 0 0 2px var(--touche); border-radius: 3px; color: transparent; }
+.discussion-outils { display: flex; justify-content: space-between; gap: 8px; margin-top: -8px; }
+.fenetre-discussion .proposition-tete h3 { min-width: 0; }
+
+/* Filet : couleur libre dans le menu */
+.couleur-libre { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; padding: 4px 12px; font-size: 15px; cursor: pointer; }
+.couleur-libre input[type="color"] { width: 44px; height: 32px; padding: 0; border: 1px solid var(--trait); border-radius: 8px; background: transparent; cursor: pointer; }

@@ -50,7 +50,33 @@
 
   /* ---------- Lire la réponse ---------- */
 
+  /* ---------- Lire une réponse de l'IA même quand elle ajoute du texte, des balises ou répète son JSON ---------- */
+  function extraireObjets(brut) {
+    const t = String(brut || '');
+    const objets = [];
+    for (let i = 0; i < t.length; i++) {
+      if (t[i] !== '{') continue;
+      let prof = 0;
+      let chaine = false;
+      let echap = false;
+      for (let j = i; j < t.length; j++) {
+        const c = t[j];
+        if (chaine) { if (echap) echap = false; else if (c === '\\') echap = true; else if (c === '"') chaine = false; continue; }
+        if (c === '"') chaine = true;
+        else if (c === '{') prof++;
+        else if (c === '}' && --prof === 0) {
+          try { objets.push(JSON.parse(t.slice(i, j + 1))); i = j; } catch (e) { /* objet mal formé : on cherche plus loin */ }
+          break;
+        }
+      }
+    }
+    return objets;
+  }
+  const premierObjet = (brut, forme) => extraireObjets(brut).find((o) => o && typeof o === 'object' && forme(o)) || null;
+
   function lireReponse(brut) {
+    const objet = premierObjet(brut, (o) => Array.isArray(o.propositions));
+    if (objet) return objet.propositions;
     const t = String(brut || '').replace(/```(?:json)?/gi, '');
     const debut = t.indexOf('{');
     const fin = t.lastIndexOf('}');
@@ -235,12 +261,8 @@
   }
   const consigneSuggestionTexte = (article, passage) => consigne(article) + '\n\nPassage à retravailler, entre les balises <passage> et </passage> :\n<passage>\n' + passage + '\n</passage>';
   function lireSuggestion(brut, passage) {
-    const t = String(brut || '').replace(/```(?:json)?/gi, '');
-    const d = t.indexOf('{');
-    const f = t.lastIndexOf('}');
-    let donnees = null;
-    try { donnees = JSON.parse(t.slice(d, f + 1)); } catch (e) { donnees = null; }
-    if (!donnees || typeof donnees.proposition !== 'string') throw new Error('La réponse de l’IA est illisible. Réessaie.');
+    const donnees = premierObjet(brut, (o) => typeof o.proposition === 'string');
+    if (!donnees) throw new Error('La réponse de l’IA est illisible. Réessaie.');
     const proposition = donnees.proposition.trim();
     if (!proposition || proposition === passage.trim()) throw new Error('L’IA n’a rien proposé de différent pour ce passage.');
     return { proposition, pourquoi: typeof donnees.pourquoi === 'string' ? donnees.pourquoi.trim() : '', vigilance: typeof donnees.vigilance === 'string' ? donnees.vigilance.trim() : '' };
@@ -262,6 +284,7 @@
     '7. Si la personne demande plusieurs propositions, donne-en autant (au plus ' + MAX_PROPOSITIONS_DISCUSSION + ') ; sinon une seule. Si elle pose seulement une question, réponds sans proposition.',
     '8. « vigilance » signale ce qui pourrait faire bouger une nuance, le ton ou le sens ; sinon, chaîne vide.',
     '9. « reponse » est courte (une à trois phrases), en tutoyant la personne.',
+    '10. N’écris rien d’autre que cet objet JSON, une seule fois : ni balise, ni bloc de code, ni commentaire, ni excuse.',
     '',
     'Réponds uniquement avec un objet JSON, sans aucun texte autour :',
     '{"reponse":"…","propositions":[{"avant":"…","apres":"…","pourquoi":"une phrase courte","vigilance":""}]}',
@@ -274,14 +297,12 @@
       + '\n\nNouvelle demande de la personne :\n' + demande;
   }
   function lireDiscussion(brut) {
-    const t = String(brut || '').replace(/```(?:json)?/gi, '');
-    const d = t.indexOf('{');
-    const f = t.lastIndexOf('}');
-    let donnees = null;
-    try { donnees = JSON.parse(t.slice(d, f + 1)); } catch (e) { donnees = null; }
+    const donnees = premierObjet(brut, (o) => typeof o.reponse === 'string' || Array.isArray(o.propositions));
     if (!donnees) {
       const simple = String(brut || '').trim();
       if (!simple) throw new Error('La réponse de l’IA est vide. Réessaie.');
+      // Un texte simple, sans JSON, est une vraie réponse ; un JSON abîmé ne s'affiche jamais tel quel.
+      if (/[{}<>]/.test(simple)) return { reponse: 'Ma réponse était mal formée et je n’ai pas pu la lire. Renvoie ta demande, ou reformule-la.', propositions: [], illisible: true };
       return { reponse: simple, propositions: [] };
     }
     const propositions = (Array.isArray(donnees.propositions) ? donnees.propositions : [])
@@ -320,14 +341,12 @@
     + '\n\nPhrase concernée :\n' + phrase + '\n\nPassage à reformuler :\n<passage>' + passage + '</passage>'
     + '\n\nDéjà proposées (à ne pas répéter) :\n' + deja.map((x) => '- ' + x).join('\n') + '\n\nPropose 3 nouvelles formulations.';
   function lireFormulations(brut) {
-    const t = String(brut || '').replace(/```(?:json)?/gi, '');
-    let donnees = null;
-    try { donnees = JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1)); } catch (e) { donnees = null; }
-    if (!donnees || !Array.isArray(donnees.formulations)) throw new Error('La réponse de l’IA est illisible. Réessaie.');
+    const donnees = premierObjet(brut, (o) => Array.isArray(o.formulations));
+    if (!donnees) throw new Error('La réponse de l’IA est illisible. Réessaie.');
     return donnees.formulations.filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim());
   }
 
-  const api = { formulationsDe, SYSTEME_FORMULATIONS, messageFormulations, lireFormulations, MAX_FORMULATIONS, SYSTEME_DISCUSSION, messageDiscussion, lireDiscussion, placerPassage, MAX_HISTORIQUE, ACTIONS, MAX_PASSAGE, consigneSuggestion, consigneSuggestionTexte, lireSuggestion, RESEAUX, consigneDescription, nettoyerDescription, SYSTEME, consigne, lireReponse, simplifier, trouver, localiser, appliquer, apercu, recaler, TYPES, MAX_PROPOSITIONS };
+  const api = { extraireObjets, premierObjet, formulationsDe, SYSTEME_FORMULATIONS, messageFormulations, lireFormulations, MAX_FORMULATIONS, SYSTEME_DISCUSSION, messageDiscussion, lireDiscussion, placerPassage, MAX_HISTORIQUE, ACTIONS, MAX_PASSAGE, consigneSuggestion, consigneSuggestionTexte, lireSuggestion, RESEAUX, consigneDescription, nettoyerDescription, SYSTEME, consigne, lireReponse, simplifier, trouver, localiser, appliquer, apercu, recaler, TYPES, MAX_PROPOSITIONS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else racine.PostsOPRelecture = api;
 })(typeof window !== 'undefined' ? window : globalThis);

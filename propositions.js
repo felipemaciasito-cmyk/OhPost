@@ -58,11 +58,10 @@
     ].join('\n');
   }
 
+  // Le premier objet JSON valide qui contient des propositions, même si l'IA ajoute du texte autour ou se répète.
   function lireJSON(brut) {
-    const t = String(brut || '').replace(/```(?:json)?/gi, '');
-    const d = t.indexOf('{');
-    const f = t.lastIndexOf('}');
-    try { return JSON.parse(t.slice(d, f + 1)); } catch (e) { return null; }
+    const R = (typeof racine.PostsOPRelecture !== 'undefined' && racine.PostsOPRelecture) || (typeof require === 'function' ? require('./relecture.js') : null);
+    return R ? R.premierObjet(brut, (o) => Array.isArray(o.propositions)) : null;
   }
 
   // Vérifie et corrige un plan ; renvoie null s'il ne reprend pas tout le texte, dans l'ordre.

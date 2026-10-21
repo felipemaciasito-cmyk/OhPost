@@ -18,13 +18,13 @@
   const T = racine.PostsOPTypographie || require('./typographie.js');
   const IA = racine.PostsOPIA || require('./ia.js');
   const R = racine.PostsOPRelecture || require('./relecture.js');
-  const VERSION = '2026-10-21.2'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-21.3'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
     const manque = [];
     const verifier = (module, nom, fonctions) => { if (!module || fonctions.some((f) => typeof module[f] !== 'function')) manque.push(nom); };
-    verifier(R, 'relecture.js', ['messageDiscussion', 'lireDiscussion', 'placerPassage', 'consigneDescription', 'lireSuggestion', 'formulationsDe', 'lireFormulations']);
+    verifier(R, 'relecture.js', ['messageDiscussion', 'lireDiscussion', 'placerPassage', 'consigneDescription', 'lireSuggestion', 'formulationsDe', 'lireFormulations', 'premierObjet']);
     verifier(racine.PostsOPTypographie || (typeof require === 'function' ? require('./typographie.js') : null), 'typographie.js', ['notesDeTravail', 'retirerLignes', 'corrections']);
     verifier(racine.PostsOPIA || (typeof require === 'function' ? require('./ia.js') : null), 'ia.js', ['demander', 'active']);
     if (typeof window !== 'undefined') verifier(racine.PostsOPPropositions, 'propositions.js', ['lireReponse', 'construireSlides', 'adapterRecette']);

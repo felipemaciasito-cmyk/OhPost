@@ -28,7 +28,7 @@
       texteReponse: () => '', requete: () => null, absent: true };
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
-  const VERSION = '2026-10-22.6'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-23.1'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -39,7 +39,7 @@
     verifier(racine.PostsOPTypographie || (typeof require === 'function' ? require('./typographie.js') : null), 'typographie.js', ['notesDeTravail', 'retirerLignes', 'corrections']);
     verifier(racine.PostsOPIA || (typeof require === 'function' ? require('./ia.js') : null), 'ia.js', ['demander', 'active']);
     // Un module trop ancien a ses fonctions, mais pas les éléments ajoutés depuis : on les vérifie aussi.
-    if (IA && !IA.ASSISTANT && !manque.includes('ia.js')) manque.push('ia.js');
+    if (IA && !IA.absent && (!IA.ASSISTANT || !IA.MARGE_REFLEXION) && !manque.includes('ia.js')) manque.push('ia.js'); // MARGE_REFLEXION : version compatible avec Sonnet 5.5
     if (typeof window !== 'undefined') verifier(racine.PostsOPPropositions, 'propositions.js', ['lireReponse', 'construireSlides', 'adapterRecette']);
     if (typeof window !== 'undefined' && racine.PostsOPPropositions && !racine.PostsOPPropositions.JSON_PLANS && !manque.includes('propositions.js')) manque.push('propositions.js');
     return [...new Set(manque)];

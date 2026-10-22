@@ -12,6 +12,7 @@
   'use strict';
 
   const CLE_STOCKAGE = 'postsop-ia';
+  const MARGE_REFLEXION = 6000; // jetons ajoutés pour la réflexion des modèles de la génération 5 (facturés seulement s'ils servent)
 
   const FOURNISSEURS = {
     claude: {
@@ -74,11 +75,19 @@
     if (fournisseur === 'claude') {
       const entetes = { 'content-type': 'application/json', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' };
       if (cle) entetes['x-api-key'] = cle;
-      const corps = { model: modele, max_tokens: maxJetons, messages: [{ role: 'user', content: texte }] };
+      // Modèles de la génération 5 (Sonnet 5.5 par défaut) : ils réfléchissent avant de répondre, et cette réflexion
+      // compte dans max_tokens. On laisse de la marge et on demande un effort moyen, adapté à un travail de rédaction.
+      const generation5 = /^claude-(sonnet|opus|haiku|fable|mythos)-5(\b|-)/.test(String(modele || ''));
+      const corps = { model: modele, max_tokens: maxJetons + (generation5 ? MARGE_REFLEXION : 0), messages: [{ role: 'user', content: texte }] };
+      if (generation5) corps.output_config = { effort: 'medium' };
       if (systeme) corps.system = systeme;
       if (json) {
-        corps.tools = [{ name: json.nom || 'repondre', description: json.description || 'Donne ta réponse.', input_schema: json.schema }];
-        corps.tool_choice = { type: 'tool', name: json.nom || 'repondre' };
+        // Sonnet 5.5 refuse l'outil imposé (tool_choice « tool » ou « any ») : on le propose (« auto ») et la consigne
+        // demande de s'en servir. Si le modèle répond quand même en texte, le JSON est lu dans le texte.
+        const nomOutil = json.nom || 'repondre';
+        corps.tools = [{ name: nomOutil, description: json.description || 'Donne ta réponse.', input_schema: json.schema }];
+        corps.tool_choice = { type: 'auto' };
+        corps.system = (systeme ? systeme + '\n\n' : '') + `Donne ta réponse en appelant l’outil « ${nomOutil} », une seule fois.`;
       }
       return { adresse: FOURNISSEURS.claude.adresse, entetes, corps };
     }
@@ -109,7 +118,8 @@
     if (statut === 429) return `Trop de demandes à la suite. Réessaie dans une minute.`;
     if (statut === 402 || /credit balance|insufficient|billing|payment/i.test(d)) return `Crédits insuffisants chez ${nom}. Ajoute des fonds sur ${FOURNISSEURS[fournisseur].console}.`;
     if (statut === 403) return `${nom} refuse cette demande avec cette clé (droits insuffisants).`;
-    if (statut === 404 || (statut === 400 && /model/i.test(d))) return `Modèle inconnu chez ${nom}. Vérifie le nom du modèle dans les réglages.`;
+    if (statut === 404 || /not_found|not found|does not exist|invalid model|unknown model|model.*(introuvable|inconnu)/i.test(d)) return `Modèle inconnu chez ${nom}. Vérifie le nom du modèle dans les réglages.`;
+    if (statut === 400) return `${nom} a refusé la demande${d ? ' : ' + d.slice(0, 220) : '.'} Envoie-moi une capture de ce message.`;
     if (statut === 413) return `Texte trop long pour ${nom}.`;
     if (statut === 529 || statut >= 500) return `${nom} est momentanément surchargé ou indisponible. Réessaie dans quelques instants.`;
     return `${nom} a répondu par une erreur (${statut}).${d ? ' ' + d.slice(0, 200) : ''}`;
@@ -139,6 +149,7 @@
       throw new ErreurIA(expliquer(fournisseur, reponse.status, typeof detail === 'string' ? detail : JSON.stringify(detail)), 'reponse');
     }
     // Réponse coupée faute de place : une réponse structurée serait incomplète, on le dit clairement.
+    if (donnees && donnees.stop_reason === 'refusal') throw new ErreurIA(`${FOURNISSEURS[fournisseur].nom} a refusé de traiter ce texte (filtre de sécurité). Reformule le passage en cause ou réessaie.`, 'refus');
     const coupee = donnees && (donnees.stop_reason === 'max_tokens' || (donnees.choices && donnees.choices[0] && donnees.choices[0].finish_reason === 'length'));
     if (json && coupee) throw new ErreurIA(`La réponse de l’IA était trop longue et a été coupée. Choisis un passage plus court ou demande moins de propositions.`, 'longueur');
     return { texte: texteReponse(fournisseur, donnees || {}), donnees };
@@ -172,7 +183,7 @@
   }
 
   const ASSISTANT = { nom: 'CCB', complet: 'Creative Collaborative Boost' }; // le nom de l'assistant dans toute l'app
-  const api = { ASSISTANT, FOURNISSEURS, lire, enregistrer, oublierCle, modeleDe, active, demander, tester, joignable, ErreurIA, expliquer, texteReponse, requete };
+  const api = { MARGE_REFLEXION, ASSISTANT, FOURNISSEURS, lire, enregistrer, oublierCle, modeleDe, active, demander, tester, joignable, ErreurIA, expliquer, texteReponse, requete };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else racine.PostsOPIA = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -329,7 +329,7 @@
       const IA = racine.PostsOPIA;
       const R = racine.PostsOPRelecture;
       const configIA = IA && IA.active();
-      const nomIA = configIA ? IA.FOURNISSEURS[configIA.fournisseur].nom : 'Claude';
+      const nomIA = ((IA && IA.ASSISTANT) || { nom: 'CCB' }).nom;
       const texteArticle = article.texte.join('\n\n');
       const [zoneIA, setZoneIA] = useState(null);
       const passageIA = zoneIA ? texteArticle.slice(zoneIA.d, zoneIA.f) : '';
@@ -1055,11 +1055,11 @@
         if (demande) setTimeout(() => disc.envoyer(demande, texte || passageIA), 0);
       };
       const menuAssistant = (depuisBarre) => {
-        if (!configIA) return [{ type: 'titre', libelle: 'Assistant IA' }, { type: 'note', texte: 'Pour utiliser l’IA, ajoute une clé dans Configuration, onglet IA.' }];
+        if (!configIA) return [{ type: 'titre', libelle: 'CCB · Creative Collaborative Boost' }, { type: 'note', texte: 'Pour utiliser l’IA, ajoute une clé dans Configuration, onglet IA.' }];
         const sel = texteChoisi();
         const rapides = [['Clarifier', 'Clarifie ce passage.'], ['Raccourcir', 'Raccourcis ce passage.'], ['Plus percutant', 'Rends ce passage plus percutant.'], ['3 propositions', 'Donne-moi 3 propositions différentes pour ce passage.']];
         return [
-          { type: 'titre', libelle: 'Assistant IA' },
+          { type: 'titre', libelle: 'CCB · Creative Collaborative Boost' },
           ...(sel ? [item('Discuter de ce passage avec ' + nomIA, () => ouvrirDiscussion(sel)), ...rapides.map(([nom, demande]) => item(nom, () => ouvrirDiscussion(sel, demande)))] : [item('Discuter avec ' + nomIA, () => ouvrirDiscussion(''))]),
           ...(depuisBarre ? [] : [trait, item('Propositions de mise en page…', () => { setMenuIA(false); setPropositionsOuvertes(true); })]),
           ...(!sel && !depuisBarre ? [{ type: 'note', texte: 'Sélectionne un passage dans un bloc pour le retravailler avec l’IA.' }] : []),
@@ -1245,9 +1245,9 @@
       const zoneAffichee = zoneEdition || (edition && zoneMemoire.current) || null;
       const historique = h('span', { className: 'historique-menus' },
         h('span', { className: 'position' }, `Slide ${active + 1} sur ${total}`),
-        h('button', { ref: refRobot, type: 'button', className: cls('bouton-robot', 'bouton-robot-menu', (menuIA || disc.ouvert) && 'actif'), 'aria-label': 'Assistant IA', title: 'Assistant IA', 'aria-haspopup': 'true', 'aria-expanded': menuIA, onMouseDown: garder, onClick: () => { setMenu(null); setMenuIA(!menuIA); } }, h(outilsIA.Robot, { taille: 34 })),
+        h('button', { ref: refRobot, type: 'button', className: cls('bouton-robot', 'bouton-robot-menu', (menuIA || disc.ouvert) && 'actif'), 'aria-label': 'CCB · Creative Collaborative Boost', title: 'CCB · Creative Collaborative Boost', 'aria-haspopup': 'true', 'aria-expanded': menuIA, onMouseDown: garder, onClick: () => { setMenu(null); setMenuIA(!menuIA); } }, h(outilsIA.Robot, { taille: 34 })),
         menuIA && h('div', { className: 'voile-menu', 'aria-hidden': 'true', onPointerDown: () => setMenuIA(false) }),
-        menuIA && h(Popover, { ancre: refRobot, fermer: () => setMenuIA(false), etiquette: 'Assistant IA', contenu: () => menuAssistant(false) }));
+        menuIA && h(Popover, { ancre: refRobot, fermer: () => setMenuIA(false), etiquette: 'CCB · Creative Collaborative Boost', contenu: () => menuAssistant(false) }));
       return h('div', { className: 'composition' },
         propositionsOuvertes && h(FenetrePropositions, { etat, dispatch, article, majA, fermer: () => setPropositionsOuvertes(false) }),
         configIA && disc.ouvert && h(outilsIA.FenetreDiscussion, {
@@ -1427,7 +1427,7 @@
       const { choisirPolice, reglages, charte } = useContext(Contexte);
       const fonds = M.fondsDe(charte.palette);
       const config = IA && IA.active();
-      const nomIA = config ? IA.FOURNISSEURS[config.fournisseur].nom : 'Claude';
+      const nomIA = ((IA && IA.ASSISTANT) || { nom: 'CCB' }).nom;
       const [liste, setListeBrute] = useState(() => PROPOSITIONS_PAR_ARTICLE.get(article.id) || []);
       const setListe = (l) => { PROPOSITIONS_PAR_ARTICLE.set(article.id, l); setListeBrute(l); };
       const [choisie, setChoisie] = useState(() => (liste[0] ? liste[0].id : 'actuelle'));
@@ -1461,7 +1461,7 @@
         setSuivi({ etat: 'encours', detail: '' });
         try {
           const favs = inspirer ? favoris.map((f) => ({ gabarit: f.presentation.gabarit, styles: f.presentation.blocs.map((b) => b.style) })) : [];
-          const brut = await IA.demander(config, { systeme: P.SYSTEME, texte: P.messageGeneration({ paragraphes, catalogueTexte, format: M.FORMATS[article.format].nom, reseau: article.reseau === 'linkedin' ? 'LinkedIn' : 'Instagram', favoris: favs }), maxJetons: 4000, delai: 150000 });
+          const brut = await IA.demander(config, { systeme: P.SYSTEME, texte: P.messageGeneration({ paragraphes, catalogueTexte, format: M.FORMATS[article.format].nom, reseau: article.reseau === 'linkedin' ? 'LinkedIn' : 'Instagram', favoris: favs }), maxJetons: 4000, delai: 150000 , json: P.JSON_PLANS });
           const r = P.lireReponse(brut, paragraphes.length, M.GABARITS, fonds, M.NATURES);
           if (!r.plans.length) throw new Error('Aucune proposition ne reprenait tout ton texte dans l’ordre : réessaie.');
           const nouvelles = r.plans.map((pl, k) => ({ id: 'p' + Date.now().toString(36) + k, plan: pl }));
@@ -1481,7 +1481,7 @@
         setChat({ ...chat, encours: true, messages: historique.concat([{ de: 'moi', texte: t }]) });
         setSaisie('');
         try {
-          const brut = await IA.demander(config, { systeme: P.SYSTEME, texte: P.messageEvolution({ paragraphes, catalogueTexte, plan, historique, demande: t }), maxJetons: 3000, delai: 120000 });
+          const brut = await IA.demander(config, { systeme: P.SYSTEME, texte: P.messageEvolution({ paragraphes, catalogueTexte, plan, historique, demande: t }), maxJetons: 3000, delai: 120000 , json: P.JSON_PLANS });
           const r = P.lireReponse(brut, paragraphes.length, M.GABARITS, fonds, M.NATURES);
           if (r.plans.length) {
             setPasse(passe.concat([{ id: choisie, plan }]));
@@ -1548,7 +1548,7 @@
                     suivi.etat === 'encours' && h('p', { className: 'doux petit', role: 'status' }, nomIA + ' compose trois mises en page. Cela peut prendre jusqu’à une minute.'),
                     suivi.etat === 'erreur' && h('p', { className: 'erreur petit', role: 'status' }, suivi.detail),
                     suivi.detail && suivi.etat === 'repos' && h('p', { className: 'doux petit' }, suivi.detail))
-                  : h('p', { className: 'doux petit' }, 'Pour que Claude te propose des mises en page, ajoute une clé dans Configuration, onglet IA.'))
+                  : h('p', { className: 'doux petit' }, 'Pour que ' + nomIA + ' te propose des mises en page, ajoute une clé dans Configuration, onglet IA.'))
               : h(Fragment, null,
                 !favoris.length && !favorisCarrousels.length && h('p', { className: 'doux petit' }, 'Touche ☆ sur une slide, ou « Garder ce carrousel », pour retrouver ici ce qui te plaît.'),
                 favorisCarrousels.map((f) => h('div', { key: f.id, className: 'proposition-item' },
@@ -1651,7 +1651,7 @@
           bouton(h('i', { className: 'serif' }, 'I'), () => actions.basculer('italique'), { titre: 'Italique (⌘I)', actif: st.italique }),
           bouton(h('u', null, 'U'), () => actions.basculer('souligne'), { titre: 'Souligné (⌘U)', actif: st.souligne }),
           bouton(h('svg', { className: cls('icone', deplie && 'retournee'), width: 18, height: 18, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d: 'M6 9l6 6 6-6', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' })), () => setDeplie(!deplie), { titre: deplie ? 'Moins d’outils' : 'Plus d’outils', classe: 'deplier' }),
-          h('button', { ref: refRobotBarre, type: 'button', className: cls('outil', 'outil-robot', sous === 'ia' && 'actif'), title: 'Assistant IA', 'aria-label': 'Assistant IA', 'aria-haspopup': 'true', 'aria-expanded': sous === 'ia', onMouseDown: garder, onClick: () => setSous(sous === 'ia' ? null : 'ia') }, h(Robot, { taille: 30 }))),
+          h('button', { ref: refRobotBarre, type: 'button', className: cls('outil', 'outil-robot', sous === 'ia' && 'actif'), title: 'CCB · Creative Collaborative Boost', 'aria-label': 'CCB · Creative Collaborative Boost', 'aria-haspopup': 'true', 'aria-expanded': sous === 'ia', onMouseDown: garder, onClick: () => setSous(sous === 'ia' ? null : 'ia') }, h(Robot, { taille: 30 }))),
         deplie && h('div', { className: 'rang second' },
           presets.map(([nom, px]) => bouton(String(px), () => actions.formater({ taille: px }), { titre: `${nom} · ${px} px`, actif: st.taille === px, classe: 'puce-taille' })),
           h('span', { className: 'separateur', 'aria-hidden': 'true' }),
@@ -1669,7 +1669,7 @@
         sous === 'couleur' && h(Popover, { ancre: refCouleur, fermer: () => setSous(null), etiquette: 'Couleur', contenu: menuCouleur }),
         sous === 'filet' && h(Popover, { ancre: refFilet, fermer: () => setSous(null), etiquette: 'Couleur du filet', contenu: menuFilet }),
         sous === 'fond' && h(Popover, { ancre: refFond, fermer: () => setSous(null), etiquette: 'Fond du paragraphe', contenu: menuFond }),
-        sous === 'ia' && h(Popover, { ancre: refRobotBarre, fermer: () => setSous(null), etiquette: 'Assistant IA', contenu: menuAssistant }));
+        sous === 'ia' && h(Popover, { ancre: refRobotBarre, fermer: () => setSous(null), etiquette: 'CCB · Creative Collaborative Boost', contenu: menuAssistant }));
     }
 
     return { EtapeComposition, lireTexte, htmlDuBloc, normaliser };

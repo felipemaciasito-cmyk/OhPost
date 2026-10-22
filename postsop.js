@@ -15,10 +15,20 @@
   const S = racine.PostsOPSynchro || require('./synchro.js');
   const X = racine.PostsOPExport || require('./export.js');
   const L = racine.PostsOPLiens || require('./liens.js');
-  const T = racine.PostsOPTypographie || require('./typographie.js');
-  const IA = racine.PostsOPIA || require('./ia.js');
-  const R = racine.PostsOPRelecture || require('./relecture.js');
-  const VERSION = '2026-10-22.3'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  // Modules secondaires : s'il en manque un sur GitHub, l'app démarre quand même et le bandeau « Mise à jour incomplète » le nomme.
+  const facultatif = (globale, fichier) => racine[globale] || (typeof require === 'function' ? require(fichier) : null);
+  const T = facultatif('PostsOPTypographie', './typographie.js');
+  // Sans ia.js, une version inerte : l'IA est simplement « non configurée » au lieu de faire planter l'app.
+  const IA = facultatif('PostsOPIA', './ia.js') || (() => {
+    class ErreurIA extends Error {}
+    const absent = () => Promise.reject(new ErreurIA('Le fichier ia.js manque : renvoie-le sur GitHub.'));
+    return { ASSISTANT: { nom: 'CCB', complet: 'Creative Collaborative Boost' }, FOURNISSEURS: {}, ErreurIA,
+      lire: () => ({ fournisseur: 'claude', cles: {}, modeles: {} }), enregistrer: () => {}, oublierCle: () => {}, modeleDe: () => '',
+      active: () => null, demander: absent, tester: absent, joignable: () => false, expliquer: () => 'Le fichier ia.js manque.',
+      texteReponse: () => '', requete: () => null, absent: true };
+  })();
+  const R = facultatif('PostsOPRelecture', './relecture.js');
+  const VERSION = '2026-10-22.4'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -28,9 +38,13 @@
     if (racine.PostsOPRelecture && !racine.PostsOPRelecture.JSON_DISCUSSION) manque.push('relecture.js');
     verifier(racine.PostsOPTypographie || (typeof require === 'function' ? require('./typographie.js') : null), 'typographie.js', ['notesDeTravail', 'retirerLignes', 'corrections']);
     verifier(racine.PostsOPIA || (typeof require === 'function' ? require('./ia.js') : null), 'ia.js', ['demander', 'active']);
+    // Un module trop ancien a ses fonctions, mais pas les éléments ajoutés depuis : on les vérifie aussi.
+    if (IA && !IA.ASSISTANT && !manque.includes('ia.js')) manque.push('ia.js');
     if (typeof window !== 'undefined') verifier(racine.PostsOPPropositions, 'propositions.js', ['lireReponse', 'construireSlides', 'adapterRecette']);
-    return manque;
+    if (typeof window !== 'undefined' && racine.PostsOPPropositions && !racine.PostsOPPropositions.JSON_PLANS && !manque.includes('propositions.js')) manque.push('propositions.js');
+    return [...new Set(manque)];
   })();
+  if (IA && !IA.ASSISTANT) IA.ASSISTANT = { nom: 'CCB', complet: 'Creative Collaborative Boost' };
   const { createElement: h, Fragment, Component, useState, useReducer, useEffect, useLayoutEffect, useMemo, useRef, useContext, createContext } = React;
   const useApresRendu = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
@@ -1198,7 +1212,10 @@
 
   // Le petit robot de la discussion (proposition « Rond », choisie le 21 octobre 2026) : il sourit et tient une fleur.
   const ROBOT_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="100%" height="100%" focusable="false"><rect x="48" y="96" width="8" height="12" rx="3" fill="#003846"></rect><rect x="64" y="96" width="8" height="12" rx="3" fill="#003846"></rect><rect x="42" y="64" width="36" height="34" rx="12" fill="#003846"></rect><circle cx="60" cy="82" r="4" fill="#C9D420"></circle><path d="M43 76 Q33 80 34 90" fill="none" stroke="#003846" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"></path><path d="M77 76 Q92 74 96 62" fill="none" stroke="#003846" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="96.5" cy="60" r="4.6" fill="#003846"></circle><path d="M97 57 L102 40" fill="none" stroke="#003846" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="103.0" cy="25.5" r="4.7" fill="#FFFFFF" stroke="#003846" stroke-width="1.6"></circle><circle cx="109.2" cy="30.0" r="4.7" fill="#FFFFFF" stroke="#003846" stroke-width="1.6"></circle><circle cx="106.8" cy="37.3" r="4.7" fill="#FFFFFF" stroke="#003846" stroke-width="1.6"></circle><circle cx="99.2" cy="37.3" r="4.7" fill="#FFFFFF" stroke="#003846" stroke-width="1.6"></circle><circle cx="96.8" cy="30.0" r="4.7" fill="#FFFFFF" stroke="#003846" stroke-width="1.6"></circle><circle cx="103" cy="32" r="3.6" fill="#C9D420"></circle><path d="M60 26 V19" fill="none" stroke="#003846" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="60" cy="14" r="5" fill="#C9D420"></circle><rect x="30" y="42" width="6" height="13" rx="3" fill="#C9D420"></rect><rect x="84" y="42" width="6" height="13" rx="3" fill="#C9D420"></rect><rect x="34" y="26" width="52" height="44" rx="22" fill="#003846"></rect><rect x="40" y="33" width="40" height="29" rx="13" fill="#E6EBEC"></rect><circle cx="52" cy="45" r="3.8" fill="#003846"></circle><circle cx="68" cy="45" r="3.8" fill="#003846"></circle><circle cx="53.3" cy="43.6" r="1.3" fill="#FFFFFF"></circle><circle cx="69.3" cy="43.6" r="1.3" fill="#FFFFFF"></circle><circle cx="46.5" cy="52.5" r="2.6" fill="#C9D420"></circle><circle cx="73.5" cy="52.5" r="2.6" fill="#C9D420"></circle><path d="M53 52 Q60 58.5 67 52" fill="none" stroke="#003846" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
-  const Robot = ({ taille = 44 }) => h('span', { className: 'robot', 'aria-hidden': 'true', style: { width: taille + 'px', height: taille + 'px' }, dangerouslySetInnerHTML: { __html: ROBOT_SVG } });
+  // Objet unique : avec un objet neuf à chaque rendu, certaines versions de React réécrivent le dessin, et un toucher
+  // commencé sur l'ancien dessin n'aboutissait pas (le bouton CCB ne s'ouvrait pas toujours).
+  const HTML_ROBOT = { __html: ROBOT_SVG };
+  const Robot = ({ taille = 44 }) => h('span', { className: 'robot', 'aria-hidden': 'true', style: { width: taille + 'px', height: taille + 'px' }, dangerouslySetInnerHTML: HTML_ROBOT });
 
   // Les conversations sont gardées sur l'appareil, par article (les 20 dernières), pour les retrouver et naviguer entre elles.
   const CLE_DISCUSSIONS = 'postsop-discussions';
@@ -1867,7 +1884,11 @@
       !valeur && h(Bouton, { variante: 'lien', onClick: () => changer(EXEMPLE_PROFIL) }, 'Partir d’une proposition, à vérifier et compléter'));
   }
 
-  function OngletIA({ etat, dispatch }) {
+  function OngletIA(props) {
+    if (IA.absent) return h('p', { className: 'erreur' }, 'Le fichier ia.js manque sur GitHub : renvoie-le pour retrouver les réglages de l’IA.');
+    return h(OngletIAComplet, props);
+  }
+  function OngletIAComplet({ etat, dispatch }) {
     const [config, setConfig] = useState(() => IA.lire());
     const [fournisseur, setFournisseur] = useState(config.fournisseur);
     const [cle, setCle] = useState('');

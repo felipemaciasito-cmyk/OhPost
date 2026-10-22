@@ -1,5 +1,5 @@
 /*
- * PostsOP — connexion à l'IA (Claude par défaut, Mistral en option ; décision du 18 octobre 2026)
+ * PostsOP — connexion à l'IA (Anthropic par défaut, Mistral en option ; décision du 18 octobre 2026). Dans l'app, l'assistant s'appelle CCB (Creative Collaborative Boost) : le nom des modèles n'apparaît jamais.
  *
  * Un seul point d'entrée pour toute l'app : demander(config, { systeme, texte }) renvoie la réponse en texte.
  * Changer de fournisseur ne touche rien d'autre.
@@ -15,12 +15,12 @@
 
   const FOURNISSEURS = {
     claude: {
-      nom: 'Claude',
+      nom: 'Anthropic',
       societe: 'Anthropic',
       modele: 'claude-sonnet-5-5',
       prefixe: 'sk-ant-',
       adresse: 'https://api.anthropic.com/v1/messages',
-      console: 'platform.claude.com',
+      console: 'console.anthropic.com',
     },
     mistral: {
       nom: 'Mistral',
@@ -67,22 +67,35 @@
 
   /* ---------- Appel ---------- */
 
-  function requete(fournisseur, cle, modele, systeme, texte, maxJetons) {
+  // json (facultatif) : { nom, description, schema } — la réponse doit être un objet de cette forme.
+  // Anthropic : on impose un « outil » dont les paramètres suivent le schéma, ce qui garantit un JSON valide.
+  // Mistral : mode JSON.
+  function requete(fournisseur, cle, modele, systeme, texte, maxJetons, json) {
     if (fournisseur === 'claude') {
       const entetes = { 'content-type': 'application/json', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' };
       if (cle) entetes['x-api-key'] = cle;
       const corps = { model: modele, max_tokens: maxJetons, messages: [{ role: 'user', content: texte }] };
       if (systeme) corps.system = systeme;
+      if (json) {
+        corps.tools = [{ name: json.nom || 'repondre', description: json.description || 'Donne ta réponse.', input_schema: json.schema }];
+        corps.tool_choice = { type: 'tool', name: json.nom || 'repondre' };
+      }
       return { adresse: FOURNISSEURS.claude.adresse, entetes, corps };
     }
     const entetes = { 'content-type': 'application/json' };
     if (cle) entetes.authorization = 'Bearer ' + cle;
     const messages = (systeme ? [{ role: 'system', content: systeme }] : []).concat([{ role: 'user', content: texte }]);
-    return { adresse: FOURNISSEURS.mistral.adresse, entetes, corps: { model: modele, max_tokens: maxJetons, messages } };
+    const corps = { model: modele, max_tokens: maxJetons, messages };
+    if (json) corps.response_format = { type: 'json_object' };
+    return { adresse: FOURNISSEURS.mistral.adresse, entetes, corps };
   }
 
   function texteReponse(fournisseur, donnees) {
-    if (fournisseur === 'claude') return (donnees.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
+    if (fournisseur === 'claude') {
+      const outil = (donnees.content || []).find((b) => b.type === 'tool_use');
+      if (outil) return JSON.stringify(outil.input || {});
+      return (donnees.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
+    }
     const choix = donnees.choices && donnees.choices[0];
     const contenu = choix && choix.message ? choix.message.content : '';
     return Array.isArray(contenu) ? contenu.map((b) => b.text || '').join('') : String(contenu || '');
@@ -106,8 +119,8 @@
     constructor(message, genre) { super(message); this.genre = genre; }
   }
 
-  async function appeler(fournisseur, cle, modele, systeme, texte, { maxJetons = 1024, delai = 90000 } = {}) {
-    const r = requete(fournisseur, cle, modele, systeme, texte, maxJetons);
+  async function appeler(fournisseur, cle, modele, systeme, texte, { maxJetons = 1024, delai = 90000, json = null } = {}) {
+    const r = requete(fournisseur, cle, modele, systeme, texte, maxJetons, json);
     const abandon = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const minuterie = abandon ? setTimeout(() => abandon.abort(), delai) : null;
     let reponse;
@@ -125,13 +138,16 @@
       const detail = donnees && (donnees.error ? (donnees.error.message || donnees.error.type || '') : (donnees.message || donnees.detail || ''));
       throw new ErreurIA(expliquer(fournisseur, reponse.status, typeof detail === 'string' ? detail : JSON.stringify(detail)), 'reponse');
     }
+    // Réponse coupée faute de place : une réponse structurée serait incomplète, on le dit clairement.
+    const coupee = donnees && (donnees.stop_reason === 'max_tokens' || (donnees.choices && donnees.choices[0] && donnees.choices[0].finish_reason === 'length'));
+    if (json && coupee) throw new ErreurIA(`La réponse de l’IA était trop longue et a été coupée. Choisis un passage plus court ou demande moins de propositions.`, 'longueur');
     return { texte: texteReponse(fournisseur, donnees || {}), donnees };
   }
 
   // Le point d'entrée des futures fonctions d'IA : renvoie le texte de la réponse.
-  async function demander(config, { systeme = '', texte, maxJetons, delai } = {}) {
+  async function demander(config, { systeme = '', texte, maxJetons, delai, json = null } = {}) {
     if (!config || !config.cle) throw new ErreurIA('Aucune clé d’IA n’est enregistrée sur cet appareil. Ajoute-la dans Configuration, onglet IA.', 'cle');
-    return (await appeler(config.fournisseur, config.cle, config.modele, systeme, texte, { maxJetons, delai })).texte;
+    return (await appeler(config.fournisseur, config.cle, config.modele, systeme, texte, { maxJetons, delai, json })).texte;
   }
 
   /* ---------- Tests ---------- */
@@ -141,7 +157,7 @@
     const m = modele || FOURNISSEURS[fournisseur].modele;
     const { texte } = await appeler(fournisseur, cle, m, '', 'Réponds seulement par le mot : OK', { maxJetons: 16, delai: 30000 });
     if (!texte.trim()) throw new ErreurIA(`${FOURNISSEURS[fournisseur].nom} a répondu, mais sans texte. Réessaie ou vérifie le modèle.`, 'reponse');
-    return `Connexion réussie : ${FOURNISSEURS[fournisseur].nom} a répondu (modèle ${m}).`;
+    return `Connexion réussie : ${FOURNISSEURS[fournisseur].nom} a répondu.`;
   }
 
   // Sans clé : vérifie seulement que le fournisseur accepte les appels venant de ce navigateur. Gratuit.
@@ -155,7 +171,8 @@
     }
   }
 
-  const api = { FOURNISSEURS, lire, enregistrer, oublierCle, modeleDe, active, demander, tester, joignable, ErreurIA, expliquer, texteReponse, requete };
+  const ASSISTANT = { nom: 'CCB', complet: 'Creative Collaborative Boost' }; // le nom de l'assistant dans toute l'app
+  const api = { ASSISTANT, FOURNISSEURS, lire, enregistrer, oublierCle, modeleDe, active, demander, tester, joignable, ErreurIA, expliquer, texteReponse, requete };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else racine.PostsOPIA = api;
 })(typeof window !== 'undefined' ? window : globalThis);

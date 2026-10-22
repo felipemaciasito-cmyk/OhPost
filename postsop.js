@@ -28,13 +28,13 @@
       texteReponse: () => '', requete: () => null, absent: true };
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
-  const VERSION = '2026-10-22.4'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-22.6'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
     const manque = [];
     const verifier = (module, nom, fonctions) => { if (!module || fonctions.some((f) => typeof module[f] !== 'function')) manque.push(nom); };
-    verifier(R, 'relecture.js', ['messageDiscussion', 'lireDiscussion', 'placerPassage', 'consigneDescription', 'lireSuggestion', 'formulationsDe', 'lireFormulations', 'premierObjet']);
+    verifier(R, 'relecture.js', ['messageDiscussion', 'lireDiscussion', 'placerPassage', 'consigneDescription', 'lireSuggestion', 'formulationsDe', 'lireFormulations', 'premierObjet', 'blocProfil']);
     if (racine.PostsOPRelecture && !racine.PostsOPRelecture.JSON_DISCUSSION) manque.push('relecture.js');
     verifier(racine.PostsOPTypographie || (typeof require === 'function' ? require('./typographie.js') : null), 'typographie.js', ['notesDeTravail', 'retirerLignes', 'corrections']);
     verifier(racine.PostsOPIA || (typeof require === 'function' ? require('./ia.js') : null), 'ia.js', ['demander', 'active']);
@@ -178,7 +178,8 @@
       case 'onglet': return { ...etat, onglet: action.onglet };
       case 'feuille': return { ...etat, feuille: action.feuille };
       case 'aide': return { ...etat, aide: action.ouverte == null ? !etat.aide : action.ouverte };
-      case 'message': return { ...etat, message: action.message };
+      // Le compteur relance le délai d'effacement même quand le même message revient (sinon il disparaissait trop tôt).
+      case 'message': return { ...etat, message: action.message, numeroMessage: (etat.numeroMessage || 0) + 1 };
       case 'edition': return { ...etat, edition: !etat.edition };
       case 'apparence': return { ...etat, apparence: action.valeur };
       case 'polices': return { ...etat, polices: { ...etat.polices, ...action.polices } };
@@ -546,7 +547,7 @@
       if (!etat.message) return undefined;
       const t = setTimeout(() => dispatch({ type: 'message', message: null }), 6000);
       return () => clearTimeout(t);
-    }, [etat.message]);
+    }, [etat.message, etat.numeroMessage]);
     if (!etat.message) return null;
     const m = typeof etat.message === 'string' ? { texte: etat.message } : etat.message;
     // Le message peut apparaître sous le doigt juste après un toucher : son « clic fantôme » ne doit rien déclencher.
@@ -1078,7 +1079,7 @@
 
   const RELECTURES = new Map(); // id d'article → état de sa relecture, le temps de la session
 
-  function useRelecture(article, texteComplet, majA) {
+  function useRelecture(article, texteComplet, majA, profil) {
     const [r, setR] = useState(() => RELECTURES.get(article.id) || { source: texteComplet, props: [], actif: null, etat: 'repos', detail: '', ecartees: 0, edition: null, brouillon: '' });
     const maj = (f) => setR((x) => { const y = typeof f === 'function' ? f(x) : { ...x, ...f }; RELECTURES.set(article.id, y); return y; });
     // Dernier état connu, pour les actions (y compris après l'attente de la réponse de l'IA).
@@ -1106,7 +1107,7 @@
       const source = texteComplet;
       maj({ etat: 'encours', detail: '' });
       try {
-        const reponse = await IA.demander(config, { systeme: R.SYSTEME, texte: R.consigne(source), maxJetons: 6000, delai: 150000 , json: R.JSON_RELECTURE });
+        const reponse = await IA.demander(config, { systeme: R.SYSTEME, texte: R.consigne(source, profil), maxJetons: 6000, delai: 150000 , json: R.JSON_RELECTURE });
         const { retenues, ecartees } = R.localiser(source, R.lireReponse(reponse));
         const x = dernier.current; // le texte a pu changer pendant l'attente : on recale
         const props = R.recaler(source, x.source, retenues.map((p) => ({ ...p, statut: 'attente', apercu: R.apercu(source, p) })));
@@ -1128,7 +1129,7 @@
       majP((q) => ({ ...q, chargement: true, erreurFormulations: '' }));
       try {
         const deja = p.formulations && p.formulations.length ? p.formulations : [p.apres];
-        const brut = await IA.demander(config, { systeme: R.SYSTEME_FORMULATIONS, texte: R.messageFormulations(texteComplet, p.contexteAvant + p.avant + p.contexteApres, p.avant, deja), maxJetons: 800, delai: 60000 , json: R.JSON_FORMULATIONS });
+        const brut = await IA.demander(config, { systeme: R.SYSTEME_FORMULATIONS, texte: R.messageFormulations(texteComplet, p.contexteAvant + p.avant + p.contexteApres, p.avant, deja, profil), maxJetons: 800, delai: 60000 , json: R.JSON_FORMULATIONS });
         const nouvelles = R.lireFormulations(brut);
         majP((q) => {
           const liste = R.formulationsDe(q.formulations[0] || q.apres, nouvelles, q.avant, q.formulations && q.formulations.length ? q.formulations : [q.apres]);
@@ -1181,7 +1182,7 @@
       const passage = source.slice(debut, fin);
       maj({ suggestion: { etat: 'encours', action } });
       try {
-        const reponse = await IA.demander(config, { systeme: R.consigneSuggestion(action), texte: R.consigneSuggestionTexte(source, passage), maxJetons: 2000, delai: 90000 });
+        const reponse = await IA.demander(config, { systeme: R.consigneSuggestion(action), texte: R.consigneSuggestionTexte(source, passage, profil), maxJetons: 2000, delai: 90000 });
         const s = R.lireSuggestion(reponse, passage);
         const x = dernier.current;
         const n = (x.compteurSuggestions || 0) + 1;
@@ -1196,7 +1197,7 @@
       }
     }
     return {
-      ...r, relire, accepter, refuser, annuler, choisir, suggerer, choisirFormulation, autresFormulations,
+      ...r, profil: !!String(profil || '').trim(), relire, accepter, refuser, annuler, choisir, suggerer, choisirFormulation, autresFormulations,
       modifier: (p) => maj({ edition: p.id, brouillon: p.apres, actif: p.id }),
       saisir: (v) => maj({ brouillon: v }),
       abandonner: () => maj({ edition: null, brouillon: '' }),
@@ -1429,7 +1430,7 @@
     const attente = rel.props.filter((p) => p.statut === 'attente').length;
     const pluriel = (n, mot) => n + ' ' + mot + (n > 1 ? 's' : '');
     return h(Fragment, null,
-      h(Carte, { titre: 'Relecture', info: `${nomIA} relit l’orthographe, la grammaire, la ponctuation, le vocabulaire et la clarté. La typographie reste corrigée automatiquement. Chaque relecture utilise un peu de crédit sur ton compte.`, sousTitre: 'Rien n’est appliqué sans ton accord.', actions: h(Bouton, { variante: 'principal', onClick: rel.relire, disabled: encours }, encours ? 'Relecture…' : rel.props.length ? 'Relire à nouveau' : 'Relire avec ' + nomIA) },
+      h(Carte, { titre: 'Relecture', info: `${nomIA} relit l’orthographe, la grammaire, la ponctuation, le vocabulaire et la clarté. La typographie reste corrigée automatiquement.${rel.profil ? ' Elle tient compte de ton profil éditorial (Configuration › IA).' : ''} Chaque relecture utilise un peu de crédit sur ton compte.`, sousTitre: 'Rien n’est appliqué sans ton accord.', actions: h(Bouton, { variante: 'principal', onClick: rel.relire, disabled: encours }, encours ? 'Relecture…' : rel.props.length ? 'Relire à nouveau' : 'Relire avec ' + nomIA) },
         encours && h('p', { className: 'doux petit', role: 'status' }, `${nomIA} relit ton article. Cela peut prendre jusqu’à une minute.`),
         rel.etat === 'erreur' && h(Fragment, null,
           h('p', { className: 'erreur petit', role: 'status' }, rel.detail),
@@ -1468,7 +1469,8 @@
     const [remplacer, setRemplacer] = useState(null);
     const { choisirPolice, charte, reglages } = useContext(Contexte);
     const texteComplet = article.texte.join('\n\n');
-    const rel = useRelecture(article, texteComplet, majA);
+    const profilEditorial = (etat && etat.projet && etat.projet.profilEditorial) || '';
+    const rel = useRelecture(article, texteComplet, majA, profilEditorial);
     const configIA = IA.active();
     const [secours, setSecours] = useState(false);
     const relectureIA = !!configIA && !secours;
@@ -1483,7 +1485,7 @@
       return () => document.removeEventListener('selectionchange', suivre);
     }, []);
     const passageChoisi = selection && texteComplet.slice(selection.debut, selection.fin);
-    const disc = useDiscussion(article, texteComplet, majA, choisirSelection, etat && etat.projet ? etat.projet.profilEditorial || '' : '');
+    const disc = useDiscussion(article, texteComplet, majA, choisirSelection, profilEditorial);
     const typo = useMemo(() => T.correctionsArticle(article), [article.texte, article.slides, article.langue]);
     // Après une correction typographique, le curseur reste juste après ce que tu viens de taper.
     useApresRendu(() => {
@@ -1612,7 +1614,7 @@
   // Propositions de description par l'IA, gardées le temps de la session (on peut changer d'étape sans les perdre).
   const PROPOSITIONS_DESCRIPTION = new Map();
 
-  function EtapeDescription({ dispatch, article, majA }) {
+  function EtapeDescription({ etat, dispatch, article, majA }) {
     const descriptions = article.descriptions || DESCRIPTIONS_VIDES;
     const configIA = IA.active();
     const nomIA = IA.ASSISTANT.nom;
@@ -1623,7 +1625,7 @@
       if (!config) return;
       majProp(reseau, { etat: 'encours' });
       try {
-        const brut = await IA.demander(config, { systeme: R.consigneDescription(reseau), texte: R.consigne(article.texte.join('\n\n')), maxJetons: 1500, delai: 90000 });
+        const brut = await IA.demander(config, { systeme: R.consigneDescription(reseau), texte: R.consigne(article.texte.join('\n\n'), (etat && etat.projet && etat.projet.profilEditorial) || ''), maxJetons: 1500, delai: 90000 });
         const t = R.nettoyerDescription(brut);
         if (!t) throw new Error('La réponse de l’IA est vide. Réessaie.');
         majProp(reseau, { etat: 'fait', texte: T.appliquer(t, T.corrections(t)) });
@@ -1639,7 +1641,8 @@
         const limite = LIMITES_DESCRIPTION[reseau];
         return h(Carte, {
           key: reseau, titre: reseau === 'instagram' ? 'Légende Instagram' : 'Texte du post LinkedIn',
-          info: reseau === 'instagram' ? 'Seules les premières lignes s’affichent avant « plus » : la première phrase compte le plus.' : 'Il s’affiche au-dessus du document : il donne envie de l’ouvrir.',
+          info: (reseau === 'instagram' ? 'Seules les premières lignes s’affichent avant « plus » : la première phrase compte le plus.' : 'Il s’affiche au-dessus du document : il donne envie de l’ouvrir.')
+            + (configIA && etat && etat.projet && String(etat.projet.profilEditorial || '').trim() ? ` ${nomIA} tient compte de ton profil éditorial (Configuration › IA).` : ''),
           actions: h(Fragment, null,
             configIA && h(Bouton, { variante: 'petit', disabled: p.etat === 'encours', onClick: () => proposer(reseau) }, p.etat === 'encours' ? 'Rédaction…' : p.etat === 'fait' ? 'Autre proposition' : 'Proposer avec ' + nomIA),
             h(Bouton, { variante: 'petit', disabled: !texte, onClick: () => { if (navigator.clipboard) navigator.clipboard.writeText(texte).catch(() => {}); dispatch({ type: 'message', message: 'Description copiée.' }); } }, 'Copier')),
@@ -1879,7 +1882,7 @@
   function ProfilEditorial({ etat, dispatch }) {
     const valeur = (etat.projet && etat.projet.profilEditorial) || '';
     const changer = (t) => dispatch({ type: 'projet', maj: (pr) => ({ ...pr, profilEditorial: t }) });
-    return h(Carte, { titre: 'Ton profil éditorial', info: 'Ton public, ton ton, tes valeurs. La discussion avec l’IA s’en sert pour te conseiller au plus juste. Enregistré avec ta charte, donc sur tous tes appareils.' },
+    return h(Carte, { titre: 'Ton profil éditorial', info: 'Ton public, ton ton, tes valeurs. CCB s’en sert partout où il travaille sur ton texte : relecture, autres formulations, discussion et descriptions de publication. Il y puise le ton et le public visé, jamais des faits à ajouter. Enregistré avec ta charte, donc sur tous tes appareils.' },
       h('textarea', { className: 'zone-texte', rows: 6, value: valeur, placeholder: 'Qui tu es, pour qui tu écris, le ton que tu veux garder…', 'aria-label': 'Ton profil éditorial', onChange: (e) => changer(e.target.value) }),
       !valeur && h(Bouton, { variante: 'lien', onClick: () => changer(EXEMPLE_PROFIL) }, 'Partir d’une proposition, à vérifier et compléter'));
   }

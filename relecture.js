@@ -21,6 +21,14 @@
   const MAX_FORMULATIONS = 6; // la proposition principale et ses autres formulations
   const MAX_PROPOSITIONS = 30;
 
+  /* ---------- Profil éditorial (rempli dans Configuration), commun à toutes les demandes sur le texte ---------- */
+  const MAX_PROFIL = 3000;
+  const blocProfil = (profil) => {
+    const p = String(profil || '').trim();
+    return p ? 'Profil éditorial de la personne, entre les balises <profil> et </profil> :\n<profil>\n' + p.slice(0, MAX_PROFIL) + '\n</profil>\n\n' : '';
+  };
+  const REGLE_PROFIL = 'Profil éditorial : s’il est fourni entre <profil> et </profil>, sers-t’en pour juger ce qui convient à ce public, à ce ton et à ces valeurs. Il ne prime jamais sur les règles précédentes : tu n’en tires aucun fait, aucun nom, aucune information à ajouter, et il ne justifie aucun changement de sens. En cas de doute entre le profil et la voix de l’article, l’article l’emporte.';
+
   const SYSTEME = [
     'Tu relis un article en français destiné à LinkedIn et Instagram. Tu proposes des corrections ; la personne qui l’a écrit décide de chacune.',
     '',
@@ -29,7 +37,8 @@
     '- ponctuation (virgules, points), sauf la typographie décrite plus bas ;',
     '- vocabulaire impropre ou calqué sur l’anglais, répétitions gênantes ;',
     '- phrases peu claires, seulement si une reformulation courte les éclaircit vraiment ;',
-    '- tournures qu’on peut rendre plus justes, plus précises ou plus vivantes, même si elles sont correctes (type « style »).',
+    '- tournures qu’on peut rendre plus justes, plus précises ou plus vivantes, même si elles sont correctes (type « style ») ;',
+    '- tournures qui s’écartent nettement du public ou du ton décrits dans le profil éditorial, s’il est fourni (type « style ») ; dis-le dans « pourquoi ».',
     '',
     'Règles impératives :',
     '1. Ne change jamais le sens. Ne renforce ni n’affaiblis une affirmation. N’ajoute aucun fait.',
@@ -41,12 +50,13 @@
     '7. « avant » est copié du texte à l’identique, caractère pour caractère. « phrase » est la phrase entière qui le contient, copiée à l’identique.',
     '8. « vigilance » est rempli quand la proposition peut modifier une nuance, le ton ou le sens ; sinon, chaîne vide.',
     '9. Si le texte est correct, renvoie une liste vide. Au plus ' + MAX_PROPOSITIONS + ' propositions, dans l’ordre du texte.',
+    '10. ' + REGLE_PROFIL,
     '',
     'Réponds uniquement avec un objet JSON, sans aucun texte autour :',
     '{"propositions":[{"type":"orthographe|grammaire|conjugaison|ponctuation|vocabulaire|repetition|clarte|style","avant":"…","apres":"…","alternatives":["…","…"],"phrase":"…","pourquoi":"une phrase courte","vigilance":""}]}',
   ].join('\n');
 
-  const consigne = (texte) => 'Voici l’article à relire, entre les balises <article> et </article> :\n<article>\n' + texte + '\n</article>';
+  const consigne = (texte, profil) => blocProfil(profil) + 'Voici l’article à relire, entre les balises <article> et </article> :\n<article>\n' + texte + '\n</article>';
 
   /* ---------- Lire la réponse ---------- */
 
@@ -223,6 +233,7 @@
       '3. Ne recopie pas l’article : donne envie de le lire dans le carrousel.',
       '4. ' + r.regles,
       '5. Pas d’émoji, pas de titre, pas de guillemets autour de ta réponse.',
+      '6. ' + REGLE_PROFIL + ' Il t’aide notamment à choisir l’accroche, la question finale et les hashtags qui parlent à ce public.',
       '',
       'Réponds uniquement avec le texte de la description, prêt à être copié.',
     ].join('\n');
@@ -254,12 +265,13 @@
       '4. Ignore la typographie (espaces insécables, forme des guillemets et des apostrophes) : elle est corrigée automatiquement.',
       '5. Ne réécris que le passage, rien d’autre. Garde ses retours à la ligne s’ils séparent des paragraphes.',
       '6. « vigilance » signale ce qui pourrait faire bouger une nuance, le ton ou le sens ; sinon, chaîne vide.',
+      '7. ' + REGLE_PROFIL,
       '',
       'Réponds uniquement avec un objet JSON, sans aucun texte autour :',
       '{"proposition":"…","pourquoi":"une phrase courte","vigilance":""}',
     ].join('\n');
   }
-  const consigneSuggestionTexte = (article, passage) => consigne(article) + '\n\nPassage à retravailler, entre les balises <passage> et </passage> :\n<passage>\n' + passage + '\n</passage>';
+  const consigneSuggestionTexte = (article, passage, profil) => consigne(article, profil) + '\n\nPassage à retravailler, entre les balises <passage> et </passage> :\n<passage>\n' + passage + '\n</passage>';
   function lireSuggestion(brut, passage) {
     const donnees = premierObjet(brut, (o) => typeof o.proposition === 'string');
     if (!donnees) throw new Error('La réponse de l’IA est illisible. Réessaie.');
@@ -276,7 +288,7 @@
     '',
     'Comment tu travailles :',
     '- Lis tout l’article avant de répondre : son sujet, sa structure (accroche, récit, déclic, morale…), son ton, son public, et la place du passage choisi dans l’ensemble (ce qui le précède et ce qui le suit). Appuie chaque conseil sur ce contexte : cohérence du registre avec le reste du texte, répétitions avec d’autres paragraphes, transitions, rythme, effet recherché sur le lecteur.',
-    '- Tiens compte du profil éditorial s’il est fourni : public, ton, valeurs.',
+    '- Tiens compte du profil éditorial s’il est fourni entre <profil> et </profil> : public, ton, valeurs. Tu n’en tires aucun fait à ajouter au texte.',
     '- Sois concret : cite les mots en question et explique en une phrase pourquoi une tournure fonctionne mieux.',
     '- Donne ton avis franchement : dis quand le texte est déjà bon, et préviens quand une demande risque d’affaiblir le propos (registre décalé pour le public, nuance perdue), tout en proposant ce qui est demandé.',
     '- Si la demande est floue, propose une première piste et pose une question pour affiner.',
@@ -304,7 +316,7 @@
     const numerote = paras.map((p, i) => `[${i + 1}]${i === ou ? ' ← le passage choisi est dans ce paragraphe' : ''}\n${p}`).join('\n\n');
     const fil = (historique || []).slice(-MAX_HISTORIQUE).map((m) => (m.de === 'moi' ? 'Personne : ' : 'Toi : ') + m.texte + ((m.propositions || []).length ? ' [propositions : ' + m.propositions.map((p) => (p.titre ? p.titre + ' : ' : '') + '« ' + p.apres + ' »').join(' ; ') + ']' : '')).join('\n');
     return [
-      infos.profil ? 'Profil éditorial de la personne :\n' + infos.profil + '\n' : '',
+      blocProfil(infos.profil).trimEnd(),
       `Article${infos.titre ? ' « ' + infos.titre + ' »' : ''}${infos.reseau ? ', publié sur ' + infos.reseau : ''} (${paras.length} paragraphes), entre les balises <article> et </article> :`,
       '<article>\n' + numerote + '\n</article>',
       passage ? '\nPassage choisi' + (ou >= 0 ? ` (paragraphe ${ou + 1} sur ${paras.length})` : '') + ', entre les balises <passage> et </passage> :\n<passage>\n' + passage + '\n</passage>' : '\nAucun passage n’est choisi : la personne parle de l’article en général ou désigne un passage dans sa demande.',
@@ -352,9 +364,10 @@
   const SYSTEME_FORMULATIONS = [
     'Tu proposes d’autres formulations pour un passage d’un article en français destiné à LinkedIn et Instagram.',
     'Règles : garde le sens exact, sans renforcer ni affaiblir ; garde la voix de l’auteur ; chaque formulation doit pouvoir remplacer le passage telle quelle dans sa phrase ; elles doivent être différentes de celles déjà proposées et différentes entre elles (synonymes, tournures, images).',
+    REGLE_PROFIL,
     'Réponds uniquement avec un objet JSON, sans aucun texte autour : {"formulations":["…","…","…"]}',
   ].join('\n');
-  const messageFormulations = (article, phrase, passage, deja) => consigne(article)
+  const messageFormulations = (article, phrase, passage, deja, profil) => consigne(article, profil)
     + '\n\nPhrase concernée :\n' + phrase + '\n\nPassage à reformuler :\n<passage>' + passage + '</passage>'
     + '\n\nDéjà proposées (à ne pas répéter) :\n' + deja.map((x) => '- ' + x).join('\n') + '\n\nPropose 3 nouvelles formulations.';
   function lireFormulations(brut) {
@@ -369,7 +382,7 @@
   const JSON_DISCUSSION = { nom: 'repondre', description: 'Ta réponse à la personne, avec tes éventuelles propositions et des pistes pour continuer.', schema: { type: 'object', properties: { reponse: texteS, propositions: { type: 'array', items: { type: 'object', properties: { titre: texteS, avant: texteS, apres: texteS, pourquoi: texteS, vigilance: texteS }, required: ['titre', 'avant', 'apres'] } }, pistes: { type: 'array', items: texteS } }, required: ['reponse', 'propositions'] } };
   const JSON_FORMULATIONS = { nom: 'formulations', description: 'De nouvelles formulations du passage.', schema: { type: 'object', properties: { formulations: { type: 'array', items: texteS } }, required: ['formulations'] } };
 
-  const api = { JSON_RELECTURE, JSON_DISCUSSION, JSON_FORMULATIONS, extraireObjets, premierObjet, formulationsDe, SYSTEME_FORMULATIONS, messageFormulations, lireFormulations, MAX_FORMULATIONS, SYSTEME_DISCUSSION, messageDiscussion, lireDiscussion, placerPassage, MAX_HISTORIQUE, ACTIONS, MAX_PASSAGE, consigneSuggestion, consigneSuggestionTexte, lireSuggestion, RESEAUX, consigneDescription, nettoyerDescription, SYSTEME, consigne, lireReponse, simplifier, trouver, localiser, appliquer, apercu, recaler, TYPES, MAX_PROPOSITIONS };
+  const api = { blocProfil, REGLE_PROFIL, MAX_PROFIL, JSON_RELECTURE, JSON_DISCUSSION, JSON_FORMULATIONS, extraireObjets, premierObjet, formulationsDe, SYSTEME_FORMULATIONS, messageFormulations, lireFormulations, MAX_FORMULATIONS, SYSTEME_DISCUSSION, messageDiscussion, lireDiscussion, placerPassage, MAX_HISTORIQUE, ACTIONS, MAX_PASSAGE, consigneSuggestion, consigneSuggestionTexte, lireSuggestion, RESEAUX, consigneDescription, nettoyerDescription, SYSTEME, consigne, lireReponse, simplifier, trouver, localiser, appliquer, apercu, recaler, TYPES, MAX_PROPOSITIONS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else racine.PostsOPRelecture = api;
 })(typeof window !== 'undefined' ? window : globalThis);

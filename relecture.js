@@ -1,7 +1,7 @@
 /*
  * PostsOP — Relecture par l'IA (phase 4 ; décisions du 19 octobre 2026)
  *
- * L'IA (Claude par défaut) relit tout l'article : orthographe, grammaire, ponctuation, vocabulaire, clarté.
+ * L'IA (Anthropic par défaut) relit tout l'article : orthographe, grammaire, ponctuation, vocabulaire, clarté.
  * Elle propose, la personne décide de chaque proposition (Accepter, Modifier, Refuser, puis Annuler).
  * La typographie (espaces insécables, guillemets, apostrophes, points de suspension) reste à la correction
  * automatique : l'IA ne la propose pas, et toute modification acceptée passe par cette correction.
@@ -363,7 +363,13 @@
     return donnees.formulations.filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim());
   }
 
-  const api = { extraireObjets, premierObjet, formulationsDe, SYSTEME_FORMULATIONS, messageFormulations, lireFormulations, MAX_FORMULATIONS, SYSTEME_DISCUSSION, messageDiscussion, lireDiscussion, placerPassage, MAX_HISTORIQUE, ACTIONS, MAX_PASSAGE, consigneSuggestion, consigneSuggestionTexte, lireSuggestion, RESEAUX, consigneDescription, nettoyerDescription, SYSTEME, consigne, lireReponse, simplifier, trouver, localiser, appliquer, apercu, recaler, TYPES, MAX_PROPOSITIONS };
+  /* ---------- Formes de réponse imposées à l'IA (JSON toujours valide) ---------- */
+  const texteS = { type: 'string' };
+  const JSON_RELECTURE = { nom: 'propositions_de_relecture', description: 'Les propositions de correction du texte.', schema: { type: 'object', properties: { propositions: { type: 'array', items: { type: 'object', properties: { type: texteS, avant: texteS, apres: texteS, alternatives: { type: 'array', items: texteS }, phrase: texteS, pourquoi: texteS, vigilance: texteS }, required: ['type', 'avant', 'apres'] } } }, required: ['propositions'] } };
+  const JSON_DISCUSSION = { nom: 'repondre', description: 'Ta réponse à la personne, avec tes éventuelles propositions et des pistes pour continuer.', schema: { type: 'object', properties: { reponse: texteS, propositions: { type: 'array', items: { type: 'object', properties: { titre: texteS, avant: texteS, apres: texteS, pourquoi: texteS, vigilance: texteS }, required: ['titre', 'avant', 'apres'] } }, pistes: { type: 'array', items: texteS } }, required: ['reponse', 'propositions'] } };
+  const JSON_FORMULATIONS = { nom: 'formulations', description: 'De nouvelles formulations du passage.', schema: { type: 'object', properties: { formulations: { type: 'array', items: texteS } }, required: ['formulations'] } };
+
+  const api = { JSON_RELECTURE, JSON_DISCUSSION, JSON_FORMULATIONS, extraireObjets, premierObjet, formulationsDe, SYSTEME_FORMULATIONS, messageFormulations, lireFormulations, MAX_FORMULATIONS, SYSTEME_DISCUSSION, messageDiscussion, lireDiscussion, placerPassage, MAX_HISTORIQUE, ACTIONS, MAX_PASSAGE, consigneSuggestion, consigneSuggestionTexte, lireSuggestion, RESEAUX, consigneDescription, nettoyerDescription, SYSTEME, consigne, lireReponse, simplifier, trouver, localiser, appliquer, apercu, recaler, TYPES, MAX_PROPOSITIONS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else racine.PostsOPRelecture = api;
 })(typeof window !== 'undefined' ? window : globalThis);

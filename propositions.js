@@ -1,7 +1,7 @@
 /*
  * PostsOP — propositions de mise en page par l'IA (étape 2 de l'espace de mise en page, 20 octobre 2026)
  *
- * Principe : l'IA choisit, le moteur dessine. Claude propose des plans (découpage en slides, gabarit et
+ * Principe : l'IA choisit, le moteur dessine. L'IA propose des plans (découpage en slides, gabarit et
  * styles de chaque paragraphe, fond) en ne choisissant que dans le catalogue de la charte ; PostsOP construit
  * les slides avec son moteur et vérifie chaque plan. Le texte de l'article ne change jamais : chaque plan
  * doit reprendre tous les paragraphes, dans l'ordre, une seule fois, sinon il est écarté.
@@ -130,7 +130,9 @@
     return verifierPlan({ nom, pourquoi: 'Un carrousel que tu as gardé, adapté au volume de ce texte.', fond: recette.fond, slides }, n, gabarits, fonds, natures);
   }
 
-  const api = { recetteDe, adapterRecette, MAX_PROPOSITIONS, SYSTEME, catalogue, messageGeneration, messageEvolution, lireReponse, verifierPlan, construireSlides };
+  const JSON_PLANS = { nom: 'mises_en_page', description: 'Les mises en page proposées.', schema: { type: 'object', properties: { reponse: { type: 'string' }, propositions: { type: 'array', items: { type: 'object', properties: { nom: { type: 'string' }, pourquoi: { type: 'string' }, fond: { type: 'string' }, slides: { type: 'array', items: { type: 'object', properties: { gabarit: { type: 'string' }, paragraphes: { type: 'array', items: { type: 'integer' } }, styles: { type: 'array', items: { type: 'string' } } }, required: ['gabarit', 'paragraphes'] } } }, required: ['nom', 'fond', 'slides'] } } }, required: ['propositions'] } };
+
+  const api = { JSON_PLANS, recetteDe, adapterRecette, MAX_PROPOSITIONS, SYSTEME, catalogue, messageGeneration, messageEvolution, lireReponse, verifierPlan, construireSlides };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else racine.PostsOPPropositions = api;
 })(typeof window !== 'undefined' ? window : globalThis);

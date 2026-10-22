@@ -251,6 +251,21 @@
       const pop = useRef(null);
       const minuterie = useRef(null);
       const parSurvol = useRef(false); // sous-menu ouvert par le survol : le clic qui suit ne doit pas le refermer
+      const ident = useRef(Math.random());
+      // Un seul sous-menu ouvert à la fois dans une même liste : celui qui s'ouvre prévient ses voisins, qui se referment.
+      useEffect(() => {
+        const liste = parentRef && parentRef.current;
+        if (el.type !== 'sous' || !liste) return undefined;
+        const ecouter = (e) => { if (e.detail !== ident.current) { clearTimeout(minuterie.current); parSurvol.current = false; setOuvert(false); } };
+        liste.addEventListener('sous-ouvert', ecouter);
+        return () => liste.removeEventListener('sous-ouvert', ecouter);
+      }, [el.type]);
+      const ouvrirSous = (survol) => {
+        parSurvol.current = survol;
+        setOuvert(true);
+        const liste = parentRef && parentRef.current;
+        if (liste) liste.dispatchEvent(new CustomEvent('sous-ouvert', { detail: ident.current }));
+      };
       const apresRetour = useRef(false); // après « Retour », le survol ne rouvre pas le sous-menu tant que le pointeur n'est pas reparti
       useMiseEnPage(() => { if (ouvert && pop.current && ancre.current && parentRef.current) { const r = placerSousMenu(pop.current, ancre.current, parentRef.current); if (r !== remplace) setRemplace(r); } }, [ouvert, remplace]);
       useEffect(() => () => clearTimeout(minuterie.current), []);
@@ -261,10 +276,10 @@
       if (el.type === 'sous') {
         return h('div', {
           className: 'sous-menu',
-          onPointerEnter: (e) => { if (e.pointerType === 'touch' || apresRetour.current) return; clearTimeout(minuterie.current); minuterie.current = setTimeout(() => { parSurvol.current = true; setOuvert(true); }, 80); },
+          onPointerEnter: (e) => { if (e.pointerType === 'touch' || apresRetour.current) return; clearTimeout(minuterie.current); minuterie.current = setTimeout(() => ouvrirSous(true), 80); },
           onPointerLeave: (e) => { if (e.pointerType !== 'touch') { clearTimeout(minuterie.current); apresRetour.current = false; } },
         },
-        h('button', { ref: ancre, type: 'button', className: 'item-menu', role: 'menuitem', 'aria-haspopup': 'true', 'aria-expanded': ouvert, onMouseDown: garder, onClick: () => { clearTimeout(minuterie.current); if (parSurvol.current) { parSurvol.current = false; setOuvert(true); } else setOuvert(!ouvert); } },
+        h('button', { ref: ancre, type: 'button', className: 'item-menu', role: 'menuitem', 'aria-haspopup': 'true', 'aria-expanded': ouvert, onMouseDown: garder, onClick: () => { clearTimeout(minuterie.current); if (parSurvol.current) { parSurvol.current = false; ouvrirSous(false); } else if (ouvert) setOuvert(false); else ouvrirSous(false); } },
           h('span', null, el.libelle), h('svg', { className: 'fleche-droite', viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d: 'M9 6l6 6-6 6', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' }))),
         ouvert && h('div', { ref: pop, className: 'popover-menu sous', role: 'menu', 'data-sous': el.libelle },
           remplace && h('button', { type: 'button', className: 'item-menu retour', onMouseDown: garder, onClick: () => { apresRetour.current = true; setOuvert(false); } },
@@ -274,7 +289,8 @@
       return h('button', {
         type: 'button', className: cls('item-menu', el.danger && 'danger'), role: el.coche === undefined ? 'menuitem' : 'menuitemcheckbox', 'aria-checked': el.coche === undefined ? undefined : !!el.coche,
         disabled: el.desactive, onMouseDown: garder, onClick: () => { fermer(); el.action(); },
-        onPointerEnter: () => { const p = parentRef.current; if (p) for (const s of p.querySelectorAll(':scope > .sous-menu > [aria-expanded="true"]')) s.click(); },
+        // Survoler un élément simple referme le sous-menu voisin resté ouvert.
+        onPointerEnter: (e) => { const p = parentRef.current; if (p && e.pointerType !== 'touch') p.dispatchEvent(new CustomEvent('sous-ouvert', { detail: null })); },
       }, h('span', { className: 'libelle-item' }, el.libelle), el.raccourci && h('span', { className: 'raccourci' }, el.raccourci));
     }
 

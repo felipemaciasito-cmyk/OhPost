@@ -773,7 +773,7 @@ canvas.slide.editable { cursor: text; }
 @media (max-width: 700px) { .calendrier-case { min-height: 64px; } .calendrier-item span { display: none; } }
 
 /* Discussion avec l'IA : petite fenêtre au-dessus du panneau de droite */
-.fenetre-discussion { position: fixed; top: 146px; right: 20px; z-index: 30; width: min(420px, calc(100vw - 40px)); max-height: calc(100vh - 240px); box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 12px; border-radius: 20px; background: var(--surface); border: 1px solid var(--trait); box-shadow: 0 18px 50px rgba(0, 30, 40, 0.25); }
+.fenetre-discussion { position: fixed; top: 146px; right: 20px; z-index: 45; width: min(420px, calc(100vw - 40px)); max-height: calc(100vh - 146px - 120px - env(safe-area-inset-bottom, 0px)); box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 12px; border-radius: 20px; background: var(--surface); border: 1px solid var(--trait); box-shadow: 0 18px 50px rgba(0, 30, 40, 0.25); }
 .fenetre-discussion h3 { margin: 0; font-size: 20px; }
 .discussion-passage { display: flex; align-items: flex-start; gap: 6px; padding: 8px 10px; border-radius: 12px; background: var(--touche-doux); color: var(--touche-texte); font-size: 14px; }
 .discussion-passage span { flex: 1 1 auto; }
@@ -884,11 +884,15 @@ canvas.slide.editable { cursor: text; }
 /* Le petit robot de la discussion */
 .robot { display: inline-block; line-height: 0; }
 .robot svg { display: block; }
-.bouton-robot { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; padding: 0; border: 0; border-radius: 16px; background: #F3F6CE; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; }
-.bouton-robot:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 56, 70, 0.18); }
-.bouton-robot:focus-visible { outline: 3px solid var(--action); outline-offset: 2px; }
-.bouton-robot.actif { box-shadow: inset 0 0 0 2px #003846; }
-@media (prefers-reduced-motion: reduce) { .bouton-robot { transition: none; } .bouton-robot:hover { transform: none; } }
+/* Bouton CCB (choix du 22 octobre 2026) — interfaces claires : « Soulevé », sans fond au repos, fond blanc et ombre au survol ;
+   interfaces foncées : fond blanc à 35 %, 55 % au survol. Ouvert, il garde son état « survol ». */
+.bouton-robot, .outil-robot { display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; background: transparent; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease; }
+.bouton-robot { width: 56px; height: 56px; border-radius: 16px; }
+.bouton-robot:hover, .outil-robot:hover, .bouton-robot.actif, .outil-robot.actif { background: #FFFFFF; box-shadow: 0 4px 14px rgba(0, 56, 70, 0.22); transform: translateY(-1px); }
+.bouton-robot:focus-visible, .outil-robot:focus-visible { outline: 3px solid var(--action); outline-offset: 2px; }
+.theme-sombre .bouton-robot, .theme-sombre .outil-robot { background: rgba(255, 255, 255, 0.35); }
+.theme-sombre .bouton-robot:hover, .theme-sombre .outil-robot:hover, .theme-sombre .bouton-robot.actif, .theme-sombre .outil-robot.actif { background: rgba(255, 255, 255, 0.55); box-shadow: none; transform: none; }
+@media (prefers-reduced-motion: reduce) { .bouton-robot, .outil-robot { transition: none; } .bouton-robot:hover, .outil-robot:hover, .bouton-robot.actif, .outil-robot.actif { transform: none; } }
 
 /* Discussion : titre de chaque proposition */
 .titre-proposition { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; color: var(--texte); }
@@ -897,8 +901,12 @@ canvas.slide.editable { cursor: text; }
 /* Robot de l'assistant dans Composition : barre de menus et barre flottante */
 .historique-menus { display: inline-flex; align-items: center; gap: 8px; }
 .bouton-robot-menu { width: 44px; height: 44px; border-radius: 12px; }
-.outil-robot { display: inline-flex; align-items: center; justify-content: center; padding: 2px 4px; border-radius: 10px; background: #F3F6CE; }
-.outil-robot.actif { box-shadow: inset 0 0 0 2px #003846; }
+.outil-robot { width: 40px; height: 40px; border-radius: 10px; }
 
 /* Étape Texte : « Nouveau texte » et le robot en dessous */
 .actions-texte { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+
+/* Configuration › IA : options avancées repliées ; titre de la fenêtre CCB */
+.options-avancees { margin-top: 8px; }
+.options-avancees summary { min-height: 40px; display: flex; align-items: center; cursor: pointer; color: var(--doux); font-weight: 600; }
+.titre-ccb .petit { font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; font-weight: 400; }

@@ -18,13 +18,14 @@
   const T = racine.PostsOPTypographie || require('./typographie.js');
   const IA = racine.PostsOPIA || require('./ia.js');
   const R = racine.PostsOPRelecture || require('./relecture.js');
-  const VERSION = '2026-10-21.15'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-22.3'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
     const manque = [];
     const verifier = (module, nom, fonctions) => { if (!module || fonctions.some((f) => typeof module[f] !== 'function')) manque.push(nom); };
     verifier(R, 'relecture.js', ['messageDiscussion', 'lireDiscussion', 'placerPassage', 'consigneDescription', 'lireSuggestion', 'formulationsDe', 'lireFormulations', 'premierObjet']);
+    if (racine.PostsOPRelecture && !racine.PostsOPRelecture.JSON_DISCUSSION) manque.push('relecture.js');
     verifier(racine.PostsOPTypographie || (typeof require === 'function' ? require('./typographie.js') : null), 'typographie.js', ['notesDeTravail', 'retirerLignes', 'corrections']);
     verifier(racine.PostsOPIA || (typeof require === 'function' ? require('./ia.js') : null), 'ia.js', ['demander', 'active']);
     if (typeof window !== 'undefined') verifier(racine.PostsOPPropositions, 'propositions.js', ['lireReponse', 'construireSlides', 'adapterRecette']);
@@ -98,9 +99,9 @@
   const AIDES = {
     bibliotheque: { titre: 'Tes articles', textes: ['Trois sections : En cours, Publiés (validés par toi) et Corbeille, d’où tu peux restaurer un article.', 'Le menu « … » d’une carte permet de dupliquer, d’utiliser un article comme modèle pour un nouveau texte, de le marquer comme publié ou de le mettre à la corbeille.', 'Trie et affiche tes articles comme tu veux, en grille ou en liste. « Annuler » et ⌘Z (Ctrl+Z) reviennent en arrière à tout moment.', 'Calendrier : place tes articles sur une date, puis « Programmer un rappel » ajoute une alerte au calendrier de ton appareil. La publication automatique arrivera plus tard.'] },
     configuration: { titre: 'La configuration', textes: ['Charte : tes couleurs et tes tailles de texte. Tout changement s’applique à tous tes carrousels.', 'Ressources : tes polices, ton logo et tes fleurs, importés une fois et retrouvés sur tous tes appareils.', 'Réglages : le comportement de l’outil. Synchronisation : la liaison avec ton dépôt GitHub privé.', 'IA : le fournisseur d’intelligence artificielle et sa clé. Comme la clé GitHub, elle reste sur l’appareil : à saisir une fois sur chacun.'] },
-    texte: { titre: 'Étape 1 · Texte', textes: ['Ton texte est la référence du carrousel : chaque modification ici met les slides à jour, sans toucher à leur mise en page. Et un paragraphe modifié dans Design modifie aussi ce texte.', 'Avec une IA active (Configuration, onglet IA), « Relire avec Claude » propose des corrections sous forme de cartes : accepte, modifie ou refuse chacune ; rien n’est appliqué sans toi. Sans IA, la vérification LanguageTool surligne les fautes ; pour chacune, choisis la bonne correction ou ignore-la.', 'La typographie française se corrige toute seule quand tu tapes ou colles du texte, ici comme sur les slides : un message montre chaque correction, avec « Annuler ».', 'Discussion : sélectionne un passage, puis « Discuter avec Claude ». Donne tes consignes en langage naturel et demande plusieurs propositions ; « Appliquer » remplace le passage, « Annuler » le rétablit.', 'Les suggestions de style arriveront avec l’IA : tu sélectionneras un passage directement dans ton texte.'] },
+    texte: { titre: 'Étape 1 · Texte', textes: ['Ton texte est la référence du carrousel : chaque modification ici met les slides à jour, sans toucher à leur mise en page. Et un paragraphe modifié dans Design modifie aussi ce texte.', 'Avec une IA active (Configuration, onglet IA), « Relire avec CCB » propose des corrections sous forme de cartes : accepte, modifie ou refuse chacune ; rien n’est appliqué sans toi. Sans IA, la vérification LanguageTool surligne les fautes ; pour chacune, choisis la bonne correction ou ignore-la.', 'La typographie française se corrige toute seule quand tu tapes ou colles du texte, ici comme sur les slides : un message montre chaque correction, avec « Annuler ».', 'Discussion : sélectionne un passage, puis « CCB » (le petit robot). Donne tes consignes en langage naturel et demande plusieurs propositions ; « Appliquer » remplace le passage, « Annuler » le rétablit.', 'Les suggestions de style arriveront avec l’IA : tu sélectionneras un passage directement dans ton texte.'] },
     composition: { titre: 'Étape 2 · Composition', textes: ['Tes slides, les unes sous les autres, exactement comme elles seront exportées. Clique dans un paragraphe pour l’écrire à sa place ; sélectionne des mots pour les mettre en forme avec la petite barre qui apparaît.', 'Entrée crée un nouveau paragraphe, ⇧Entrée un retour à la ligne, ⌘↩ (Ctrl+↩) un saut de slide. ⌫ au début d’un paragraphe le réunit au précédent ; au début d’une slide, avec la slide précédente.', 'Les menus en haut regroupent tout le reste : gabarits, fond, logo, redécoupage, et Vérifier pour les points à regarder. Ton texte reste la référence : chaque modification ici le met à jour.'] },
-    description: { titre: 'Étape 4 · Description', textes: ['Le texte qui accompagne le carrousel : légende Instagram et texte du post LinkedIn.', 'Avec une IA active, « Proposer avec Claude » écrit une première version à partir de ton article. Tu choisis de l’utiliser ou non, puis tu la modifies : rien n’est publié tout seul.'] },
+    description: { titre: 'Étape 4 · Description', textes: ['Le texte qui accompagne le carrousel : légende Instagram et texte du post LinkedIn.', 'Avec une IA active, « Proposer avec CCB » écrit une première version à partir de ton article. Tu choisis de l’utiliser ou non, puis tu la modifies : rien n’est publié tout seul.'] },
     export: { titre: 'Étape 5 · Export', textes: ['Les fichiers à publier : des images PNG pour Instagram, un PDF pour LinkedIn, ou les deux.', 'S’il reste des alertes, l’outil te les rappelle avant d’exporter : à toi de décider.', 'Une fois publié sur le réseau, marque l’article comme publié : il rejoint la section Publiés.', 'Calendrier : planifie la date de publication de chaque carrousel, et ajoute un rappel au calendrier de ton appareil.'] },
   };
 
@@ -1091,7 +1092,7 @@
       const source = texteComplet;
       maj({ etat: 'encours', detail: '' });
       try {
-        const reponse = await IA.demander(config, { systeme: R.SYSTEME, texte: R.consigne(source), maxJetons: 6000, delai: 150000 });
+        const reponse = await IA.demander(config, { systeme: R.SYSTEME, texte: R.consigne(source), maxJetons: 6000, delai: 150000 , json: R.JSON_RELECTURE });
         const { retenues, ecartees } = R.localiser(source, R.lireReponse(reponse));
         const x = dernier.current; // le texte a pu changer pendant l'attente : on recale
         const props = R.recaler(source, x.source, retenues.map((p) => ({ ...p, statut: 'attente', apercu: R.apercu(source, p) })));
@@ -1113,7 +1114,7 @@
       majP((q) => ({ ...q, chargement: true, erreurFormulations: '' }));
       try {
         const deja = p.formulations && p.formulations.length ? p.formulations : [p.apres];
-        const brut = await IA.demander(config, { systeme: R.SYSTEME_FORMULATIONS, texte: R.messageFormulations(texteComplet, p.contexteAvant + p.avant + p.contexteApres, p.avant, deja), maxJetons: 800, delai: 60000 });
+        const brut = await IA.demander(config, { systeme: R.SYSTEME_FORMULATIONS, texte: R.messageFormulations(texteComplet, p.contexteAvant + p.avant + p.contexteApres, p.avant, deja), maxJetons: 800, delai: 60000 , json: R.JSON_FORMULATIONS });
         const nouvelles = R.lireFormulations(brut);
         majP((q) => {
           const liste = R.formulationsDe(q.formulations[0] || q.apres, nouvelles, q.avant, q.formulations && q.formulations.length ? q.formulations : [q.apres]);
@@ -1234,7 +1235,7 @@
       const historique = avant.messages;
       maj({ ...avant, passageConv: historique.length ? avant.passageConv : (passage || ''), messages: historique.concat([{ de: 'moi', texte }]), etat: 'encours', detail: '' });
       try {
-        const brut = await IA.demander(config, { systeme: R.SYSTEME_DISCUSSION, texte: R.messageDiscussion(texteComplet, passage || '', historique, texte, { profil, titre: article.titre, reseau: article.reseau === 'linkedin' ? 'LinkedIn' : 'Instagram' }), maxJetons: 4000, delai: 120000 });
+        const brut = await IA.demander(config, { systeme: R.SYSTEME_DISCUSSION, texte: R.messageDiscussion(texteComplet, passage || '', historique, texte, { profil, titre: article.titre, reseau: article.reseau === 'linkedin' ? 'LinkedIn' : 'Instagram' }), maxJetons: 4000, delai: 120000 , json: R.JSON_DISCUSSION });
         const r = R.lireDiscussion(brut);
         const x = dernier.current;
         maj({ ...x, etat: 'repos', messages: x.messages.concat([{ de: 'ia', texte: r.reponse, pistes: r.pistes || [], passage: passage || '', propositions: r.propositions.map((q) => ({ ...q, apercu: T.appliquer(q.apres, T.corrections(q.apres)), statut: 'attente' })) }]) });
@@ -1313,9 +1314,9 @@
             h(Bouton, { variante: 'icone', etiquette: 'Supprimer cette conversation', onClick: () => disc.supprimerConversation(c.id) }, '×')))),
         h(Bouton, { variante: 'principal', onClick: disc.nouvelle }, 'Nouvelle conversation'));
     }
-    return h('div', { className: 'fenetre-discussion', role: 'dialog', 'aria-label': 'Discuter avec ' + nomIA },
+    return h('div', { className: 'fenetre-discussion', role: 'dialog', 'aria-label': 'CCB · Creative Collaborative Boost' },
       h('div', { className: 'proposition-tete' },
-        h('h3', { className: 'gill' }, 'Discuter avec ' + nomIA),
+        h('h3', { className: 'gill titre-ccb' }, 'CCB', h('span', { className: 'doux petit' }, ' · Creative Collaborative Boost')),
         h(Bouton, { variante: 'icone', etiquette: 'Fermer la discussion', titre: 'Fermer (la conversation est gardée)', onClick: disc.fermer }, '×')),
       (disc.conversations.length > 0 || disc.messages.length > 0) && h('div', { className: 'discussion-outils' },
         disc.conversations.length > 0 && h(Bouton, { variante: 'lien', onClick: disc.voirHistorique }, 'Historique (' + disc.conversations.length + ')'),
@@ -1534,8 +1535,8 @@
             h(Bouton, { variante: 'petit', onClick: () => setRemplacer('') }, 'Nouveau texte'),
             h('button', {
               type: 'button', className: cls('bouton-robot', disc.ouvert && 'actif'),
-              'aria-label': !relectureIA ? 'Discuter avec l’IA' : disc.ouvert ? 'Fermer la discussion' : 'Discuter avec ' + IA.FOURNISSEURS[configIA.fournisseur].nom,
-              title: !relectureIA ? 'Discuter avec l’IA' : disc.ouvert ? 'Fermer la discussion' : 'Discuter avec ' + IA.FOURNISSEURS[configIA.fournisseur].nom,
+              'aria-label': disc.ouvert ? 'Fermer CCB' : 'CCB · Creative Collaborative Boost',
+              title: disc.ouvert ? 'Fermer CCB' : 'CCB · Creative Collaborative Boost',
               'aria-expanded': relectureIA ? disc.ouvert : undefined,
               onClick: () => (!relectureIA ? dispatch({ type: 'message', message: 'Pour discuter avec l’IA, ajoute une clé dans Configuration, onglet IA.' }) : disc.ouvert ? disc.fermer() : disc.ouvrir()),
             }, h(Robot, { taille: 46 }))) },
@@ -1546,7 +1547,7 @@
               return [{ debut: selection.debut, fin: selection.fin, classe: 'passage-discussion' }].concat(autres.filter((m) => m.fin <= selection.debut || m.debut >= selection.fin));
             })(), active: actifRelecture !== undefined ? actifRelecture : active, zoneRef: zone, onCurseur: relectureIA ? rel.curseur : undefined, onSelection: choisirSelection }))),
       h('aside', { className: 'panneau' },
-        relectureIA && h(PanneauRelecture, { rel, nomIA: IA.FOURNISSEURS[configIA.fournisseur].nom, onSecours: () => setSecours(true) }),
+        relectureIA && h(PanneauRelecture, { rel, nomIA: IA.ASSISTANT.nom, onSecours: () => setSecours(true) }),
         !relectureIA && h(Carte, { titre: 'Orthographe et grammaire', info: 'Vérification par LanguageTool, un service gratuit. Rien n’est corrigé sans ton accord.', sousTitre: 'Les fautes sont surlignées dans ton texte.', actions: h(Bouton, { variante: 'principal', onClick: verifier, disabled: verification.etat === 'encours' }, verification.etat === 'encours' ? 'Vérification…' : 'Vérifier') },
           verification.etat === 'erreur' && h('p', { className: 'erreur petit' }, 'Vérification impossible : ' + verification.detail),
           verification.etat === 'fait' && !verification.erreurs.length && h('p', { className: 'ok petit' }, 'Aucune faute détectée.'),
@@ -1563,7 +1564,7 @@
           }),
           h('p', { className: 'mention' }, 'Correction fournie par ', h('a', { href: 'https://languagetool.org', target: '_blank', rel: 'noopener' }, 'LanguageTool'), '.'),
           configIA
-            ? h(Bouton, { variante: 'lien', onClick: () => setSecours(false) }, 'Revenir à la relecture par ' + IA.FOURNISSEURS[configIA.fournisseur].nom)
+            ? h(Bouton, { variante: 'lien', onClick: () => setSecours(false) }, 'Revenir à la relecture par ' + IA.ASSISTANT.nom)
             : h('p', { className: 'doux petit' }, 'Pour une relecture complète (grammaire, vocabulaire, clarté), ajoute une clé dans Configuration, onglet IA.')),
         h(Carte, { titre: 'Typographie', info: 'Ces règles ne changent jamais tes mots. Les adresses web, les heures (14:30) et les nombres ne sont pas touchés.', sousTitre: 'Corrigée toute seule quand tu tapes ou colles : espace insécable avant : ; ! ? et dans « », guillemets « », apostrophe ’, points de suspension …' },
           typo.total
@@ -1572,7 +1573,7 @@
               h(Bouton, { variante: 'principal', onClick: () => majA(T.corrigerArticle, null, 'Typographie corrigée : ' + T.resume(typo.liste) + '.') }, 'Corriger la typographie'))
             : h('p', { className: 'ok petit' }, 'Ton article respecte ces règles.')),
         relectureIA && disc.ouvert && h(FenetreDiscussion, {
-          disc, nomIA: IA.FOURNISSEURS[configIA.fournisseur].nom, passage: passageChoisi, onRetirerPassage: () => setSelection(null),
+          disc, nomIA: IA.ASSISTANT.nom, passage: passageChoisi, onRetirerPassage: () => setSelection(null),
           onChoisirPassage: (t) => { const pos = R.placerPassage(texteComplet, t, null); if (pos) setSelection({ debut: pos[0], fin: pos[1] }); else disc.signaler('Ce passage n’est plus dans ton texte tel quel : sélectionne-le de nouveau.'); },
         })),
       remplacer !== null && h(Feuille, { titre: 'Nouveau texte', onAnnuler: () => setRemplacer(null), action: h(Bouton, { variante: 'principal', disabled: !remplacer.trim(), onClick: remplacerTout }, 'Remplacer') },
@@ -1597,7 +1598,7 @@
   function EtapeDescription({ dispatch, article, majA }) {
     const descriptions = article.descriptions || DESCRIPTIONS_VIDES;
     const configIA = IA.active();
-    const nomIA = configIA ? IA.FOURNISSEURS[configIA.fournisseur].nom : '';
+    const nomIA = IA.ASSISTANT.nom;
     const [props, setProps] = useState(() => PROPOSITIONS_DESCRIPTION.get(article.id) || {});
     const majProp = (reseau, valeur) => setProps((x) => { const y = { ...x, [reseau]: valeur }; PROPOSITIONS_DESCRIPTION.set(article.id, y); return y; });
     async function proposer(reseau) {
@@ -1614,7 +1615,7 @@
       }
     }
     return h('div', { className: 'colonne-unique' },
-      !configIA && h('p', { className: 'note' }, 'Pour que Claude te propose une description, ajoute une clé dans Configuration, onglet IA.'),
+      !configIA && h('p', { className: 'note' }, 'Pour que ' + IA.ASSISTANT.nom + ' te propose une description, ajoute une clé dans Configuration, onglet IA.'),
       ['instagram', 'linkedin'].map((reseau) => {
         const texte = descriptions[reseau].fr || '';
         const p = props[reseau] || { etat: 'repos' };
@@ -1841,7 +1842,7 @@
         h('p', { className: 'doux petit' }, 'Ne colle jamais cette clé dans une conversation ni dans ton dépôt public. Si elle fuit, supprime-la sur GitHub et crées-en une autre.')));
   }
 
-  // Fournisseur d'IA : Claude par défaut, Mistral en option. Tout reste sur cet appareil (voir ia.js).
+  // Fournisseur d'IA : Anthropic par défaut, Mistral en option. Tout reste sur cet appareil (voir ia.js).
   const GUIDES_IA = {
     claude: [
       ['Sur ', h('strong', null, 'platform.claude.com'), ', crée un compte au nom de l’entreprise.'],
@@ -1911,16 +1912,17 @@
       etat && h(ProfilEditorial, { etat, dispatch }),
       h(Carte, { titre: 'État' },
         h('p', null, actif
-          ? h(Fragment, null, h(Pastille, { ton: 'ok' }, `${IA.FOURNISSEURS[actif.fournisseur].nom} actif`), ' ', h('span', { className: 'doux petit' }, `Modèle ${actif.modele}.`))
+          ? h(Fragment, null, h(Pastille, { ton: 'ok' }, `${IA.FOURNISSEURS[actif.fournisseur].nom} actif`))
           : h(Fragment, null, h(Pastille, { ton: 'attention' }, 'Aucune IA active'), ' ', h('span', { className: 'doux petit' }, 'L’app fonctionne normalement sans IA.')))),
       h(Carte, { titre: 'Fournisseur d’IA', info: 'Les coûts sont prélevés sur le compte que tu ouvres chez le fournisseur, jamais par PostsOP. Tes textes ne lui sont envoyés que lorsque tu demandes une proposition.' },
         h(Ligne, { etiquette: 'Fournisseur', aide: fournisseur === 'claude' ? 'Par défaut. Société américaine Anthropic.' : 'Société française ; données hébergées en Europe.' },
-          h(Segmente, { etiquette: 'Fournisseur', valeur: fournisseur, onChange: choisir, options: [{ valeur: 'claude', libelle: 'Claude' }, { valeur: 'mistral', libelle: 'Mistral' }] })),
+          h(Segmente, { etiquette: 'Fournisseur', valeur: fournisseur, onChange: choisir, options: [{ valeur: 'claude', libelle: 'Anthropic' }, { valeur: 'mistral', libelle: 'Mistral' }] })),
         h(Ligne, { etiquette: 'Clé d’API', aide: aideCle },
           h('input', { className: 'champ-texte', type: 'password', value: cle, autoComplete: 'off', autoCapitalize: 'off', autoCorrect: 'off', spellCheck: false, onChange: (e) => setCle(e.target.value), 'aria-label': 'Clé d’API ' + f.nom })),
         douteuse && h('p', { className: 'erreur petit' }, `Cette clé ne commence pas par « ${f.prefixe} » : vérifie qu’il s’agit bien d’une clé ${f.nom}.`),
-        h(Ligne, { etiquette: 'Modèle', aide: `Laisse « ${f.modele} », sauf si le fournisseur retire ce modèle.` },
-          h('input', { className: 'champ-texte', value: modele, autoComplete: 'off', autoCapitalize: 'off', autoCorrect: 'off', spellCheck: false, onChange: (e) => setModele(e.target.value), 'aria-label': 'Modèle ' + f.nom })),
+        h('details', { className: 'options-avancees' }, h('summary', null, 'Options avancées'),
+          h(Ligne, { etiquette: 'Modèle', aide: 'À ne changer que si le fournisseur retire ce modèle.' },
+          h('input', { className: 'champ-texte', value: modele, autoComplete: 'off', autoCapitalize: 'off', autoCorrect: 'off', spellCheck: false, onChange: (e) => setModele(e.target.value), 'aria-label': 'Modèle ' + f.nom }))),
         h('div', { className: 'actions-ligne' },
           h(Bouton, { variante: 'principal', disabled: test.etat === 'encours', onClick: testerEtEnregistrer }, 'Tester et enregistrer'),
           cleEnregistree && h(Bouton, { variante: 'lien', onClick: oublier }, 'Oublier la clé sur cet appareil')),

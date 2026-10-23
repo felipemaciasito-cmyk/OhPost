@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-23.5'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-23.6'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -978,7 +978,7 @@
       h('p', { className: 'doux petit' }, `Logo sur ${compte('logo')} page${compte('logo') > 1 ? 's' : ''}, fleurs sur ${compte('fleurs')} page${compte('fleurs') > 1 ? 's' : ''}. Tu pourras encore tout déplacer page par page dans Composition.`));
   }
 
-  // Aperçu « comme dans le fil » : la couverture telle qu'elle apparaît dans un fil, puis les pages qu'on fait défiler.
+  // Aperçu du post : la couverture telle qu'elle apparaît dans un fil, puis les pages qu'on fait défiler.
   function ApercuFil({ slides, format, fond, texte, onFermer }) {
     const [page, setPage] = useState(0);
     const n = slides.length;
@@ -990,7 +990,7 @@
     const ratio = M.FORMATS[format].h / M.FORMATS[format].l;
     const largeur = Math.round(Math.max(220, Math.min(440, (racine.innerWidth || 480) - 60, ((racine.innerHeight || 820) - 240) / ratio)));
     const extrait = String(texte || '').replace(/\s+/g, ' ').slice(0, 120);
-    return h('div', { className: 'voile fil-voile', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Aperçu comme dans le fil', onClick: (e) => { if (e.target === e.currentTarget) onFermer(); } },
+    return h('div', { className: 'voile fil-voile', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Aperçu du post', onClick: (e) => { if (e.target === e.currentTarget) onFermer(); } },
       h('div', { className: 'fil-cadre' },
         h('div', { className: 'fil-tete' }, h('span', { className: 'doux petit' }, 'Aperçu indicatif : chaque réseau présente le carrousel à sa façon.'), h(Bouton, { variante: 'petit', onClick: onFermer }, 'Fermer')),
         h('div', { className: 'post-fil', style: { width: largeur + 'px' } },
@@ -1207,7 +1207,7 @@
           discussionCCB,
           !discOuverte && h('p', null, pourquoiChoix),
           gen.detail && etatGen === 'repos' && h('p', { className: 'doux petit' }, gen.detail),
-          h(Bouton, { onClick: () => setFil(true), disabled: !slides.length }, 'Voir comme dans le fil'),
+          h(Bouton, { onClick: () => setFil(true), disabled: !slides.length }, 'Aperçu du post'),
           plan && h(Bouton, { variante: 'petit', onClick: basculerFavori }, dejaFavori ? '★ Dans tes favoris' : '☆ Garder dans mes favoris'),
           configIA && PROP && h(Bouton, { variante: 'petit', disabled: etatGen === 'encours', onClick: () => generer(plans.length > 0) }, plans.length ? 'Proposer 3 autres' : 'Proposer 3 mises en page'))),
       fil && slides.length > 0 && h(ApercuFil, { slides, format, fond, texte: paragraphes[0], onFermer: () => setFil(false) }));

@@ -931,11 +931,13 @@ canvas.slide.editable { cursor: text; }
 .feuille.assistant.large { width: min(980px, 100%); }
 .feuille-pied { display: flex; justify-content: space-between; gap: 12px; padding: 12px 22px 16px; border-top: 1px solid var(--trait); background: var(--fond); position: sticky; bottom: 0; }
 .etapes-assistant { list-style: none; margin: 0 0 16px; padding: 0; display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; font-size: 14px; font-weight: 600; }
-.etapes-assistant li { padding: 6px 12px; border-radius: 999px; color: var(--doux); }
-.etapes-assistant li.actif { background: var(--touche-doux); color: var(--touche-texte); }
-.etapes-assistant li.faite { color: var(--texte); }
+.etapes-assistant button { min-height: 36px; padding: 6px 12px; border: 0; border-radius: 999px; background: transparent; color: var(--doux); font: inherit; cursor: pointer; }
+.etapes-assistant button:hover:not(:disabled) { background: var(--surface-2); }
+.etapes-assistant button:disabled { opacity: 0.45; cursor: default; }
+.etapes-assistant button.actif { background: var(--touche-doux); color: var(--touche-texte); }
+.etapes-assistant button.faite { color: var(--texte); }
 .mise-en-page { display: flex; flex-direction: column; gap: 14px; }
-.mep-choix { display: flex; justify-content: center; }
+.mep-choix { display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; }
 .mep-attente { display: flex; align-items: center; gap: 10px; margin: 0; }
 .rond-attente { width: 18px; height: 18px; flex: none; border-radius: 50%; border: 3px solid var(--surface-3); border-top-color: var(--action); animation: tourner 0.9s linear infinite; }
 @keyframes tourner { to { transform: rotate(360deg); } }
@@ -972,3 +974,13 @@ canvas.slide.editable { cursor: text; }
 .post-compteur { position: absolute; top: 10px; right: 10px; padding: 3px 9px; border-radius: 10px; background: rgba(0, 0, 0, 0.6); color: #FFFFFF; font-size: 12px; font-weight: 600; line-height: 1.4; }
 .post-actions { display: flex; gap: 18px; padding: 10px 14px 12px; color: #666666; font-size: 13px; font-weight: 600; }
 .feuille-tete > .bouton:first-child { justify-self: start; }
+
+.mep-discussion { align-self: stretch; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--trait); }
+.mep-discussion p { margin: 0; }
+.mep-fil-messages { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
+.mep-message { max-width: 85%; padding: 8px 12px; border-radius: 14px; font-size: 14px; line-height: 1.45; white-space: pre-wrap; }
+.mep-message.moi { align-self: flex-end; background: var(--action); color: var(--action-texte); }
+.mep-message.ccb { align-self: flex-start; background: var(--surface-2); color: var(--texte); }
+.mep-saisie { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.mep-saisie textarea { flex: 1; min-width: 0; font: inherit; font-size: 15px; line-height: 1.4; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--trait); background: var(--fond); color: var(--texte); resize: vertical; }
+.etiquette.petit { font-size: 14px; margin: 4px 0 0; }

@@ -450,6 +450,10 @@
       tropLarge = tropLarge || pile.tropLarge;
       return decaler(pile.elements, y0);
     };
+    // Pages équilibrées : le texte n'est plus collé en haut. Il prend la taille qui remplit bien la page (sans dépasser
+    // 60 % de la hauteur utile) et se place au tiers haut de l'espace libre, là où l'œil le cherche.
+    const pileEquilibree = (pile) => pileHaut(pile, haut + Math.max(0, (bas - haut - pile.hauteur) * 0.32), bas);
+    const texteEquilibre = (specs) => ajuster((taille) => specs(taille), zone, (bas - haut) * 0.6, choisirPolice, T(56), T(39));
     // Sur une couverture, le style du paragraphe décide : « titre » prend la couleur du texte, « contrepoint » celle de mise en valeur.
     // Sans l'un de ces deux styles, c'est la place qui décide (le premier paragraphe en titre, les suivants en contrepoint).
     const couverture = (taille, couleurTitre, couleurSuite, roleSuite) => blocs.map((b, k) => {
@@ -526,12 +530,13 @@
         break;
       }
       case 'T3': {
-        const pile = ajuster((taille) => specsTexte(blocs, fond, { ...optionsTexte, surligne: true, tailleSurligne: taille }), zone, bas - haut, choisirPolice, T(58), T(42));
-        elements = pileHaut(pile, haut, bas);
+        let pile = ajuster((taille) => specsTexte(blocs, fond, { ...optionsTexte, tailleTexte: Math.max(T(39), Math.round(taille * 0.75)), surligne: true, tailleSurligne: taille }), zone, (bas - haut) * 0.62, choisirPolice, T(66), T(42));
+        if (pile.hauteur > bas - haut || pile.tropLarge) pile = ajuster((taille) => specsTexte(blocs, fond, { ...optionsTexte, surligne: true, tailleSurligne: taille }), zone, bas - haut, choisirPolice, T(58), T(42));
+        elements = pileEquilibree(pile);
         break;
       }
       case 'T4': {
-        if (!blocs.some((b) => b.style === 'citation')) { elements = pileHaut(empiler(specsTexte(blocs, fond, optionsTexte), zone, choisirPolice), haut, bas); break; }
+        if (!blocs.some((b) => b.style === 'citation')) { const p0 = texteEquilibre((t) => specsTexte(blocs, fond, { ...optionsTexte, tailleTexte: t })); tropLarge = tropLarge || p0.tropLarge; elements = pileEquilibree(p0); break; }
         const zoneLarge = { ...zone, largeur: L - MARGES.gauche - MARGES.droite };
         let premiere = true;
         const pile = ajuster((taille) => {
@@ -546,7 +551,7 @@
             return { ...riche(b), texte: b.texte, role: b.style === 'corps' ? 'light' : 'bold', taille: T(39), interligne: 1.25, couleur: fond.texte, largeur: zone.largeur, espaceApres: LIGNE };
           });
         }, zoneLarge, bas - haut, choisirPolice, T(56), T(40));
-        elements = pileHaut(pile, haut, bas);
+        elements = pileEquilibree(pile);
         break;
       }
       case 'T5': {
@@ -555,14 +560,15 @@
           if (b.style === 'corps' || b.style === 'citation') return { ...specsTexte([b], fond, optionsTexte)[0], largeur: zone.largeur, espaceApres: 56 };
           return { ...riche(b), texte: b.texte, role: 'bold', taille, interligne: 1.15, couleur: fond.carte.texte, carte: { fond: fond.carte.fond, marge: 56 }, espaceApres: 56 };
         }), zoneLarge, bas - haut, choisirPolice, T(76), T(40));
-        elements = pileHaut(pile, haut, bas);
+        elements = pileEquilibree(pile);
         break;
       }
       case 'F1': {
         const zoneCentre = { x: MARGES.gauche, largeur: L - MARGES.gauche - MARGES.droite, alignement: 'centre' };
-        const specs = blocs.map((b) => ({ ...riche(b), texte: b.texte, role: b.style === 'corps' || b.style === 'citation' ? 'light' : 'bold', taille: T(52), interligne: 1.3, couleur: b.style === 'citation' ? fond.accent : fond.texte, espaceApres: 40 }));
-        const pile = empiler(specs, zoneCentre, choisirPolice);
         const y0 = Math.round(H * 0.213);
+        // La page de fin s'adapte à son volume : le texte rapetisse (jusqu'à 36) pour laisser la place aux fleurs et au logo.
+        const specs = (taille) => blocs.map((b) => ({ ...riche(b), texte: b.texte, role: b.style === 'corps' || b.style === 'citation' ? 'light' : 'bold', taille, interligne: 1.3, couleur: b.style === 'citation' ? fond.accent : fond.texte, espaceApres: Math.round(taille * 0.77) }));
+        const pile = ajuster(specs, zoneCentre, H - 420 - y0, choisirPolice, T(52), T(36));
         elements.push(...pileHaut(pile, y0, H - 420));
         const lf = 420;
         const hf = Math.round((lf * 275) / 696);
@@ -571,7 +577,9 @@
         break;
       }
       default: { // T1
-        elements = pileHaut(empiler(specsTexte(blocs, fond, optionsTexte), zone, choisirPolice), haut, bas);
+        const pile = texteEquilibre((t) => specsTexte(blocs, fond, { ...optionsTexte, tailleTexte: t }));
+        tropLarge = tropLarge || pile.tropLarge;
+        elements = pileEquilibree(pile);
       }
     }
 

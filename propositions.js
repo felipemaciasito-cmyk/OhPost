@@ -25,10 +25,12 @@
     'Règles impératives :',
     '1. Le texte ne change jamais : chaque proposition reprend TOUS les paragraphes, dans l’ordre, chacun une seule fois. Une slide regroupe des paragraphes consécutifs (leurs numéros).',
     '2. La première slide utilise un gabarit de la famille Couverture et contient au moins le premier paragraphe, en style titre. La dernière slide peut utiliser F1 (fin).',
-    '3. Pages aérées : une seule idée par slide, environ 20 à 40 mots, au plus 3 paragraphes. Un paragraphe long reste seul sur sa slide. Mieux vaut une slide de plus qu’une slide chargée (au plus 12 slides si possible).',
+    '3. Nombre de slides : respecte strictement le maximum demandé dans le message ; sans maximum, au plus 12. Regroupe les paragraphes qui vont ensemble pour y arriver.',
     '4. Tiens compte du sujet et du ton : une parole rapportée entre guillemets va bien en style citation ; une phrase forte, en style emphase.',
     '5. Les propositions doivent être vraiment différentes (rythme, nombre de slides, gabarits, fond), chacune avec un nom court et une phrase « pourquoi ».',
     '6. N’utilise que les codes du catalogue.',
+    '7. Esthétique avant tout : une couverture forte ; un rythme varié (alterne les gabarits, jamais deux slides de suite identiques) ; des accents de couleur dosés (bandeau, surligneur, encadré, citation en couleur de mise en valeur), jamais sur toutes les slides ; un fond qui sert le ton du texte. Aucune slide presque vide, aucune slide chargée : le texte occupe la page avec de l’air autour.',
+    '8. Lecture agréable : une idée par slide, un découpage qui suit le sens (ne sépare jamais une phrase de ce qu’elle introduit ou conclut, une parole rapportée de son introduction), des slides au volume régulier, une progression qui donne envie de passer à la suivante.',
     '',
     'Réponds uniquement avec un objet JSON, sans aucun texte autour :',
     '{"reponse":"une phrase","propositions":[{"nom":"…","pourquoi":"…","fond":"code","slides":[{"gabarit":"V1","paragraphes":[0],"styles":["titre"]}]}]}',
@@ -44,10 +46,18 @@
     Instagram: 'Sur Instagram, la couverture doit arrêter le défilement en une seconde : peu de mots, très lisibles ; chaque slide se lit d’un coup d’œil ; la dernière conclut et invite à réagir si le texte le permet.',
   };
 
-  function messageGeneration({ paragraphes, catalogueTexte, format, reseau, favoris, nombre = MAX_PROPOSITIONS, eviter }) {
+  // Pages au plus pour la création d'un article : 6, ou 7 quand le texte est long (au-delà d'environ 60 mots par page).
+  const SEUIL_TEXTE_LONG = 320;
+  const maxPagesPour = (paragraphes) => (paragraphes.join(' ').split(/\s+/).filter(Boolean).length > SEUIL_TEXTE_LONG ? 7 : 6);
+  const ligneMax = (maxPages) => (maxPages ? `Nombre de slides : ${maxPages} au plus, couverture et fin comprises. C’est impératif.` : '');
+  const ligneIndications = (indications) => (indications && indications.length ? 'Indications de la personne, à suivre en priorité tant qu’elles respectent les règles : ' + indications.join(' / ') : '');
+
+  function messageGeneration({ paragraphes, catalogueTexte, format, reseau, favoris, nombre = MAX_PROPOSITIONS, eviter, maxPages, indications }) {
     return [
       catalogueTexte, '',
       `Format : ${format}. Réseau : ${reseau}.`,
+      ligneMax(maxPages),
+      ligneIndications(indications),
       FONCTION_RESEAU[reseau] || '',
       eviter && eviter.length ? 'Propose des mises en page vraiment différentes de celles déjà vues : ' + eviter.join(', ') + '.' : '',
       favoris && favoris.length ? 'La personne aime ces présentations (gabarit et styles), inspire-t’en : ' + favoris.map((f) => `${f.gabarit} [${f.styles.join(', ')}]`).join(' ; ') + '.' : '',
@@ -56,12 +66,13 @@
     ].filter((l) => l !== null).join('\n');
   }
 
-  function messageEvolution({ paragraphes, catalogueTexte, plan, historique, demande }) {
+  function messageEvolution({ paragraphes, catalogueTexte, plan, historique, demande, maxPages }) {
     const fil = (historique || []).slice(-10).map((m) => (m.de === 'moi' ? 'Personne : ' : 'Toi : ') + m.texte).join('\n');
     return [
       catalogueTexte, '', 'Paragraphes de l’article :', paragraphesNumerotes(paragraphes), '',
       'Mise en page actuelle :', JSON.stringify({ nom: plan.nom, fond: plan.fond, slides: plan.slides }), '',
       fil ? 'Début de la conversation :\n' + fil + '\n' : '',
+      ligneMax(maxPages),
       'Demande de la personne : ' + demande,
       'Réponds avec UNE seule proposition (la mise en page modifiée), dans le même format JSON.',
     ].join('\n');
@@ -111,9 +122,10 @@
 
   // Une proposition est gardée si aucune page ne déborde et si aucune page de plusieurs paragraphes n'est trop chargée.
   // deborde(slide, index, total) : réponse du moteur pour cette page.
-  const MOTS_MAX_PAGE = 55;
-  function aere(plan, paragraphes, deborde) {
+  const MOTS_MAX_PAGE = 80;
+  function aere(plan, paragraphes, deborde, maxPages) {
     const slides = construireSlides(plan, paragraphes);
+    if (maxPages && slides.length > maxPages) return false;
     return slides.every((sl, i) => {
       const mots = sl.blocs.map((b) => b.texte).join(' ').split(/\s+/).filter(Boolean).length;
       if (sl.blocs.length > 1 && mots > MOTS_MAX_PAGE) return false;
@@ -153,7 +165,7 @@
 
   const JSON_PLANS = { nom: 'mises_en_page', description: 'Les mises en page proposées.', schema: { type: 'object', properties: { reponse: { type: 'string' }, propositions: { type: 'array', items: { type: 'object', properties: { nom: { type: 'string' }, pourquoi: { type: 'string' }, fond: { type: 'string' }, slides: { type: 'array', items: { type: 'object', properties: { gabarit: { type: 'string' }, paragraphes: { type: 'array', items: { type: 'integer' } }, styles: { type: 'array', items: { type: 'string' } } }, required: ['gabarit', 'paragraphes'] } } }, required: ['nom', 'fond', 'slides'] } } }, required: ['propositions'] } };
 
-  const api = { aere, MOTS_MAX_PAGE, FONCTION_RESEAU, JSON_PLANS, recetteDe, adapterRecette, MAX_PROPOSITIONS, SYSTEME, catalogue, messageGeneration, messageEvolution, lireReponse, verifierPlan, construireSlides };
+  const api = { aere, MOTS_MAX_PAGE, maxPagesPour, SEUIL_TEXTE_LONG, FONCTION_RESEAU, JSON_PLANS, recetteDe, adapterRecette, MAX_PROPOSITIONS, SYSTEME, catalogue, messageGeneration, messageEvolution, lireReponse, verifierPlan, construireSlides };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else racine.PostsOPPropositions = api;
 })(typeof window !== 'undefined' ? window : globalThis);

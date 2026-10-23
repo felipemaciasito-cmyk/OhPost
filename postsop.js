@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-23.4'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-23.5'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -213,7 +213,7 @@
       }
       case 'creer': {
         const e = avecHistorique(etat, [action.article, ...etat.articles]);
-        return { ...e, projet: { ...e.projet, ordre: [action.article.id, ...(e.projet.ordre || [])] }, ecran: 'atelier', articleId: action.article.id, etape: 'composition', slide: 0, feuille: null };
+        return { ...e, projet: { ...e.projet, ordre: [action.article.id, ...(e.projet.ordre || [])] }, ecran: 'atelier', articleId: action.article.id, etape: 'texte', slide: 0, feuille: null };
       }
       case 'dupliquer': {
         const source = etat.articles.find((a) => a.id === action.id);
@@ -1007,22 +1007,32 @@
   function FeuilleNouvelArticle({ etat, dispatch }) {
     const r = etat.projet.reglages;
     const modele = etat.feuille && etat.feuille.modele ? etat.articles.find((a) => a.id === etat.feuille.modele) : null;
-    const [texte, setTexte] = useState('');
-    const [reseau, setReseau] = useState(modele ? modele.reseau : r.reseauDefaut);
-    const [format, setFormat] = useState(modele ? modele.format : r.formatDefaut);
-    const [fond, setFond] = useState(modele ? modele.fond : 'bleu');
+    // « Mise en page et réglages » d'un article existant : la même fenêtre, ouverte sur l'étape 2, qui applique au lieu de créer.
+    const edite = etat.feuille && etat.feuille.reglages ? etat.articles.find((a) => a.id === etat.feuille.reglages) : null;
+    const base = modele || edite;
+    const [texte, setTexte] = useState(edite ? edite.texte.join('\n\n') : '');
+    const [reseau, setReseau] = useState(base ? base.reseau : r.reseauDefaut);
+    const [format, setFormat] = useState(base ? base.format : r.formatDefaut);
+    const [fond, setFond] = useState(base ? base.fond : 'bleu');
     const { choisirPolice, charte, reglages } = useContext(Contexte);
     const paragraphes = texte.split(/\n\s*\n|\n/).map((p) => p.trim()).filter(Boolean);
     const [schema, setSchema] = useState(null); // null : le gabarit place le logo et les fleurs
     // Assistant en trois étapes : texte, mise en page (propositions de CCB), logo et fleurs. D'après un modèle : une seule étape.
-    const [etape, setEtape] = useState(1);
+    const [etape, setEtape] = useState(edite ? 2 : 1);
     const [gen, setGen] = useState({ cle: null, etat: 'repos', plans: [], detail: '' });
-    const [choix, setChoix] = useState('simple'); // indice d'une proposition, ou « simple »
+    const [choix, setChoix] = useState(edite ? 'actuelle' : 'simple'); // indice d'une proposition, « actuelle » ou « simple »
     const [pageVue, setPageVue] = useState(0);
     const [fil, setFil] = useState(false);
+    const [discOuverte, setDiscOuverte] = useState(false);
+    const [discussion, setDiscussion] = useState([]); // { de: 'moi' | 'ccb', texte }
+    const [saisie, setSaisie] = useState('');
+    const [discEnCours, setDiscEnCours] = useState(false);
     const configIA = IA.active();
     const fonds = M.fondsDe(charte.palette);
     const cleTexte = JSON.stringify([paragraphes, reseau, format]);
+    const maxPages = PROP ? PROP.maxPagesPour(paragraphes) : 7;
+    const indications = discussion.filter((m) => m.de === 'moi').map((m) => m.texte);
+    const actuelleValable = !!edite && JSON.stringify(paragraphes) === JSON.stringify(edite.texte) && format === edite.format;
     const decoupage = useMemo(() => {
       if (!paragraphes.length) return [];
       let sl = M.decouperMecaniquement(paragraphes, format, fond, choisirPolice, { charte, reglages });
@@ -1030,54 +1040,101 @@
       return sl;
     }, [texte, format, fond, choisirPolice, charte, reglages]);
     const plans = gen.cle === cleTexte ? gen.plans : [];
-    const plan = choix !== 'simple' && plans[choix] ? plans[choix] : null;
-    const slides = plan ? PROP.construireSlides(plan, paragraphes) : decoupage;
+    const plan = typeof choix === 'number' && plans[choix] ? plans[choix] : null;
+    const choixEffectif = plan ? choix : (choix === 'actuelle' && actuelleValable ? 'actuelle' : 'simple');
+    const slides = plan ? PROP.construireSlides(plan, paragraphes) : choixEffectif === 'actuelle' ? edite.slides : decoupage;
     const reseauNom = reseau === 'linkedin' ? 'LinkedIn' : 'Instagram';
+    const catalogueTexte = () => PROP.catalogue(M.GABARITS, fonds, M.NATURES);
+    const debordeDe = (pl) => (sl, i, total) => M.composer(sl, format, pl.fond, choisirPolice, { charte, reglages, index: i, total }).deborde;
+    const garder = (pl) => PROP.aere(pl, paragraphes, debordeDe(pl), maxPages);
 
-    async function generer(autres) {
-      if (!configIA || !PROP || !paragraphes.length) return;
+    async function generer(autres, consignes = indications) {
+      if (!configIA || !PROP || !paragraphes.length) return false;
       const cle = cleTexte;
       const deja = autres ? plans : [];
       setGen({ cle, etat: 'encours', plans: deja, detail: '' });
       try {
-        const catalogueTexte = PROP.catalogue(M.GABARITS, fonds, M.NATURES);
-        const deborde = (pl) => (sl, i, total) => M.composer(sl, format, pl.fond, choisirPolice, { charte, reglages, index: i, total }).deborde;
         const essayer = async (eviter) => {
-          const brut = await IA.demander(configIA, { systeme: PROP.SYSTEME, texte: PROP.messageGeneration({ paragraphes, catalogueTexte, format: M.FORMATS[format].nom, reseau: reseauNom, favoris: [], eviter }), maxJetons: 4000, delai: 150000, json: PROP.JSON_PLANS });
+          const brut = await IA.demander(configIA, { systeme: PROP.SYSTEME, texte: PROP.messageGeneration({ paragraphes, catalogueTexte: catalogueTexte(), format: M.FORMATS[format].nom, reseau: reseauNom, favoris: [], eviter, maxPages, indications: consignes }), maxJetons: 4000, delai: 150000, json: PROP.JSON_PLANS });
           const lu = PROP.lireReponse(brut, paragraphes.length, M.GABARITS, fonds, M.NATURES);
-          const gardes = lu.plans.filter((pl) => PROP.aere(pl, paragraphes, deborde(pl)));
+          const gardes = lu.plans.filter(garder);
           return { gardes, ecartes: lu.ecartes + lu.plans.length - gardes.length };
         };
         const eviter = deja.map((p) => p.nom);
         let { gardes, ecartes } = await essayer(eviter);
-        // Moins de trois propositions aérées : CCB est relancé une fois.
+        // Moins de trois propositions qui tiennent : CCB est relancé une fois.
         if (gardes.length < PROP.MAX_PROPOSITIONS) {
           const encore = await essayer(eviter.concat(gardes.map((p) => p.nom)));
           gardes = gardes.concat(encore.gardes);
           ecartes += encore.ecartes;
         }
         gardes = gardes.slice(0, PROP.MAX_PROPOSITIONS);
-        if (!gardes.length) throw new Error('aucune proposition ne tenait sans page trop chargée.');
-        setGen({ cle, etat: 'repos', plans: gardes, detail: ecartes ? `${ecartes} proposition${ecartes > 1 ? 's écartées' : ' écartée'} par la vérification : page trop chargée ou texte incomplet.` : '' });
+        if (!gardes.length) throw new Error(`aucune proposition ne tenait en ${maxPages} pages sans page qui déborde. Raccourcis le texte, ou garde le découpage simple.`);
+        setGen({ cle, etat: 'repos', plans: gardes, detail: ecartes ? `${ecartes} proposition${ecartes > 1 ? 's écartées' : ' écartée'} par la vérification : plus de ${maxPages} pages, page qui déborde ou texte incomplet.` : '' });
         setChoix(0); setFond(gardes[0].fond); setPageVue(0);
+        return true;
       } catch (erreur) {
         setGen({ cle, etat: 'erreur', plans: deja, detail: erreur instanceof IA.ErreurIA ? erreur.message : 'CCB n’a pas pu proposer de mise en page : ' + erreur.message });
+        return false;
       }
     }
-    // En arrivant à l'étape « Mise en page », CCB compose ses propositions (une fois par texte, réseau et format).
+    // En arrivant à l'étape « Mise en page » d'un nouvel article, CCB compose ses propositions (une fois par texte, réseau et format).
     useEffect(() => {
-      if (!modele && etape === 2 && configIA && PROP && paragraphes.length && gen.cle !== cleTexte && gen.etat !== 'encours') { setChoix('simple'); setPageVue(0); generer(false); }
+      if (!modele && !edite && etape === 2 && configIA && PROP && paragraphes.length && gen.cle !== cleTexte && gen.etat !== 'encours') { setChoix('simple'); setPageVue(0); generer(false); }
     }, [etape, cleTexte]);
     const choisir = (v) => {
-      const k = v === 'simple' ? 'simple' : Number(v);
+      const k = v === 'simple' || v === 'actuelle' ? v : Number(v);
       setChoix(k); setPageVue(0);
-      if (k !== 'simple' && plans[k]) setFond(plans[k].fond);
+      if (typeof k === 'number' && plans[k]) setFond(plans[k].fond);
+      if (k === 'actuelle' && edite) setFond(edite.fond);
     };
 
-    function creer() {
+    // Discussion avec CCB : elle modifie la proposition affichée, ou compose trois propositions qui suivent tes indications.
+    async function envoyer() {
+      const demande = saisie.trim();
+      if (!demande || discEnCours || !configIA || !PROP) return;
+      const fil0 = discussion.concat([{ de: 'moi', texte: demande }]);
+      setDiscussion(fil0); setSaisie(''); setDiscEnCours(true);
+      const dire = (t) => setDiscussion((d) => d.concat([{ de: 'ccb', texte: t }]));
+      try {
+        if (plan) {
+          const brut = await IA.demander(configIA, { systeme: PROP.SYSTEME, texte: PROP.messageEvolution({ paragraphes, catalogueTexte: catalogueTexte(), plan, historique: discussion, demande, maxPages }), maxJetons: 3000, delai: 120000, json: PROP.JSON_PLANS });
+          const lu = PROP.lireReponse(brut, paragraphes.length, M.GABARITS, fonds, M.NATURES);
+          const nouveau = lu.plans[0];
+          if (nouveau && garder(nouveau)) {
+            const liste = plans.slice(); liste[choix] = nouveau;
+            setGen({ ...gen, plans: liste, detail: '' });
+            setFond(nouveau.fond); setPageVue(0);
+            dire(lu.reponse || `« ${nouveau.nom} » : voici la mise en page modifiée.`);
+          } else dire(`Je n’ai pas réussi à suivre ta demande en ${maxPages} pages sans page qui déborde : la proposition affichée ne change pas. Reformule, ou demande autre chose.`);
+        } else {
+          const ok = await generer(false, fil0.filter((m) => m.de === 'moi').map((m) => m.texte));
+          dire(ok ? 'Voici trois propositions qui tiennent compte de tes indications.' : 'Je n’ai pas pu composer de propositions : regarde le message au-dessus de l’aperçu.');
+        }
+      } catch (erreur) {
+        dire(erreur instanceof IA.ErreurIA ? erreur.message : 'Je n’ai pas pu répondre : ' + erreur.message);
+      } finally { setDiscEnCours(false); }
+    }
+
+    // Les propositions de CCB peuvent rejoindre tes carrousels favoris (les mêmes que dans Composition).
+    const favorisCarrousels = etat.projet.favorisCarrousels || [];
+    const recette = plan && JSON.stringify(PROP.recetteDe(plan));
+    const dejaFavori = plan && favorisCarrousels.find((f) => JSON.stringify(f.recette) === recette);
+    const basculerFavori = () => {
+      if (!plan) return;
+      if (dejaFavori) dispatch({ type: 'projet', maj: (pr) => ({ ...pr, favorisCarrousels: (pr.favorisCarrousels || []).filter((f) => f.id !== dejaFavori.id) }) });
+      else dispatch({ type: 'projet', maj: (pr) => ({ ...pr, favorisCarrousels: [{ id: 'car-' + Date.now().toString(36), nom: plan.nom, origine: edite ? edite.titre : (paragraphes[0] || '').slice(0, 48), recette: PROP.recetteDe(plan) }].concat(pr.favorisCarrousels || []) }) });
+    };
+
+    function terminer() {
       const premier = paragraphes[0] || 'Nouvel article';
       let sl = slides.length ? slides : M.decouperMecaniquement(paragraphes, format, fond, choisirPolice, { charte, reglages });
       if (schema) sl = sl.map((x, i) => ({ ...x, images: imagesSelonSchema(schema, i, sl.length) }));
+      if (edite) {
+        dispatch({ type: 'article', id: edite.id, maj: (a) => L.lierArticle({ ...a, reseau, format, fond, texte: paragraphes, slides: sl }), annonce: 'Mise en page et réglages appliqués.' });
+        dispatch({ type: 'feuille', feuille: null });
+        return;
+      }
       dispatch({
         type: 'creer',
         article: L.lierArticle({ id: nouvelId(), titre: premier.length > 48 ? premier.slice(0, 48) + '…' : premier, statut: 'Brouillon', reseau, format, fond, logo: modele ? modele.logo || 'auto' : 'auto', modifie: maintenant(), texte: paragraphes, slides: sl, descriptions: DESCRIPTIONS_VIDES }),
@@ -1092,14 +1149,14 @@
       h(Ligne, { etiquette: 'Format', aide: '1:1 comme tes carrousels actuels, 4:5 pour plus de place.' }, h(Segmente, { valeur: format, onChange: setFormat, options: [{ valeur: 'carre', libelle: '1:1' }, { valeur: 'portrait', libelle: '4:5' }] })));
     const champLogo = h(Fragment, null,
       h(Ligne, { etiquette: 'Logo et fleurs', aide: 'Laisse le gabarit les placer, ou place-les toi-même.' },
-        h(Segmente, { etiquette: 'Logo et fleurs', valeur: schema ? 'moi' : 'gabarit', onChange: (v) => setSchema(v === 'moi' ? (schema || SCHEMA_DEPART) : null), options: [{ valeur: 'gabarit', libelle: 'Le gabarit décide' }, { valeur: 'moi', libelle: 'Je les place' }] })),
+        h(Segmente, { etiquette: 'Logo et fleurs', valeur: schema ? 'moi' : 'gabarit', onChange: (v) => setSchema(v === 'moi' ? (schema || SCHEMA_DEPART) : null), options: [{ valeur: 'gabarit', libelle: edite ? 'Ne pas changer' : 'Le gabarit décide' }, { valeur: 'moi', libelle: 'Je les place' }] })),
       schema && (slides.length
         ? h(SchemaLogoFleurs, { schema, onChange: setSchema, slides, format, fond })
         : h('p', { className: 'doux petit' }, 'Colle d’abord ton texte : le schéma montrera tes vraies pages.')));
 
     // D'après un modèle : la mise en page vient du modèle, tout tient sur un écran.
     if (modele) {
-      return h(Feuille, { titre: 'Nouvel article d’après un modèle', onAnnuler: () => dispatch({ type: 'feuille', feuille: null }), action: h(Bouton, { variante: 'principal', disabled: !paragraphes.length, onClick: creer }, 'Créer') },
+      return h(Feuille, { titre: 'Nouvel article d’après un modèle', onAnnuler: () => dispatch({ type: 'feuille', feuille: null }), action: h(Bouton, { variante: 'principal', disabled: !paragraphes.length, onClick: terminer }, 'Créer') },
         h('p', { className: 'note' }, `Mise en page reprise de « ${modele.titre} » : fond, format, réseau, gabarits et logo. Colle ton nouveau texte.`),
         champTexte, champLogo);
     }
@@ -1110,13 +1167,27 @@
     // Le grand aperçu tient dans l'écran avec les vignettes et les boutons du bas (iPad à l'horizontale compris).
     const ratio = M.FORMATS[format].h / M.FORMATS[format].l;
     const largeurGrande = Math.round(Math.max(170, Math.min(320, (racine.innerWidth || 1000) - 120, ((racine.innerHeight || 820) - 480) / ratio)));
-    const options = plans.map((pl, k) => ({ valeur: String(k), libelle: pl.nom })).concat([{ valeur: 'simple', libelle: 'Sans IA' }]);
+    const options = plans.map((pl, k) => ({ valeur: String(k), libelle: pl.nom }))
+      .concat(actuelleValable ? [{ valeur: 'actuelle', libelle: 'Actuelle' }] : [])
+      .concat([{ valeur: 'simple', libelle: 'Sans IA' }]);
     const etatGen = gen.cle === cleTexte ? gen.etat : 'repos';
+    const nomChoix = plan ? plan.nom : choixEffectif === 'actuelle' ? 'Mise en page actuelle' : 'Découpage simple, sans IA';
+    const pourquoiChoix = plan ? plan.pourquoi : choixEffectif === 'actuelle' ? 'Les pages de ton article telles qu’elles sont aujourd’hui.' : 'Les paragraphes les uns après les autres jusqu’à remplir chaque page. Immédiat, mais des pages souvent chargées.';
+
+    const discussionCCB = discOuverte && h('div', { className: 'mep-discussion', role: 'region', 'aria-label': `Discussion avec ${IA.ASSISTANT.nom}` },
+      h('p', { className: 'doux petit' }, plan ? `${IA.ASSISTANT.nom} modifie « ${plan.nom} » selon tes indications, en ${maxPages} pages au plus.` : `${IA.ASSISTANT.nom} compose trois propositions qui suivent tes indications, en ${maxPages} pages au plus.`),
+      discussion.length > 0 && h('div', { className: 'mep-fil-messages' }, discussion.map((m, k) => h('div', { key: k, className: cls('mep-message', m.de === 'moi' ? 'moi' : 'ccb') }, m.texte))),
+      discEnCours && h('div', { className: 'mep-attente petit', role: 'status' }, h('span', { className: 'rond-attente', 'aria-hidden': 'true' }), `${IA.ASSISTANT.nom} réfléchit…`),
+      h('label', { className: 'etiquette petit', htmlFor: 'indications-ccb' }, `Tes indications pour ${IA.ASSISTANT.nom}`),
+      h('div', { className: 'mep-saisie' },
+        h('textarea', { id: 'indications-ccb', rows: 3, value: saisie, placeholder: 'Par exemple : plus de citations en grand, un fond vert pâle, une couverture plus percutante…', onChange: (e) => setSaisie(e.target.value), onKeyDown: (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); envoyer(); } } }),
+        h(Bouton, { variante: 'principal', disabled: !saisie.trim() || discEnCours || !configIA, onClick: envoyer }, 'Envoyer')));
 
     const etapeMiseEnPage = h('div', { className: 'mise-en-page' },
       h('div', { className: 'mep-choix' },
-        h(Segmente, { etiquette: 'Mises en page proposées', valeur: String(choix), onChange: choisir, options })),
-      etatGen === 'encours' && h('div', { className: 'note mep-attente', role: 'status' }, h('span', { className: 'rond-attente', 'aria-hidden': 'true' }), `${IA.ASSISTANT.nom} compose trois carrousels pour ${reseauNom}… environ 20 à 40 secondes. Chaque proposition est vérifiée page par page avant de s’afficher.`),
+        h(Segmente, { etiquette: 'Mises en page proposées', valeur: String(choixEffectif), onChange: choisir, options }),
+        configIA && PROP && h('button', { type: 'button', className: cls('bouton-robot', discOuverte && 'actif'), 'aria-label': discOuverte ? `Fermer la discussion avec ${IA.ASSISTANT.nom}` : `Donner des indications à ${IA.ASSISTANT.nom}`, title: discOuverte ? `Fermer la discussion avec ${IA.ASSISTANT.nom}` : `Donner des indications à ${IA.ASSISTANT.nom}`, 'aria-expanded': discOuverte, onClick: () => setDiscOuverte(!discOuverte) }, h(Robot, { taille: 44 }))),
+      etatGen === 'encours' && !discEnCours && h('div', { className: 'note mep-attente', role: 'status' }, h('span', { className: 'rond-attente', 'aria-hidden': 'true' }), `${IA.ASSISTANT.nom} compose trois carrousels pour ${reseauNom}, en ${maxPages} pages au plus… environ 20 à 40 secondes. Chaque proposition est vérifiée page par page avant de s’afficher.`),
       etatGen === 'erreur' && h('div', { className: 'erreur-boite', role: 'alert' }, h('p', null, gen.detail), h(Bouton, { variante: 'petit', onClick: () => generer(false) }, 'Réessayer')),
       !configIA && h('p', { className: 'note' }, `Pour recevoir trois propositions de ${IA.ASSISTANT.nom}, ajoute ta clé dans Configuration, onglet IA. En attendant : le découpage simple, sans IA.`),
       h('div', { className: 'mep-corps' },
@@ -1130,22 +1201,29 @@
             h('div', { className: 'mep-bande' }, slides.map((sl, i) => h('button', { key: i, type: 'button', className: cls('mep-vignette', i === vue && 'actif'), 'aria-label': `Voir la page ${i + 1}`, 'aria-pressed': i === vue, onClick: () => setPageVue(i) },
               h(SlideCanvas, { slide: sl, formatId: format, fondId: fond, largeur: 52, index: i, total: slides.length }))))) : null),
         h('div', { className: 'mep-infos' },
-          h('h3', { className: 'gill' }, plan ? plan.nom : 'Découpage simple, sans IA'),
+          h('h3', { className: 'gill' }, nomChoix),
           h('div', { className: 'doux petit' }, `${slides.length} page${slides.length > 1 ? 's' : ''}, fond ${(fonds[fond] || {}).nom ? fonds[fond].nom.toLowerCase() : fond}, environ ${moyenne} mots par page`),
-          h('p', null, plan ? plan.pourquoi : 'Les paragraphes les uns après les autres jusqu’à remplir chaque page. Immédiat, mais des pages souvent chargées.'),
+          // Discussion ouverte : elle passe en premier, juste sous le nom, pour garder le champ de saisie à portée.
+          discussionCCB,
+          !discOuverte && h('p', null, pourquoiChoix),
           gen.detail && etatGen === 'repos' && h('p', { className: 'doux petit' }, gen.detail),
           h(Bouton, { onClick: () => setFil(true), disabled: !slides.length }, 'Voir comme dans le fil'),
-          configIA && PROP && h(Bouton, { variante: 'petit', disabled: etatGen === 'encours', onClick: () => generer(true) }, 'Proposer 3 autres'))),
+          plan && h(Bouton, { variante: 'petit', onClick: basculerFavori }, dejaFavori ? '★ Dans tes favoris' : '☆ Garder dans mes favoris'),
+          configIA && PROP && h(Bouton, { variante: 'petit', disabled: etatGen === 'encours', onClick: () => generer(plans.length > 0) }, plans.length ? 'Proposer 3 autres' : 'Proposer 3 mises en page'))),
       fil && slides.length > 0 && h(ApercuFil, { slides, format, fond, texte: paragraphes[0], onFermer: () => setFil(false) }));
 
     const etapes = ['Texte', 'Mise en page', 'Logo et fleurs'];
+    const aller = (k) => { if (k === etape || (k > 1 && !paragraphes.length)) return; setEtape(k); };
     const pied = h(Fragment, null,
       h(Bouton, { disabled: etape === 1, onClick: () => setEtape(etape - 1) }, 'Étape précédente'),
       etape < 3
         ? h(Bouton, { variante: 'principal', disabled: !paragraphes.length, onClick: () => setEtape(etape + 1) }, etape === 1 ? 'Continuer : mise en page' : 'Continuer : logo et fleurs')
-        : h(Bouton, { variante: 'principal', disabled: !paragraphes.length, onClick: creer }, 'Créer l’article'));
-    return h(Feuille, { titre: 'Nouvel article', classe: etape === 2 ? 'assistant large' : 'assistant', onAnnuler: () => dispatch({ type: 'feuille', feuille: null }), action: h('span', { className: 'doux petit' }, `Étape ${etape} sur 3`), pied },
-      h('ol', { className: 'etapes-assistant' }, etapes.map((nom, k) => h('li', { key: nom, className: cls(k + 1 === etape && 'actif', k + 1 < etape && 'faite'), 'aria-current': k + 1 === etape ? 'step' : undefined }, `${k + 1}. ${nom}`))),
+        : h(Bouton, { variante: 'principal', disabled: !paragraphes.length, onClick: terminer }, edite ? 'Appliquer' : 'Créer l’article'));
+    return h(Feuille, { titre: edite ? 'Mise en page et réglages' : 'Nouvel article', classe: etape === 2 ? 'assistant large' : 'assistant', onAnnuler: () => dispatch({ type: 'feuille', feuille: null }), action: h('span', { className: 'doux petit' }, `Étape ${etape} sur 3`), pied },
+      // Les étapes restent cliquables : on revient à tout moment modifier les réglages.
+      h('ol', { className: 'etapes-assistant' }, etapes.map((nom, k) => h('li', { key: nom },
+        h('button', { type: 'button', className: cls(k + 1 === etape && 'actif', k + 1 < etape && 'faite'), 'aria-current': k + 1 === etape ? 'step' : undefined, disabled: k + 1 > 1 && !paragraphes.length, onClick: () => aller(k + 1) }, `${k + 1}. ${nom}`)))),
+      edite && etape === 1 && h('p', { className: 'note' }, 'Changer le texte ici le redécoupe : la mise en page actuelle ne sera plus proposée.'),
       etape === 1 && champTexte,
       etape === 2 && etapeMiseEnPage,
       etape === 3 && h(Fragment, null,
@@ -1171,6 +1249,7 @@
         }, h('span', { className: 'etape-num' }, i + 1), e.nom))),
       etat.aide && h(PanneauAide, { cle: etat.etape, dispatch }),
       h(Message, { etat, dispatch }),
+      etat.feuille && etat.feuille.reglages === article.id && h(FeuilleNouvelArticle, { etat, dispatch }),
       h('main', { className: cls('contenu atelier', etat.etape === 'composition' && 'large', (!vues[etat.etape] || etat.etape === 'texte') && 'texte-fixe') }, h(vues[etat.etape] || EtapeTexte, { etat, dispatch, article, majA })),
       h('footer', { className: 'pied-etapes' },
         h(Bouton, { disabled: index === 0, onClick: () => dispatch({ type: 'etape', etape: ETAPES[index - 1].id }) }, 'Étape précédente'),
@@ -1689,6 +1768,7 @@
       h('div', { className: 'colonne-principale' },
         h(Carte, { titre: 'Texte de l’article', info: 'Ton texte est la référence : les pages suivent chaque modification, sans changer leur mise en page.', sousTitre: `${article.texte.length} paragraphes · ${M.compterMots(texteComplet)} mots. Une ligne vide sépare deux paragraphes. Les pages se mettent à jour à chaque modification.`, actions: h('div', { className: 'actions-texte' },
             h(Bouton, { variante: 'petit', onClick: () => setRemplacer('') }, 'Nouveau texte'),
+            h(Bouton, { variante: 'petit', onClick: () => dispatch({ type: 'feuille', feuille: { reglages: article.id } }) }, 'Mise en page'),
             h('button', {
               type: 'button', className: cls('bouton-robot', disc.ouvert && 'actif'),
               'aria-label': disc.ouvert ? 'Fermer CCB' : 'CCB · Creative Collaborative Boost',

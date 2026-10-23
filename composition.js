@@ -1248,7 +1248,7 @@
         ] },
         { nom: 'Carrousel', contenu: () => [
           { type: 'sous', libelle: 'Fond', contenu: () => [{ type: 'libre', rendu: (fermer) => h(Nuancier, { valeur: article.fond, choisir: (f) => { fermer(); majA(OP.champ('fond', f), null, `Fond ${M.fondsDe(charte.palette)[f].nom.toLowerCase()}.`); setEdition(null); } }) }] },
-          { type: 'sous', libelle: 'Format', contenu: () => [['carre', 'Carré · 1:1'], ['portrait', 'Portrait · 4:5']].map(([v, nom]) => item(nom, () => { majA(OP.champ('format', v)); setEdition(null); }, coche(article.format === v))) },
+          { type: 'sous', libelle: 'Dimensions', contenu: () => [['carre', 'Carré · 1:1'], ['portrait', 'Portrait · 4:5']].map(([v, nom]) => item(nom, () => { majA(OP.champ('format', v)); setEdition(null); }, coche(article.format === v))) },
           { type: 'sous', libelle: 'Réseau', contenu: () => [['instagram', 'Instagram (images)'], ['linkedin', 'LinkedIn (PDF)']].map(([v, nom]) => item(nom, () => majA(OP.champ('reseau', v)), coche(article.reseau === v))) },
           { type: 'sous', libelle: 'Logo', contenu: () => [
             ...[['auto', 'Automatique'], ['fonce', 'Logo foncé'], ['clair', 'Logo clair']].map(([v, nom]) => item(nom, () => majA(OP.champ('logo', v)), coche(logo === v))),

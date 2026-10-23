@@ -984,3 +984,21 @@ canvas.slide.editable { cursor: text; }
 .mep-saisie { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
 .mep-saisie textarea { flex: 1; min-width: 0; font: inherit; font-size: 15px; line-height: 1.4; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--trait); background: var(--fond); color: var(--texte); resize: vertical; }
 .etiquette.petit { font-size: 14px; margin: 4px 0 0; }
+
+/* ---------- Étape 3 : Publication ---------- */
+.publication { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 22px; align-items: start; max-width: 1100px; margin: 0 auto; }
+@media (max-width: 860px) { .publication { grid-template-columns: minmax(0, 1fr); } .publication-apercu { order: -1; } }
+.publication-etapes { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.publication-etapes > .colonne-unique { max-width: none; margin: 0; padding: 0; }
+.publication-reseau { display: flex; align-items: center; gap: 10px; justify-content: flex-end; margin-bottom: 6px; }
+.publication-apercu { position: sticky; top: 12px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.publication-vignettes { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.champs-programme { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.champs-programme label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: var(--doux); }
+/* Fenêtre de mise en page : favoris et bouton de l'étape */
+.mep-favoris { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 16px; background: var(--surface); border: 1px solid var(--trait); max-width: 420px; align-self: center; width: 100%; }
+.mep-favoris p { margin: 0 4px 4px; }
+.mep-favori { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; min-height: 44px; padding: 8px 12px; border: 0; border-radius: 10px; background: transparent; color: var(--texte); font: inherit; text-align: left; cursor: pointer; }
+.mep-favori:hover { background: var(--surface-2); }
+.bouton.secondaire.actif { background: var(--surface); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.16); }
+.bouton-mise-en-page { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 14px; white-space: nowrap; }

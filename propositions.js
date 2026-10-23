@@ -25,7 +25,7 @@
     'Règles impératives :',
     '1. Le texte ne change jamais : chaque proposition reprend TOUS les paragraphes, dans l’ordre, chacun une seule fois. Une slide regroupe des paragraphes consécutifs (leurs numéros).',
     '2. La première slide utilise un gabarit de la famille Couverture et contient au moins le premier paragraphe, en style titre. La dernière slide peut utiliser F1 (fin).',
-    '3. Adapte le découpage au volume : peu de texte par slide (environ 25 à 45 mots), sans dépasser 10 slides si possible.',
+    '3. Pages aérées : une seule idée par slide, environ 20 à 40 mots, au plus 3 paragraphes. Un paragraphe long reste seul sur sa slide. Mieux vaut une slide de plus qu’une slide chargée (au plus 12 slides si possible).',
     '4. Tiens compte du sujet et du ton : une parole rapportée entre guillemets va bien en style citation ; une phrase forte, en style emphase.',
     '5. Les propositions doivent être vraiment différentes (rythme, nombre de slides, gabarits, fond), chacune avec un nom court et une phrase « pourquoi ».',
     '6. N’utilise que les codes du catalogue.',
@@ -38,10 +38,18 @@
 
   const paragraphesNumerotes = (paragraphes) => paragraphes.map((p, i) => `[${i}] ${p}`).join('\n');
 
-  function messageGeneration({ paragraphes, catalogueTexte, format, reseau, favoris, nombre = MAX_PROPOSITIONS }) {
+  // Ce que le carrousel doit faire sur chaque réseau : la mise en page sert cette fonction (le texte, lui, ne change pas).
+  const FONCTION_RESEAU = {
+    LinkedIn: 'Sur LinkedIn, le carrousel est un document qu’on feuillette depuis le fil : la couverture doit donner envie de l’ouvrir (une promesse ou une tension claire), chaque slide porte une seule idée, la dernière conclut et invite à réagir si le texte le permet.',
+    Instagram: 'Sur Instagram, la couverture doit arrêter le défilement en une seconde : peu de mots, très lisibles ; chaque slide se lit d’un coup d’œil ; la dernière conclut et invite à réagir si le texte le permet.',
+  };
+
+  function messageGeneration({ paragraphes, catalogueTexte, format, reseau, favoris, nombre = MAX_PROPOSITIONS, eviter }) {
     return [
       catalogueTexte, '',
       `Format : ${format}. Réseau : ${reseau}.`,
+      FONCTION_RESEAU[reseau] || '',
+      eviter && eviter.length ? 'Propose des mises en page vraiment différentes de celles déjà vues : ' + eviter.join(', ') + '.' : '',
       favoris && favoris.length ? 'La personne aime ces présentations (gabarit et styles), inspire-t’en : ' + favoris.map((f) => `${f.gabarit} [${f.styles.join(', ')}]`).join(' ; ') + '.' : '',
       '', 'Paragraphes de l’article :', paragraphesNumerotes(paragraphes), '',
       `Propose ${nombre} mises en page différentes.`,
@@ -101,6 +109,18 @@
     return { reponse: typeof donnees.reponse === 'string' ? donnees.reponse.trim() : '', plans, ecartes: brutes.length - plans.length };
   }
 
+  // Une proposition est gardée si aucune page ne déborde et si aucune page de plusieurs paragraphes n'est trop chargée.
+  // deborde(slide, index, total) : réponse du moteur pour cette page.
+  const MOTS_MAX_PAGE = 55;
+  function aere(plan, paragraphes, deborde) {
+    const slides = construireSlides(plan, paragraphes);
+    return slides.every((sl, i) => {
+      const mots = sl.blocs.map((b) => b.texte).join(' ').split(/\s+/).filter(Boolean).length;
+      if (sl.blocs.length > 1 && mots > MOTS_MAX_PAGE) return false;
+      return !deborde(sl, i, slides.length);
+    });
+  }
+
   // Les slides que le moteur dessinera, à partir d'un plan vérifié.
   function construireSlides(plan, paragraphes) {
     const slides = plan.slides.map((s, i) => ({
@@ -133,7 +153,7 @@
 
   const JSON_PLANS = { nom: 'mises_en_page', description: 'Les mises en page proposées.', schema: { type: 'object', properties: { reponse: { type: 'string' }, propositions: { type: 'array', items: { type: 'object', properties: { nom: { type: 'string' }, pourquoi: { type: 'string' }, fond: { type: 'string' }, slides: { type: 'array', items: { type: 'object', properties: { gabarit: { type: 'string' }, paragraphes: { type: 'array', items: { type: 'integer' } }, styles: { type: 'array', items: { type: 'string' } } }, required: ['gabarit', 'paragraphes'] } } }, required: ['nom', 'fond', 'slides'] } } }, required: ['propositions'] } };
 
-  const api = { JSON_PLANS, recetteDe, adapterRecette, MAX_PROPOSITIONS, SYSTEME, catalogue, messageGeneration, messageEvolution, lireReponse, verifierPlan, construireSlides };
+  const api = { aere, MOTS_MAX_PAGE, FONCTION_RESEAU, JSON_PLANS, recetteDe, adapterRecette, MAX_PROPOSITIONS, SYSTEME, catalogue, messageGeneration, messageEvolution, lireReponse, verifierPlan, construireSlides };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else racine.PostsOPPropositions = api;
 })(typeof window !== 'undefined' ? window : globalThis);

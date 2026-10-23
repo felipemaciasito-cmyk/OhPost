@@ -243,6 +243,15 @@
 
     const garder = (e) => e.preventDefault(); // garde la sélection du texte pendant un clic sur un menu
 
+    // Les sous-menus sont affichés à part, directement dans la page (dans .app, qui porte le thème), et non dans
+    // la liste du menu : sur iPad, Safari coupe tout ce qui dépasse d'un menu qui défile, même en position fixe,
+    // et un sous-menu placé à côté d'un long menu (Slide) restait invisible.
+    const dansLaPage = (noeud) => {
+      const RD = racine.ReactDOM;
+      if (!RD || !RD.createPortal || typeof document === 'undefined') return noeud;
+      return RD.createPortal(noeud, document.querySelector('.app') || document.body);
+    };
+
     // Un élément de menu : action, case cochée, sous-menu, séparateur, titre, note, ou contenu libre.
     function ElementMenu({ el, fermer, parentRef }) {
       const [ouvert, setOuvert] = useState(false);
@@ -269,6 +278,14 @@
       const apresRetour = useRef(false); // après « Retour », le survol ne rouvre pas le sous-menu tant que le pointeur n'est pas reparti
       useMiseEnPage(() => { if (ouvert && pop.current && ancre.current && parentRef.current) { const r = placerSousMenu(pop.current, ancre.current, parentRef.current); if (r !== remplace) setRemplace(r); } }, [ouvert, remplace]);
       useEffect(() => () => clearTimeout(minuterie.current), []);
+      // Le sous-menu n'est plus dans la liste : si elle défile, il se refermerait mal aligné, on le ferme.
+      useEffect(() => {
+        const liste = parentRef && parentRef.current;
+        if (!ouvert || !liste) return undefined;
+        const defiler = () => setOuvert(false);
+        liste.addEventListener('scroll', defiler, { passive: true });
+        return () => liste.removeEventListener('scroll', defiler);
+      }, [ouvert]);
       if (el.type === 'trait') return h('div', { className: 'trait-menu', role: 'separator' });
       if (el.type === 'titre') return h('div', { className: 'titre-section' }, el.libelle);
       if (el.type === 'note') return h('p', { className: 'note-menu' }, el.texte);
@@ -281,10 +298,10 @@
         },
         h('button', { ref: ancre, type: 'button', className: 'item-menu', role: 'menuitem', 'aria-haspopup': 'true', 'aria-expanded': ouvert, onMouseDown: garder, onClick: () => { clearTimeout(minuterie.current); if (parSurvol.current) { parSurvol.current = false; ouvrirSous(false); } else if (ouvert) setOuvert(false); else ouvrirSous(false); } },
           h('span', null, el.libelle), h('svg', { className: 'fleche-droite', viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d: 'M9 6l6 6-6 6', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' }))),
-        ouvert && h('div', { ref: pop, className: 'popover-menu sous', role: 'menu', 'data-sous': el.libelle },
+        ouvert && dansLaPage(h('div', { ref: pop, className: 'popover-menu sous', role: 'menu', 'data-sous': el.libelle },
           remplace && h('button', { type: 'button', className: 'item-menu retour', onMouseDown: garder, onClick: () => { apresRetour.current = true; setOuvert(false); } },
             h('svg', { className: 'icone', width: 18, height: 18, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d: 'M15 6l-6 6 6 6', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' })), el.libelle),
-          el.contenu().map((x, k) => h(ElementMenu, { key: k, el: x, fermer, parentRef: pop }))));
+          el.contenu().map((x, k) => h(ElementMenu, { key: k, el: x, fermer, parentRef: pop })))));
       }
       return h('button', {
         type: 'button', className: cls('item-menu', el.danger && 'danger'), role: el.coche === undefined ? 'menuitem' : 'menuitemcheckbox', 'aria-checked': el.coche === undefined ? undefined : !!el.coche,
@@ -467,7 +484,7 @@
       const ajouterImage = (type) => {
         const i = active;
         const imgs = imagesSlide(i).concat([type === 'fleurs' ? { type, x: 0.31, y: 0.4, w: 0.38 } : { type, x: 0.36, y: 0.44, w: 0.28 }]);
-        majImages(i, imgs, (type === 'fleurs' ? 'Fleurs ajoutées' : 'Logo ajouté') + ' au centre de la slide : glisse pour déplacer, rond blanc pour la taille.');
+        majImages(i, imgs, (type === 'fleurs' ? 'Fleurs ajoutées' : 'Logo ajouté') + ' au centre de la page : glisse pour déplacer, rond blanc pour la taille.');
         setSelection({ i: null, n: [] }); setEdition(null); setImageChoisie({ i, k: imgs.length - 1 });
       };
       const coordonnees = (e, i) => {
@@ -491,19 +508,15 @@
         return meilleur ? meilleur.n : null;
       };
       const basculerSelection = (i, n) => setSelection((sel) => (sel.i === i ? { i, n: sel.n.includes(n) ? sel.n.filter((x) => x !== n) : [...sel.n, n] } : { i, n: [n] }));
-      // Repères magnétiques : marges de la charte, centre de la slide, bords et centres des autres blocs.
-      function aimanter(boite, autres) {
-        const { fmt: f } = vu.current;
-        const vx = [M.MARGES.gauche, f.l / 2, f.l - M.MARGES.droite, ...autres.flatMap((o) => [o.x, o.x + o.l, o.x + o.l / 2])];
-        const hy = [M.MARGES.haute, f.h / 2, f.h - M.MARGES.basse, ...autres.flatMap((o) => [o.y, o.y + o.h, o.y + o.h / 2])];
-        const seuil = 12;
-        let ax = 0; let ay = 0; let gx = null; let gy = null; let mx = seuil + 1; let my = seuil + 1;
-        for (const bord of [boite.x, boite.x + boite.l / 2, boite.x + boite.l]) for (const v of vx) if (Math.abs(v - bord) < Math.abs(mx)) { mx = v - bord; gx = v; }
-        for (const bord of [boite.y, boite.y + boite.h / 2, boite.y + boite.h]) for (const v of hy) if (Math.abs(v - bord) < Math.abs(my)) { my = v - bord; gy = v; }
-        if (Math.abs(mx) <= seuil) ax = mx; else gx = null;
-        if (Math.abs(my) <= seuil) ay = my; else gy = null;
-        return { ax, ay, gx, gy };
-      }
+      // Repères magnétiques (calculés par le moteur) : marges, centre de la page, bords et centres des autres blocs,
+      // du logo, des fleurs et des bandeaux, et écarts égaux entre voisins. Seuil d'environ 9 points à l'écran.
+      const seuilRepere = (k) => Math.max(8, 9 / (k || 1));
+      const ciblesRepere = (compo, garder) => compo.elements.flatMap((z, k) => {
+        if (!garder(z, k)) return [];
+        if (z.type === 'bloc' || estImage(z)) return [{ x: z.x, y: z.y, l: z.l, h: z.h }];
+        if (z.type === 'rect' && z.l >= compo.fmt.l - 1) return [{ x: z.x, y: z.y, l: z.l, h: z.h, axes: 'y' }];
+        return [];
+      });
       // Écouteurs du document : des fonctions stables qui appellent toujours la version à jour des gestionnaires
       // (sinon un écouteur d'un rendu précédent resterait branché et traiterait le geste à la place du bon).
       const gestionnaires = useRef({});
@@ -547,7 +560,8 @@
         if (g.type === 'bloc' && !(sel.i === g.i && sel.n.includes(g.n))) { setSelection({ i: g.i, n: [g.n] }); g.indices = [g.n]; } else g.indices = g.type === 'redim' ? [g.n] : sel.n.slice();
         g.base = slide.libre ? slide : M.figerSlide(slide, cs[g.i]);
         g.depart = g.indices.map((n) => ({ n, pos: g.base.blocs[n] && g.base.blocs[n].pos ? { ...g.base.blocs[n].pos } : null, boite: boiteDe(g.i, n, cs) })).filter((d) => d.pos && d.boite);
-        g.autres = cs[g.i].elements.filter((z) => z.type === 'bloc' && !g.indices.includes(z.bloc));
+        g.autres = ciblesRepere(cs[g.i], (z) => !(z.type === 'bloc' && g.indices.includes(z.bloc)));
+        g.fmt = cs[g.i].fmt;
         g.k = vu.current.k;
         setApercu({ i: g.i, slide: g.base, cote: g.type === 'redim' ? g.cote : null });
         setMenu(null); setBarre(null); setSurvol(null);
@@ -570,9 +584,20 @@
           // L'élément peut déborder de la slide, mais jamais de plus de la moitié : sa poignée reste toujours à portée.
           const hauteur = (x) => x.w * (x.type === 'fleurs' ? 275 / 696 : M.RATIO_LOGO) * f.l / f.h;
           const borne = (v, a, b) => Math.max(a, Math.min(b, v));
+          let ax = 0; let ay = 0; let reperes = null;
+          if (g.type === 'image' && g.depart[g.k]) {
+            // L'élément s'aimante aux marges, au centre et aux autres éléments, comme un bloc.
+            const x0 = g.depart[g.k];
+            const boite = { x: (x0.x + dx) * f.l, y: (x0.y + dy) * f.h, l: x0.w * f.l, h: hauteur(x0) * f.h };
+            const compo = vu.current.compositions[g.i];
+            const autres = ciblesRepere(compo, (z) => z.type === 'bloc' || z.type === 'rect' || (estImage(z) && compo.elements.filter(estImage).indexOf(z) !== g.k));
+            reperes = M.reperesDeplacement(boite, autres, f, { seuil: seuilRepere(g.echelle) });
+            ax = reperes.ax / f.l; ay = reperes.ay / f.h;
+          }
           const imgs = g.depart.map((x, k) => (k !== g.k ? x : g.type === 'image'
-            ? { ...x, x: borne(x.x + dx, -x.w / 2, 1 - x.w / 2), y: borne(x.y + dy, -hauteur(x) / 2, 1 - hauteur(x) / 2) }
+            ? { ...x, x: borne(x.x + dx + ax, -x.w / 2, 1 - x.w / 2), y: borne(x.y + dy + ay, -hauteur(x) / 2, 1 - hauteur(x) / 2) }
             : { ...x, w: borne(x.w + dx, 0.06, Math.min(0.95, 1.2 - x.x)) }));
+          setGuides(reperes ? { i: g.i, lignes: reperes.lignes, ecarts: reperes.ecarts } : null);
           g.final = { ...vu.current.article.slides[g.i], images: imgs };
           setApercu({ i: g.i, slide: g.final });
           return;
@@ -601,12 +626,12 @@
         const bs = g.depart.map((d) => d.boite);
         const x0 = Math.min(...bs.map((b) => b.x)); const y0 = Math.min(...bs.map((b) => b.y));
         const boite = { x: x0 + dx, y: y0 + dy, l: Math.max(...bs.map((b) => b.x + b.l)) - x0, h: Math.max(...bs.map((b) => b.y + b.h)) - y0 };
-        const a = aimanter(boite, g.autres);
+        const a = M.reperesDeplacement(boite, g.autres, g.fmt, { seuil: seuilRepere(g.k) });
         const mx = Math.round(dx + a.ax); const my = Math.round(dy + a.ay);
         const slide = { ...g.base, blocs: g.base.blocs.map((b, n) => { const d = g.depart.find((x) => x.n === n); return d ? { ...b, pos: { ...d.pos, x: d.pos.x + mx, y: d.pos.y + my } } : b; }) };
         g.final = slide;
         setApercu({ i: g.i, slide });
-        setGuides({ i: g.i, gx: a.gx, gy: a.gy });
+        setGuides({ i: g.i, lignes: a.lignes, ecarts: a.ecarts });
       }
       function redimensionner(g) {
         const d = g.depart[0];
@@ -615,12 +640,12 @@
         let x = d.pos.x; let l = d.pos.l;
         if (g.cote === 'd') l = Math.max(160, d.pos.l + dx);
         else { l = Math.max(160, d.pos.l - dx); x = d.pos.x + d.pos.l - l; }
-        const a = aimanter(g.cote === 'd' ? { x: x + l, y: -999, l: 0, h: 0 } : { x, y: -999, l: 0, h: 0 }, g.autres);
+        const a = M.reperesDeplacement(g.cote === 'd' ? { x: x + l, y: -999, l: 0, h: 0 } : { x, y: -999, l: 0, h: 0 }, g.autres, g.fmt, { axes: 'x', seuil: seuilRepere(g.k) });
         if (g.cote === 'd') l += a.ax; else { x += a.ax; l -= a.ax; }
         const slide = { ...g.base, blocs: g.base.blocs.map((b, n) => (n === d.n ? { ...b, pos: { ...b.pos, x: Math.round(x), l: Math.round(l) } } : b)) };
         g.final = slide;
         setApercu({ i: g.i, slide, cote: g.cote });
-        setGuides({ i: g.i, gx: a.gx, gy: null });
+        setGuides({ i: g.i, lignes: a.lignes, ecarts: [] });
       }
       function tracerLasso(g) {
         const p = coordonnees(g.dernier, g.i);
@@ -714,7 +739,7 @@
         const positions = g.depart.map((d) => ({ ...d.pos, x: Math.round(pj.x - prise.x + d.pos.x - x0), y: Math.round(pj.y - prise.y + d.pos.y - y0) }));
         const indices = g.depart.map((d) => d.n);
         const nbAvant = baseJ.blocs.length;
-        majA(OP.envoyerSurSlide(g.i, indices, j, positions, g.base, baseJ), null, `${indices.length > 1 ? indices.length + ' blocs envoyés' : 'Bloc envoyé'} sur la slide ${j + 1}.`);
+        majA(OP.envoyerSurSlide(g.i, indices, j, positions, g.base, baseJ), null, `${indices.length > 1 ? indices.length + ' blocs envoyés' : 'Bloc envoyé'} sur la page ${j + 1}.`);
         const resteDansSource = a.slides[g.i].blocs.length - indices.length;
         const jFinal = resteDansSource === 0 && j > g.i ? j - 1 : j;
         setSelection({ i: jFinal, n: indices.map((_, q) => nbAvant + q) });
@@ -767,7 +792,7 @@
           if (!n.length) return;
           const vide = article.slides[i].blocs.length === n.length && total > 1;
           majA((a) => { const x = OP.supprimerBlocs(i, n)(a); return vide ? { ...x, slides: x.slides.filter((_, kk) => kk !== i) } : x; }, null,
-            `${n.length > 1 ? n.length + ' blocs supprimés' : 'Bloc supprimé'}, avec leur texte dans l’article.${vide ? ' La slide, vide, a été retirée.' : ''}`);
+            `${n.length > 1 ? n.length + ' blocs supprimés' : 'Bloc supprimé'}, avec leur texte dans l’article.${vide ? ' La page, vide, a été retirée.' : ''}`);
           setSelection({ i: null, n: [] });
         },
         aligner(mode) {
@@ -799,7 +824,7 @@
           majA(OP.slide(i, { ...base, blocs }), null, 'Blocs alignés.');
         },
         revenir(i) {
-          majA(OP.slide(i, M.revenirAuGabarit(article.slides[i])), null, `Slide ${i + 1} : mise en page du gabarit rétablie.`);
+          majA(OP.slide(i, M.revenirAuGabarit(article.slides[i])), null, `Page ${i + 1} : mise en page du gabarit rétablie.`);
           setSelection({ i: null, n: [] });
         },
         pousser(dx, dy) {
@@ -865,7 +890,7 @@
         if (touche === 'Enter' && mod) {
           e.preventDefault();
           if (n === 0 && s.debut === 0) return;
-          majA(OP.couper(i, n, s.debut), null, `Saut de slide : la suite est sur la slide ${i + 2}.`);
+          majA(OP.couper(i, n, s.debut), null, `Saut de page : la suite est sur la page ${i + 2}.`);
           ouvrirBloc(i + 1, 0, { sel: { debut: 0, fin: 0 } });
           return;
         }
@@ -891,7 +916,7 @@
             const apres = L.retirerCoupure(article, i - 1);
             const fusionne = apres.slides[i - 1].blocs.length === nbAvant + article.slides[i].blocs.length - 1;
             const jonction = fusionne ? apres.slides[i - 1].blocs[nbAvant - 1].texte.length - article.slides[i].blocs[0].texte.length : 0;
-            majA(OP.retirerCoupure(i - 1), null, `Slides ${i} et ${i + 1} réunies.`);
+            majA(OP.retirerCoupure(i - 1), null, `Pages ${i} et ${i + 1} réunies.`);
             ouvrirBloc(i - 1, fusionne ? nbAvant - 1 : nbAvant, { sel: { debut: jonction, fin: jonction } });
           }
           return;
@@ -925,7 +950,7 @@
         if (selection.i !== null && article.slides[selection.i]) return selection.n.map((n) => article.slides[selection.i].blocs[n]).map((b, q) => (b ? { i: selection.i, n: selection.n[q], d: 0, f: b.texte.length, b } : null)).filter(Boolean);
         return [];
       };
-      const exigerBloc = () => { if (!cibles().length) { dispatch({ type: 'message', message: 'Sélectionne un bloc, ou clique dans un paragraphe d’une slide.' }); return false; } return true; };
+      const exigerBloc = () => { if (!cibles().length) { dispatch({ type: 'message', message: 'Sélectionne un bloc, ou clique dans un paragraphe d’une page.' }); return false; } return true; };
       const apresForme = () => setVersion((v) => v + 1);
       const appliquer = (fabriquer, annonce, groupe) => { const cs = cibles(); majA((a) => cs.reduce((x, c) => fabriquer(c)(x), a), groupe || null, annonce); apresForme(); };
       function basculer(cle) {
@@ -1076,14 +1101,14 @@
         if (!exigerBloc()) return;
         const { i, n } = edition;
         const pos = selRef.current.debut;
-        if (n === 0 && pos === 0) { dispatch({ type: 'message', message: 'Place le curseur après le début de la slide : ce qui suit partira sur une nouvelle slide.' }); return; }
-        majA(OP.couper(i, n, pos), null, `Saut de slide : la suite est sur la slide ${i + 2}.`);
+        if (n === 0 && pos === 0) { dispatch({ type: 'message', message: 'Place le curseur après le début de la page : ce qui suit partira sur une nouvelle page.' }); return; }
+        majA(OP.couper(i, n, pos), null, `Saut de page : la suite est sur la page ${i + 2}.`);
         ouvrirBloc(i + 1, 0, { sel: { debut: 0, fin: 0 } });
       };
       const slideVide = () => {
         const i = active;
         const n = article.slides[i].blocs.length - 1;
-        majA((a) => OP.couper(i, n + 1, 0)(OP.insererParagraphe(i, n)(a)), null, 'Slide ajoutée, avec un paragraphe à remplacer.');
+        majA((a) => OP.couper(i, n + 1, 0)(OP.insererParagraphe(i, n)(a)), null, 'Page ajoutée, avec un paragraphe à remplacer.');
         ouvrirBloc(i + 1, 0, { sel: { debut: 0, fin: 'Nouveau paragraphe'.length } });
       };
       const presse = (commande) => () => {
@@ -1103,11 +1128,11 @@
       const reunirPrecedente = () => {
         const i = active;
         if (i === 0) return;
-        majA(OP.retirerCoupure(i - 1), null, `Slides ${i} et ${i + 1} réunies.`);
+        majA(OP.retirerCoupure(i - 1), null, `Pages ${i} et ${i + 1} réunies.`);
         dispatch({ type: 'slide', index: i - 1 });
         setEdition(null);
       };
-      const deplacer = (dlt) => { const j = active + dlt; majA(OP.deplacerSlide(active, dlt), null, `Slide déplacée en position ${j + 1}.`); dispatch({ type: 'slide', index: j }); setEdition(null); };
+      const deplacer = (dlt) => { const j = active + dlt; majA(OP.deplacerSlide(active, dlt), null, `Page déplacée en position ${j + 1}.`); dispatch({ type: 'slide', index: j }); setEdition(null); };
       const proposer = () => {
         const autres = etat.articles.filter((a) => a.id !== article.id);
         const convient = (s, kk, fd) => !M.composer(s, article.format, fd, choisirPolice, { index: kk, total, reglages, charte, logo }).deborde;
@@ -1125,26 +1150,26 @@
           item('Couper', presse('cut'), { raccourci: '⌘X', desactive: !blocCourant }), item('Copier', presse('copy'), { raccourci: '⌘C', desactive: !blocCourant }), item('Coller', presse('coller'), { raccourci: '⌘V', desactive: !blocCourant }),
           trait,
           item('Tout sélectionner dans le paragraphe', presse('tout'), { raccourci: '⌘A', desactive: !blocCourant }),
-          item('Sélectionner tous les blocs de la slide', () => actionsBlocs.toutSelectionner(active), { raccourci: blocCourant ? '' : '⌘A' }),
+          item('Sélectionner tous les blocs de la page', () => actionsBlocs.toutSelectionner(active), { raccourci: blocCourant ? '' : '⌘A' }),
         ] },
         { nom: 'Affichage', contenu: () => [
-          { type: 'sous', libelle: 'Taille des slides', contenu: () => [['petites', 'Petites'], ['moyennes', 'Moyennes'], ['grandes', 'Grandes']].map(([v, nom]) => item(nom, () => { setTailleEcran(v); ecrirePref('postsop-taille-slides', v); }, coche(tailleEcran === v))) },
+          { type: 'sous', libelle: 'Taille des pages', contenu: () => [['petites', 'Petites'], ['moyennes', 'Moyennes'], ['grandes', 'Grandes']].map(([v, nom]) => item(nom, () => { setTailleEcran(v); ecrirePref('postsop-taille-slides', v); }, coche(tailleEcran === v))) },
           item('Afficher les marges de texte', () => setMarges(!marges), coche(marges)),
           trait,
-          { type: 'sous', libelle: 'Aller à la slide', contenu: () => article.slides.map((s, i) => item(`Slide ${i + 1}`, () => allerA(i), { raccourci: nomGabarit(M.gabaritParDefaut(s, i)), coche: active === i })) },
+          { type: 'sous', libelle: 'Aller à la page', contenu: () => article.slides.map((s, i) => item(`Page ${i + 1}`, () => allerA(i), { raccourci: nomGabarit(M.gabaritParDefaut(s, i)), coche: active === i })) },
         ] },
         { nom: 'Insertion', contenu: () => [
           item('Bloc de texte', actionsBlocs.nouveau),
-          { type: 'note', texte: 'Ou double-clique sur le vide d’une slide pour créer un bloc à cet endroit.' },
+          { type: 'note', texte: 'Ou double-clique sur le vide d’une page pour créer un bloc à cet endroit.' },
           item('Nouveau paragraphe', nouveauParagraphe, { raccourci: '↩' }),
-          item('Saut de slide', sautDeSlide, { raccourci: '⌘↩' }),
-          { type: 'note', texte: 'Le texte qui suit le curseur part sur une nouvelle slide.' },
+          item('Saut de page', sautDeSlide, { raccourci: '⌘↩' }),
+          { type: 'note', texte: 'Le texte qui suit le curseur part sur une nouvelle page.' },
           trait,
           item('Logo', () => ajouterImage('logo')),
           item('Fleurs', () => ajouterImage('fleurs')),
           { type: 'note', texte: 'Ils se placent derrière le texte : glisse-les où tu veux.' },
           trait,
-          item('Slide après celle-ci', slideVide),
+          item('Page après celle-ci', slideVide),
         ] },
         { nom: 'Format', contenu: () => [
           { type: 'sous', libelle: 'Style de paragraphe', contenu: () => natures().map(([cle, nom]) => item(h('span', { className: 'apercu-style ' + cle }, nom), () => natureDe(cle), { coche: blocCourant ? M.natureAffichee(M.gabaritParDefaut(article.slides[edition.i], edition.i), blocCourant.style, edition.n) === cle : undefined })) },
@@ -1170,8 +1195,8 @@
             item('Dupliquer', actionsBlocs.dupliquer, { desactive: !n }),
             item('Nouveau bloc après', actionsBlocs.nouveau),
             { type: 'sous', libelle: 'Aligner', contenu: () => [
-              { type: 'titre', libelle: 'Sur la slide' },
-              item('Sur la marge de gauche', () => actionsBlocs.aligner('marge'), { desactive: !n }), item('Centrer sur la slide', () => actionsBlocs.aligner('centre'), { desactive: !n }), item('Sur la marge de droite', () => actionsBlocs.aligner('droite'), { desactive: !n }),
+              { type: 'titre', libelle: 'Sur la page' },
+              item('Sur la marge de gauche', () => actionsBlocs.aligner('marge'), { desactive: !n }), item('Centrer sur la page', () => actionsBlocs.aligner('centre'), { desactive: !n }), item('Sur la marge de droite', () => actionsBlocs.aligner('droite'), { desactive: !n }),
               { type: 'titre', libelle: 'Entre les blocs sélectionnés' },
               item('Aligner leurs bords gauches', () => actionsBlocs.aligner('entre'), { desactive: n < 2 }), item('Répartir verticalement', () => actionsBlocs.aligner('repartir'), { desactive: n < 3 }),
             ] },
@@ -1181,8 +1206,8 @@
             item('Revenir au gabarit', () => actionsBlocs.revenir(ici), { desactive: !article.slides[ici].libre }),
           ];
         } },
-        { nom: 'Slide', titre: `Slide ${active + 1}`, contenu: () => [
-          ...(article.slides[active].libre ? [item('Revenir au gabarit', () => actionsBlocs.revenir(active)), { type: 'note', texte: 'La slide reprend sa mise en page automatique : marges, espacements et alignements de la charte.' }, trait] : []),
+        { nom: 'Page', titre: `Page ${active + 1}`, contenu: () => [
+          ...(article.slides[active].libre ? [item('Revenir au gabarit', () => actionsBlocs.revenir(active)), { type: 'note', texte: 'La page reprend sa mise en page automatique : marges, espacements et alignements de la charte.' }, trait] : []),
           { type: 'sous', libelle: 'Gabarit', contenu: () => [{ type: 'libre', rendu: (fermer) => h(GalerieGabarits, { slide: article.slides[active], index: active, total, article, choisir: (g) => { fermer(); majA(OP.gabarit(active, g), null, `Gabarit « ${nomGabarit(g)} ».`); setEdition(null); } }) }] },
           trait,
           (() => {
@@ -1191,7 +1216,7 @@
             const deja = favoris.find((f) => memePresentation(f.presentation, pres));
             return deja
               ? item('★ Retirer de mes favoris', () => dispatch({ type: 'projet', maj: (pr) => ({ ...pr, favoris: (pr.favoris || []).filter((f) => f.id !== deja.id) }) }))
-              : item('☆ Garder dans mes favoris', () => { dispatch({ type: 'projet', maj: (pr) => ({ ...pr, favoris: [nouveauFavori(article.slides[active], active, article)].concat(pr.favoris || []) }) }); dispatch({ type: 'message', message: `Slide ${active + 1} gardée dans tes favoris : « Appliquer un style favori » la réutilise sur n’importe quelle slide.` }); });
+              : item('☆ Garder dans mes favoris', () => { dispatch({ type: 'projet', maj: (pr) => ({ ...pr, favoris: [nouveauFavori(article.slides[active], active, article)].concat(pr.favoris || []) }) }); dispatch({ type: 'message', message: `Page ${active + 1} gardée dans tes favoris : « Appliquer un style favori » la réutilise sur n’importe quelle page.` }); });
           })(),
           { type: 'sous', libelle: 'Logo et fleurs', contenu: () => [{ type: 'libre', rendu: () => {
             const i = active;
@@ -1199,7 +1224,7 @@
             const sl = article.slides[i];
             return h('div', { className: 'liste-images' },
               h('div', { className: 'titre-section' }, 'Derrière le texte, devant le fond'),
-              !imgs.length && h('p', { className: 'doux petit' }, 'Aucun sur cette slide. Menu Insertion : Logo, Fleurs.'),
+              !imgs.length && h('p', { className: 'doux petit' }, 'Aucun sur cette page. Menu Insertion : Logo, Fleurs.'),
               imgs.map((x, k) => h('div', { key: k, className: 'ligne-image' },
                 h('button', { type: 'button', className: 'nom-image', onMouseDown: garder, disabled: x.verrou, onClick: () => { setImageChoisie({ i, k }); setMenu(null); } }, nomImage(imgs, k) + (x.verrou ? ' · verrouillé' : '')),
                 h('button', { type: 'button', className: 'bouton-image', onMouseDown: garder, 'aria-label': (x.verrou ? 'Déverrouiller ' : 'Verrouiller ') + nomImage(imgs, k), title: x.verrou ? 'Déverrouiller' : 'Verrouiller', onClick: () => majImages(i, imgs.map((y, j) => (j === k ? { ...y, verrou: !y.verrou } : y)), x.verrou ? nomImage(imgs, k) + ' déverrouillé.' : nomImage(imgs, k) + ' verrouillé.') }, x.verrou ? '🔒' : '🔓'),
@@ -1208,18 +1233,18 @@
           } }] },
           { type: 'sous', libelle: 'Appliquer un style favori', contenu: () => [{ type: 'libre', rendu: (fermer) => h(GalerieFavoris, {
             favoris: (etat.projet && etat.projet.favoris) || [], slide: article.slides[active], index: active, total, article,
-            appliquer: (f) => { fermer(); majA(OP.slide(active, appliquerFavori(article.slides[active], f)), null, `Style favori appliqué à la slide ${active + 1} : son texte n’a pas changé.`); setEdition(null); },
+            appliquer: (f) => { fermer(); majA(OP.slide(active, appliquerFavori(article.slides[active], f)), null, `Style favori appliqué à la page ${active + 1} : son texte n’a pas changé.`); setEdition(null); },
             retirer: (f) => dispatch({ type: 'projet', maj: (pr) => ({ ...pr, favoris: (pr.favoris || []).filter((x) => x.id !== f.id) }) }),
           }) }] },
           trait,
-          item('Dupliquer la slide', () => { majA(OP.dupliquerSlide(active), null, `Slide ${active + 1} dupliquée.`); dispatch({ type: 'slide', index: active + 1 }); }),
+          item('Dupliquer la page', () => { majA(OP.dupliquerSlide(active), null, `Page ${active + 1} dupliquée.`); dispatch({ type: 'slide', index: active + 1 }); }),
           item('Réunir avec la précédente', reunirPrecedente, { raccourci: '⌫ en tête', desactive: active === 0 }),
-          item('Réunir avec la suivante', () => { majA(OP.retirerCoupure(active), null, `Slides ${active + 1} et ${active + 2} réunies.`); setEdition(null); }, { desactive: active === total - 1 }),
+          item('Réunir avec la suivante', () => { majA(OP.retirerCoupure(active), null, `Pages ${active + 1} et ${active + 2} réunies.`); setEdition(null); }, { desactive: active === total - 1 }),
           trait,
-          item('Monter la slide', () => deplacer(-1), { raccourci: active > 0 ? `devient la n° ${active}` : '', desactive: active === 0 }),
-          item('Descendre la slide', () => deplacer(1), { raccourci: active < total - 1 ? `devient la n° ${active + 2}` : '', desactive: active === total - 1 }),
+          item('Monter la page', () => deplacer(-1), { raccourci: active > 0 ? `devient la n° ${active}` : '', desactive: active === 0 }),
+          item('Descendre la page', () => deplacer(1), { raccourci: active < total - 1 ? `devient la n° ${active + 2}` : '', desactive: active === total - 1 }),
           trait,
-          item('Supprimer la slide', () => { majA(OP.supprimerSlide(active), null, `Slide ${active + 1} supprimée. Son texte reste dans l’article.`); dispatch({ type: 'slide', index: Math.max(0, active - 1) }); setEdition(null); }, { danger: true, desactive: total <= 1 }),
+          item('Supprimer la page', () => { majA(OP.supprimerSlide(active), null, `Page ${active + 1} supprimée. Son texte reste dans l’article.`); dispatch({ type: 'slide', index: Math.max(0, active - 1) }); setEdition(null); }, { danger: true, desactive: total <= 1 }),
         ] },
         { nom: 'Carrousel', contenu: () => [
           { type: 'sous', libelle: 'Fond', contenu: () => [{ type: 'libre', rendu: (fermer) => h(Nuancier, { valeur: article.fond, choisir: (f) => { fermer(); majA(OP.champ('fond', f), null, `Fond ${M.fondsDe(charte.palette)[f].nom.toLowerCase()}.`); setEdition(null); } }) }] },
@@ -1244,7 +1269,7 @@
       if (zoneEdition) zoneMemoire.current = zoneEdition;
       const zoneAffichee = zoneEdition || (edition && zoneMemoire.current) || null;
       const historique = h('span', { className: 'historique-menus' },
-        h('span', { className: 'position' }, `Slide ${active + 1} sur ${total}`),
+        h('span', { className: 'position' }, `Page ${active + 1} sur ${total}`),
         h('button', { ref: refRobot, type: 'button', className: cls('bouton-robot', 'bouton-robot-menu', (menuIA || disc.ouvert) && 'actif'), 'aria-label': 'CCB · Creative Collaborative Boost', title: 'CCB · Creative Collaborative Boost', 'aria-haspopup': 'true', 'aria-expanded': menuIA, onMouseDown: garder, onClick: () => { setMenu(null); setMenuIA(!menuIA); } }, h(outilsIA.Robot, { taille: 34 })),
         menuIA && h('div', { className: 'voile-menu', 'aria-hidden': 'true', onPointerDown: () => setMenuIA(false) }),
         menuIA && h(Popover, { ancre: refRobot, fermer: () => setMenuIA(false), etiquette: 'CCB · Creative Collaborative Boost', contenu: () => menuAssistant(false) }));
@@ -1261,7 +1286,7 @@
             const g = M.gabaritParDefaut(s, i);
             const mots = s.blocs.reduce((m, b) => m + M.compterMots(b.texte), 0);
             const enEdition = edition && edition.i === i;
-            return h('section', { key: i, className: cls('page-slide', i === active && 'active'), 'data-index': i, 'aria-label': `Slide ${i + 1}` },
+            return h('section', { key: i, className: cls('page-slide', i === active && 'active'), 'data-index': i, 'aria-label': `Page ${i + 1}` },
               h('div', { className: 'reperes', onClick: () => dispatch({ type: 'slide', index: i }) },
                 h('span', { className: 'num' }, i + 1),
                 h('span', { className: 'gab' }, nomGabarit(g)),
@@ -1271,9 +1296,9 @@
                 s.libre && h('span', { className: 'libre' }, 'Mise en page libre'),
                 s.libre && h('button', { type: 'button', className: 'lien-repere', onClick: (e) => { e.stopPropagation(); actionsBlocs.revenir(i); } }, 'Revenir au gabarit')),
               h('div', { className: cls('cadre-page', cible === i && 'cible'), style: { width: largeurSlide + 'px', height: Math.round(largeurSlide * fmt.h / fmt.l) + 'px' } },
-                h(SlideCanvas, { slide: slidesVues[i], compo: c, formatId: article.format, fondId: article.fond, largeur: largeurSlide, index: i, total, logo, masquer: enEdition ? edition.n : undefined, etiquette: `Slide ${i + 1}` }),
+                h(SlideCanvas, { slide: slidesVues[i], compo: c, formatId: article.format, fondId: article.fond, largeur: largeurSlide, index: i, total, logo, masquer: enEdition ? edition.n : undefined, etiquette: `Page ${i + 1}` }),
                 h('div', {
-                  className: cls('calque', fondClair && 'sur-clair'), 'data-index': i, role: 'group', 'aria-label': `Slide ${i + 1} : clique sur un bloc pour le sélectionner, clique à nouveau pour l’écrire`,
+                  className: cls('calque', fondClair && 'sur-clair'), 'data-index': i, role: 'group', 'aria-label': `Page ${i + 1} : clique sur un bloc pour le sélectionner, clique à nouveau pour l’écrire`,
                   onPointerDown: (e) => debutPointeur(e, i),
                   onPointerMove: (e) => { if (geste.current || e.pointerType !== 'mouse') return; const n = blocAuPoint(i, coordonnees(e, i)); if (!survol || survol.i !== i || survol.n !== n) setSurvol(n === null ? null : { i, n }); },
                   onPointerLeave: () => setSurvol(null),
@@ -1291,17 +1316,20 @@
                         !(apercu && apercu.i === i) && h('div', { className: 'poignee-image', 'data-poignee-image': k2, title: 'Taille', style: { left: Math.min(b.x + b.l, (c ? c.fmt.l : 1080) - 16) + 'px', top: Math.min(b.y + b.h, (c ? c.fmt.h : 1080) - 16) + 'px' } }),
                         !(apercu && apercu.i === i) && h('div', { className: 'barre-image', style: { left: b.x + 'px', top: Math.max(0, b.y - 12) + 'px' } },
                           h('strong', null, imgs[k2] ? nomImage(imgs, k2) : ''),
-                          h('button', { type: 'button', onClick: () => { majImages(i, imgs.map((x, j) => (j === k2 ? { ...x, verrou: true } : x)), 'Verrouillé : il ne bouge plus. Pour le déverrouiller : menu Slide, « Logo et fleurs ».'); setImageChoisie(null); } }, 'Verrouiller'),
+                          h('button', { type: 'button', onClick: () => { majImages(i, imgs.map((x, j) => (j === k2 ? { ...x, verrou: true } : x)), 'Verrouillé : il ne bouge plus. Pour le déverrouiller : menu Page, « Logo et fleurs ».'); setImageChoisie(null); } }, 'Verrouiller'),
                           h('button', { type: 'button', onClick: () => { const n = imgs.concat([{ ...imgs[k2], x: imgs[k2].x + 0.03, y: imgs[k2].y + 0.03, verrou: false }]); majImages(i, n); setImageChoisie({ i, k: n.length - 1 }); } }, 'Dupliquer'),
-                          h('button', { type: 'button', className: 'danger', onClick: () => { majImages(i, imgs.filter((_, j) => j !== k2), nomImage(imgs, k2) + ' retiré de la slide.'); setImageChoisie(null); } }, 'Supprimer')));
+                          h('button', { type: 'button', className: 'danger', onClick: () => { majImages(i, imgs.filter((_, j) => j !== k2), nomImage(imgs, k2) + ' retiré de la page.'); setImageChoisie(null); } }, 'Supprimer')));
                     })(),
                     selection.i === i && selection.n.map((n) => { const b = boiteDe(i, n); return b && h('div', { key: 'sel' + n, className: 'selection-bloc', style: { left: b.x - 8 + 'px', top: b.y - 8 + 'px', width: b.l + 16 + 'px', height: b.h + 16 + 'px' } }); }),
                     selection.i === i && selection.n.length === 1 && (!apercu || apercu.cote) && (() => { const b = boiteDe(i, selection.n[0]); return b && h(Fragment, null,
                       h('div', { className: cls('poignee-redim', apercu && apercu.cote === 'g' && 'actif'), 'data-cote': 'g', title: 'Largeur', style: { left: b.x - 8 + 'px', top: b.y + b.h / 2 + 'px' } }),
                       h('div', { className: cls('poignee-redim', apercu && apercu.cote === 'd' && 'actif'), 'data-cote': 'd', title: 'Largeur', style: { left: b.x + b.l + 8 + 'px', top: b.y + b.h / 2 + 'px' } })); })(),
                     lasso && lasso.i === i && h('div', { className: 'lasso-blocs', style: { left: lasso.x + 'px', top: lasso.y + 'px', width: lasso.l + 'px', height: lasso.h + 'px' } }),
-                    guides && guides.i === i && guides.gx !== null && h('div', { className: 'guide-v', style: { left: guides.gx + 'px' } }),
-                    guides && guides.i === i && guides.gy !== null && h('div', { className: 'guide-h', style: { top: guides.gy + 'px' } }),
+                    guides && guides.i === i && (guides.lignes || []).map((l, k) => h('div', { key: 'l' + k, className: cls('repere-ligne', l.sens, l.sorte !== 'element' && 'page'),
+                      style: l.sens === 'v' ? { left: l.pos + 'px', top: l.debut + 'px', height: l.fin - l.debut + 'px' } : { top: l.pos + 'px', left: l.debut + 'px', width: l.fin - l.debut + 'px' } })),
+                    guides && guides.i === i && (guides.ecarts || []).map((e, k) => h('div', { key: 'e' + k, className: cls('repere-ecart', e.sens),
+                      style: e.sens === 'v' ? { left: e.travers + 'px', top: e.de + 'px', height: e.a - e.de + 'px' } : { top: e.travers + 'px', left: e.de + 'px', width: e.a - e.de + 'px' } },
+                      h('span', { className: 'repere-valeur' }, e.valeur))),
                     enEdition && blocCourant && zoneAffichee && h(EditeurBloc, {
                       key: edition.cle, bloc: blocCourant, zone: zoneAffichee, fond, echelleSlide: s.echelle || 1, depart: edition.depart, version, refExterne: editeurRef,
                       onTexte: ecrire, onTouche: toucher,
@@ -1355,11 +1383,11 @@
         b(h(Fragment, null, ico('M4 4v16M8 7h12M8 12h8M8 17h10'), 'Aligner'), () => setAligner(!aligner), 'Aligner', { classe: 'avec-texte', ref: refAligner }),
         h('span', { className: 'separateur', 'aria-hidden': 'true' }),
         b(ico('M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3'), actions.supprimer, 'Supprimer (⌫)', { classe: 'danger' }),
-        libre && b(h(Fragment, null, ico('M4 4h16v16H4zM4 9h16'), 'Revenir au gabarit'), () => actions.revenir(selection.i), 'La slide reprend sa mise en page automatique', { classe: 'avec-texte' }),
+        libre && b(h(Fragment, null, ico('M4 4h16v16H4zM4 9h16'), 'Revenir au gabarit'), () => actions.revenir(selection.i), 'La page reprend sa mise en page automatique', { classe: 'avec-texte' }),
         aligner && h(Popover, { ancre: refAligner, fermer: () => setAligner(false), etiquette: 'Aligner', contenu: () => [
-          { type: 'titre', libelle: 'Sur la slide' },
+          { type: 'titre', libelle: 'Sur la page' },
           { type: 'action', libelle: 'Sur la marge de gauche', action: () => actions.aligner('marge') },
-          { type: 'action', libelle: 'Centrer sur la slide', action: () => actions.aligner('centre') },
+          { type: 'action', libelle: 'Centrer sur la page', action: () => actions.aligner('centre') },
           { type: 'action', libelle: 'Sur la marge de droite', action: () => actions.aligner('droite') },
           { type: 'titre', libelle: 'Entre les blocs sélectionnés' },
           { type: 'action', libelle: 'Aligner leurs bords gauches', action: () => actions.aligner('entre'), desactive: n < 2 },
@@ -1389,7 +1417,7 @@
     const memePresentation = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     function nouveauFavori(slide, index, article) {
       const pres = presentationDe(slide, index);
-      return { id: 'fav-' + Date.now().toString(36), cree: new Date().toISOString(), nature: NATURES_FAVORI[pres.gabarit[0]] || 'Slide', origine: article.titre, presentation: pres, apercu: { blocs: slide.blocs.map((b) => ({ style: b.style, texte: b.texte, marques: b.marques })), fond: article.fond } };
+      return { id: 'fav-' + Date.now().toString(36), cree: new Date().toISOString(), nature: NATURES_FAVORI[pres.gabarit[0]] || 'Page', origine: article.titre, presentation: pres, apercu: { blocs: slide.blocs.map((b) => ({ style: b.style, texte: b.texte, marques: b.marques })), fond: article.fond } };
     }
     function appliquerFavori(slide, fav) {
       const p = fav.presentation;
@@ -1409,13 +1437,13 @@
     }
 
     function GalerieFavoris({ favoris, slide, index, total, article, appliquer, retirer }) {
-      if (!favoris.length) return h('p', { className: 'doux petit galerie-vide' }, 'Aucun favori pour l’instant. Sur une slide qui te plaît, choisis « Garder dans mes favoris ».');
+      if (!favoris.length) return h('p', { className: 'doux petit galerie-vide' }, 'Aucun favori pour l’instant. Sur une page qui te plaît, choisis « Garder dans mes favoris ».');
       return h('div', { className: 'galerie-menu' },
-        h('div', { className: 'titre-section' }, 'Tes slides gardées : aperçu avec le texte de cette slide'),
+        h('div', { className: 'titre-section' }, 'Tes pages gardées : aperçu avec le texte de cette page'),
         h('div', { className: 'grille-gabarits-menu' }, favoris.map((f) => h('div', { key: f.id, className: 'favori-menu' },
-          h('button', { type: 'button', className: 'gabarit-menu', onMouseDown: garder, onClick: () => appliquer(f), 'aria-label': 'Appliquer le style favori ' + f.nature + ' (' + f.origine + ')' },
+          h('button', { type: 'button', className: 'gabarit-menu', onMouseDown: garder, onClick: () => appliquer(f), 'aria-label': 'Appliquer le style favori ' + (f.nature === 'Slide' ? 'Page' : f.nature) + ' (' + f.origine + ')' },
             h(SlideCanvas, { slide: appliquerFavori(slide, f), formatId: article.format, fondId: article.fond, largeur: 84, index, total, logo: article.logo }),
-            h('span', null, f.nature)),
+            h('span', null, f.nature === 'Slide' ? 'Page' : f.nature)),
           h('button', { type: 'button', className: 'favori-retirer', onMouseDown: garder, onClick: () => retirer(f), 'aria-label': 'Retirer ce favori' }, '×')))));
     }
 
@@ -1498,7 +1526,7 @@
       function utiliser() {
         if (!plan) return;
         const nouvelles = P.construireSlides(plan, paragraphes);
-        majA((a) => OP.remplacerTexte(a.texte, nouvelles)({ ...a, fond: plan.fond }), null, `« ${plan.nom} » est maintenant ton carrousel. Retouche-le à la main ici, slide par slide.`);
+        majA((a) => OP.remplacerTexte(a.texte, nouvelles)({ ...a, fond: plan.fond }), null, `« ${plan.nom} » est maintenant ton carrousel. Retouche-le à la main ici, page par page.`);
         fermer();
       }
       const majProjet = (maj) => dispatch({ type: 'projet', maj });
@@ -1539,8 +1567,8 @@
                 h('button', { type: 'button', 'aria-pressed': onglet === 'propositions', onClick: () => setOnglet('propositions') }, 'Propositions'),
                 h('button', { type: 'button', 'aria-pressed': onglet === 'favoris', onClick: () => setOnglet('favoris') }, '★ Favoris (' + (favoris.length + favorisCarrousels.length) + ')')),
               onglet === 'propositions' ? h(Fragment, null,
-                itemListe('actuelle', 'Ta mise en page actuelle', `${article.slides.length} slides`, article.slides, article.fond),
-                liste.map((x) => itemListe(x.id, x.plan.nom, `${x.plan.slides.length} slides${x.favori ? ' · favori' : ''}`, P.construireSlides(x.plan, paragraphes), x.plan.fond)),
+                itemListe('actuelle', 'Ta mise en page actuelle', `${article.slides.length} pages`, article.slides, article.fond),
+                liste.map((x) => itemListe(x.id, x.plan.nom, `${x.plan.slides.length} pages${x.favori ? ' · favori' : ''}`, P.construireSlides(x.plan, paragraphes), x.plan.fond)),
                 config
                   ? h(Fragment, null,
                     h(Bouton, { variante: liste.length ? undefined : 'principal', disabled: suivi.etat === 'encours', onClick: generer }, suivi.etat === 'encours' ? nomIA + ' compose…' : liste.length ? 'Nouvelles propositions' : 'Proposer 3 mises en page'),
@@ -1550,22 +1578,22 @@
                     suivi.detail && suivi.etat === 'repos' && h('p', { className: 'doux petit' }, suivi.detail))
                   : h('p', { className: 'doux petit' }, 'Pour que ' + nomIA + ' te propose des mises en page, ajoute une clé dans Configuration, onglet IA.'))
               : h(Fragment, null,
-                !favoris.length && !favorisCarrousels.length && h('p', { className: 'doux petit' }, 'Touche ☆ sur une slide, ou « Garder ce carrousel », pour retrouver ici ce qui te plaît.'),
+                !favoris.length && !favorisCarrousels.length && h('p', { className: 'doux petit' }, 'Touche ☆ sur une page, ou « Garder ce carrousel », pour retrouver ici ce qui te plaît.'),
                 favorisCarrousels.map((f) => h('div', { key: f.id, className: 'proposition-item' },
                   h('div', { className: 'proposition-tete' }, h('strong', null, f.nom), h(Bouton, { variante: 'icone', etiquette: 'Retirer des favoris', onClick: () => majProjet((pr) => ({ ...pr, favorisCarrousels: (pr.favorisCarrousels || []).filter((x) => x.id !== f.id) })) }, '★')),
-                  h('span', { className: 'doux petit' }, 'Carrousel · ' + f.recette.slides.length + ' slides'),
+                  h('span', { className: 'doux petit' }, 'Carrousel · ' + f.recette.slides.length + ' pages'),
                   h(Bouton, { variante: 'lien', onClick: () => voirCarrousel(f) }, 'Voir sur cet article'))),
-                favoris.length > 0 && h('p', { className: 'doux petit' }, `${favoris.length} slide${favoris.length > 1 ? 's gardées' : ' gardée'}. Pour en appliquer une : menu Slide, « Appliquer un style favori ».`))),
+                favoris.length > 0 && h('p', { className: 'doux petit' }, `${favoris.length} page${favoris.length > 1 ? 's gardées' : ' gardée'}. Pour en appliquer une : menu Page, « Appliquer un style favori ».`))),
             h('div', { className: 'propositions-centre' },
               h('div', { className: 'proposition-tete' },
-                h('div', null, h('h3', { className: 'gill' }, (plan ? plan.nom : 'Ta mise en page actuelle') + ' · ' + total + ' slides'), h('p', { className: 'doux petit' }, plan ? plan.pourquoi : 'Celle de ton carrousel aujourd’hui.')),
+                h('div', null, h('h3', { className: 'gill' }, (plan ? plan.nom : 'Ta mise en page actuelle') + ' · ' + total + ' pages'), h('p', { className: 'doux petit' }, plan ? plan.pourquoi : 'Celle de ton carrousel aujourd’hui.')),
                 h(Bouton, { disabled: !plan || !config, titre: plan ? '' : 'Choisis une proposition pour la faire évoluer', onClick: () => setChat({ ...chat, ouvert: !chat.ouvert }), 'aria-expanded': chat.ouvert }, h(Icone, { nom: 'bulle', taille: 18 }), chat.ouvert ? 'Fermer' : 'Demander à ' + nomIA)),
-              deborde > 0 && h('p', { className: 'vigilance' }, `${deborde} slide${deborde > 1 ? 's débordent' : ' déborde'} : demande à ${nomIA} d’aérer, ou retouche-la${deborde > 1 ? 's' : ''} ensuite dans Composition.`),
+              deborde > 0 && h('p', { className: 'vigilance' }, `${deborde} page${deborde > 1 ? 's débordent' : ' déborde'} : demande à ${nomIA} d’aérer, ou retouche-la${deborde > 1 ? 's' : ''} ensuite dans Composition.`),
               h('div', { className: 'proposition-slides' }, slides.map((sl, i) => {
                 const garde = favoris.some((f) => memePresentation(f.presentation, presentationDe(sl, i)));
                 return h('div', { key: i, className: 'proposition-slide' },
                   h(SlideCanvas, { slide: sl, formatId: article.format, fondId: fond, largeur: 150, index: i, total, logo: article.logo }),
-                  h('button', { type: 'button', className: cls('etoile-slide', garde && 'gardee'), 'aria-label': (garde ? 'Ne plus garder' : 'Garder') + ' la slide ' + (i + 1), title: garde ? 'Retirer des favoris' : 'Garder dans mes favoris', onClick: () => basculerFavoriSlide(sl, i) }, garde ? '★' : '☆'));
+                  h('button', { type: 'button', className: cls('etoile-slide', garde && 'gardee'), 'aria-label': (garde ? 'Ne plus garder' : 'Garder') + ' la page ' + (i + 1), title: garde ? 'Retirer des favoris' : 'Garder dans mes favoris', onClick: () => basculerFavoriSlide(sl, i) }, garde ? '★' : '☆'));
               })),
               h('div', { className: 'actions-ligne' },
                 plan && h(Bouton, { variante: 'principal', onClick: utiliser }, 'Utiliser cette proposition'),
@@ -1576,7 +1604,7 @@
                   !chat.messages.length && h('p', { className: 'bulle ia' }, 'Ton texte ne change jamais : seule la présentation bouge. Chaque demande s’annule avec « Annuler », en haut.'),
                   chat.messages.map((m, i) => h('p', { key: i, className: cls('bulle', m.de === 'moi' ? 'moi' : 'ia') }, m.texte)),
                   chat.encours && h('p', { className: 'bulle ia doux' }, nomIA + ' réfléchit…')),
-                h('div', { className: 'discussion-raccourcis' }, ['Plus aéré', 'Une slide de moins', 'La citation la plus forte en couverture'].map((t) => h('button', { key: t, type: 'button', className: 'puce', disabled: chat.encours, onClick: () => demander(t) }, t))),
+                h('div', { className: 'discussion-raccourcis' }, ['Plus aéré', 'Une page de moins', 'La citation la plus forte en couverture'].map((t) => h('button', { key: t, type: 'button', className: 'puce', disabled: chat.encours, onClick: () => demander(t) }, t))),
                 h('div', { className: 'discussion-saisie' },
                   h('input', { className: 'champ-texte', value: saisie, placeholder: 'Ta demande, en une phrase', 'aria-label': 'Ta demande à ' + nomIA, onChange: (e) => setSaisie(e.target.value), onKeyDown: (e) => { if (e.key === 'Enter') { e.preventDefault(); demander(saisie); } } }),
                   h(Bouton, { variante: 'principal', disabled: chat.encours || !saisie.trim(), onClick: () => demander(saisie) }, 'Envoyer')))))));
@@ -1601,23 +1629,23 @@
     function PanneauVerifier({ article, alertes, nbValidees, majA, choisirPolice, contexteRendu, voir }) {
       const libelles = {
         reduire: (s) => `Réduire le texte à ${Math.round(s.echelle * 100)} %`,
-        scinder: (s) => (s.reste > 1 ? `Envoyer les ${s.reste} derniers paragraphes sur une nouvelle slide` : 'Envoyer le dernier paragraphe sur une nouvelle slide'),
+        scinder: (s) => (s.reste > 1 ? `Envoyer les ${s.reste} derniers paragraphes sur une nouvelle page` : 'Envoyer le dernier paragraphe sur une nouvelle page'),
         portrait: () => 'Passer tout le carrousel en 4:5',
         gabarit: (s) => `Essayer le gabarit « ${M.GABARITS[s.gabarit].nom} »`,
       };
       const appliquer = (a, sol) => {
-        if (sol.type === 'reduire') majA(OP.echelle(a.slide, sol.echelle), null, `Texte de la slide ${a.slide + 1} réduit à ${Math.round(sol.echelle * 100)} %.`);
-        else if (sol.type === 'scinder') majA(OP.scinder(a.slide, sol.bloc), null, `Slide ${a.slide + 1} coupée en deux.`);
+        if (sol.type === 'reduire') majA(OP.echelle(a.slide, sol.echelle), null, `Texte de la page ${a.slide + 1} réduit à ${Math.round(sol.echelle * 100)} %.`);
+        else if (sol.type === 'scinder') majA(OP.scinder(a.slide, sol.bloc), null, `Page ${a.slide + 1} coupée en deux.`);
         else if (sol.type === 'portrait') majA(OP.champ('format', 'portrait'), null, 'Carrousel passé en 4:5.');
-        else if (sol.type === 'gabarit') majA(OP.gabarit(a.slide, sol.gabarit), null, `Gabarit « ${M.GABARITS[sol.gabarit].nom} » appliqué à la slide ${a.slide + 1}.`);
+        else if (sol.type === 'gabarit') majA(OP.gabarit(a.slide, sol.gabarit), null, `Gabarit « ${M.GABARITS[sol.gabarit].nom} » appliqué à la page ${a.slide + 1}.`);
       };
       return h('div', { className: 'panneau-verifier' },
         alertes.length ? h('ul', { className: 'liste-alertes' }, alertes.map((a) => h('li', { key: a.cle, className: a.niveau },
-          h('span', null, (a.slide !== null ? `Slide ${a.slide + 1} · ` : '') + a.message),
+          h('span', null, (a.slide !== null ? `Page ${a.slide + 1} · ` : '') + a.message),
           a.type === 'deborde' && h('span', { className: 'solutions' }, M.solutionsDebordement(article, a.slide, choisirPolice, contexteRendu).map((sol, kk) => h('button', { key: kk, type: 'button', className: cls('bouton', kk === 0 ? 'principal' : 'secondaire', 'petit'), onMouseDown: garder, onClick: () => appliquer(a, sol) }, libelles[sol.type](sol)))),
           h('span', { className: 'actions-ligne' },
-            a.slide !== null && h('button', { type: 'button', className: 'bouton secondaire petit', onMouseDown: garder, onClick: () => voir(a.slide) }, 'Voir la slide ' + (a.slide + 1)),
-            h('button', { type: 'button', className: 'bouton secondaire petit', onMouseDown: garder, onClick: () => majA(OP.validerAlerte(a.cle), null, 'Alerte validée : elle reviendra si la slide change.') }, 'C’est voulu')))))
+            a.slide !== null && h('button', { type: 'button', className: 'bouton secondaire petit', onMouseDown: garder, onClick: () => voir(a.slide) }, 'Voir la page ' + (a.slide + 1)),
+            h('button', { type: 'button', className: 'bouton secondaire petit', onMouseDown: garder, onClick: () => majA(OP.validerAlerte(a.cle), null, 'Alerte validée : elle reviendra si la page change.') }, 'C’est voulu')))))
           : h('p', { className: 'ok petit' }, 'Tout est en ordre : marges, densité, lisibilité, limite du réseau et intégrité du texte.'),
         nbValidees > 0 && h('p', { className: 'doux petit' }, `${nbValidees} alerte(s) validée(s). `, h('button', { type: 'button', className: 'lien', onMouseDown: garder, onClick: () => majA(OP.reafficherAlertes(), null, 'Alertes réaffichées.') }, 'Les réafficher')));
     }

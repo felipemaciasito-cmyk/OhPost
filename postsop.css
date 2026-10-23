@@ -692,9 +692,24 @@ canvas.slide.editable { cursor: text; }
 .poignee-redim:hover::after, .poignee-redim.actif::after { width: calc(4px * var(--inv, 1)); height: calc(26px * var(--inv, 1)); }
 @media (prefers-reduced-motion: reduce) { .poignee-redim::after { transition: none; } }
 .lasso-blocs { position: absolute; border: 4px solid #FF3D8B; background: rgba(255, 61, 139, 0.1); pointer-events: none; }
-.guide-v, .guide-h { position: absolute; background: #FF3D8B; pointer-events: none; z-index: 3; }
-.guide-v { top: 0; bottom: 0; width: 4px; margin-left: -2px; }
-.guide-h { left: 0; right: 0; height: 4px; margin-top: -2px; }
+/* Repères pendant un déplacement : alignements (traits pleins entre les éléments alignés, plus pâles pour les marges et
+   le centre de la page) et écarts égaux (traits avec butées et valeur). Épaisseurs constantes à l'écran grâce à --inv. */
+.repere-ligne { position: absolute; background: #FF3D8B; pointer-events: none; z-index: 3; }
+.repere-ligne.v { width: calc(2px * var(--inv, 1)); margin-left: calc(-1px * var(--inv, 1)); }
+.repere-ligne.h { height: calc(2px * var(--inv, 1)); margin-top: calc(-1px * var(--inv, 1)); }
+.repere-ligne.page { opacity: 0.55; }
+.repere-ecart { position: absolute; pointer-events: none; z-index: 4; }
+.repere-ecart.v { width: 0; border-left: calc(2px * var(--inv, 1)) solid #FF3D8B; margin-left: calc(-1px * var(--inv, 1)); }
+.repere-ecart.h { height: 0; border-top: calc(2px * var(--inv, 1)) solid #FF3D8B; margin-top: calc(-1px * var(--inv, 1)); }
+.repere-ecart::before, .repere-ecart::after { content: ''; position: absolute; background: #FF3D8B; }
+.repere-ecart.v::before, .repere-ecart.v::after { left: calc(-7px * var(--inv, 1)); width: calc(12px * var(--inv, 1)); height: calc(2px * var(--inv, 1)); }
+.repere-ecart.v::before { top: 0; } .repere-ecart.v::after { bottom: 0; }
+.repere-ecart.h::before, .repere-ecart.h::after { top: calc(-7px * var(--inv, 1)); height: calc(12px * var(--inv, 1)); width: calc(2px * var(--inv, 1)); }
+.repere-ecart.h::before { left: 0; } .repere-ecart.h::after { right: 0; }
+.repere-valeur { position: absolute; background: #FF3D8B; color: #FFFFFF; font: 600 calc(12px * var(--inv, 1)) / 1.3 -apple-system, "Helvetica Neue", sans-serif;
+  padding: calc(2px * var(--inv, 1)) calc(6px * var(--inv, 1)); border-radius: calc(6px * var(--inv, 1)); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.repere-ecart.v .repere-valeur { top: 50%; left: calc(8px * var(--inv, 1)); transform: translateY(-50%); }
+.repere-ecart.h .repere-valeur { left: 50%; top: calc(8px * var(--inv, 1)); transform: translateX(-50%); }
 .cadre-page.cible { outline-color: #FF3D8B; }
 .reperes .libre { color: var(--touche-texte); background: var(--touche-doux); border-radius: 6px; padding: 1px 6px; font-weight: 600; }
 .lien-repere { border: 0; background: none; padding: 2px 0; color: var(--action); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }

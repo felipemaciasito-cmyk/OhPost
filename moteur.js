@@ -41,7 +41,10 @@
     portrait: { nom: 'Portrait 4:5', l: 1080, h: 1350 },
   };
 
-  const MARGES = { gauche: 81, droite: 162, haute: 110, basse: 110 };
+  // Marges standard de la charte, les mêmes pour tous les gabarits et pour le repère vert de Composition :
+  // 81 à gauche et à droite, 110 en haut et en bas. Seuls le numéro de page, le petit logo de chaque page
+  // et la flèche « glisser » (centrée dans la marge droite) vont dans la marge.
+  const MARGES = { gauche: 81, droite: 81, haute: 110, basse: 110 };
   const SIGNATURE = { l: 220, h: 90, ecart: 40 };
   const LOGO_PARTOUT = { l: 170, h: 64, bas: 70 };
   const RATIO_LOGO = 100 / 260; // hauteur / largeur du logo
@@ -465,7 +468,7 @@
         const t = empiler(titre ? [{ ...riche(titre), texte: titre.texte, role: 'bold', taille: C(104), interligne: 1.08, couleur: fond.texte }] : [], zone, choisirPolice);
         elements.push(...pileHaut(t, haut + 40, bandeHaut - 30));
         elements.push({ type: 'rect', x: 0, y: bandeHaut, l: L, h: bandeH, couleur: fond.bande.fond });
-        const zoneBande = { ...zone, largeur: L - 2 * MARGES.gauche };
+        const zoneBande = { ...zone, largeur: L - MARGES.gauche - MARGES.droite };
         const c = ajuster((taille) => suite.map((b) => ({ ...riche(b), texte: b.texte, role: 'bold', taille, interligne: 1.08, couleur: fond.bande.texte })), zoneBande, bandeH - 60, choisirPolice, C(92), C(56));
         elements.push(...pileCentree(c, bandeHaut + 30, bandeHaut + bandeH - 30));
         break;
@@ -484,7 +487,7 @@
         const coupe = texteSuite.includes('\n') ? texteSuite.indexOf('\n') : (texteSuite.indexOf(' ') > 0 ? texteSuite.indexOf(' ') : texteSuite.length);
         const grand = texteSuite.slice(0, coupe).trim();
         const reste = texteSuite.slice(coupe).replace(/\n/g, ' ').trim();
-        const zoneLarge = { ...zone, largeur: L - 2 * MARGES.gauche };
+        const zoneLarge = { ...zone, largeur: L - MARGES.gauche - MARGES.droite };
         const police = choisirPolice('bold');
         let tailleGrand = C(230);
         while (tailleGrand > C(120) && police.mesurer(grand, tailleGrand) > zoneLarge.largeur) tailleGrand -= 10;
@@ -498,7 +501,7 @@
       }
       case 'V4': {
         const coupe = Math.round(H * 0.556);
-        const zoneLarge = { ...zone, largeur: L - 2 * MARGES.gauche };
+        const zoneLarge = { ...zone, largeur: L - MARGES.gauche - MARGES.droite };
         const t = ajuster((taille) => (titre ? [{ ...riche(titre), texte: titre.texte, role: 'bold', taille, interligne: 1.08, couleur: fond.texte }] : []), zoneLarge, coupe - 56 - haut, choisirPolice, C(96), C(56));
         const yTitre = coupe - 56 - t.hauteur;
         if (yTitre < haut - 0.5) deborde = true;
@@ -514,7 +517,7 @@
         elements = pileHaut(empiler(couverture(C(96), fond.texte, fond.accent, cp), zone, choisirPolice), haut + 10, H - 300);
         const l = Math.round(L * 0.52);
         const h = Math.round((l * 275) / 696);
-        elements.push({ type: 'image', cle: 'fleurs', x: L - 60 - l, y: H - 70 - h, l, h, libelle: 'Fleurs', couleur: fond.texte });
+        elements.push({ type: 'image', cle: 'fleurs', x: L - MARGES.droite - l, y: H - MARGES.basse - h, l, h, libelle: 'Fleurs', couleur: fond.texte });
         break;
       }
       case 'T2': {
@@ -529,7 +532,7 @@
       }
       case 'T4': {
         if (!blocs.some((b) => b.style === 'citation')) { elements = pileHaut(empiler(specsTexte(blocs, fond, optionsTexte), zone, choisirPolice), haut, bas); break; }
-        const zoneLarge = { ...zone, largeur: L - MARGES.gauche - 120 };
+        const zoneLarge = { ...zone, largeur: L - MARGES.gauche - MARGES.droite };
         let premiere = true;
         const pile = ajuster((taille) => {
           premiere = true;
@@ -547,7 +550,7 @@
         break;
       }
       case 'T5': {
-        const zoneLarge = { ...zone, largeur: L - 2 * MARGES.gauche };
+        const zoneLarge = { ...zone, largeur: L - MARGES.gauche - MARGES.droite };
         const pile = ajuster((taille) => blocs.map((b) => {
           if (b.style === 'corps' || b.style === 'citation') return { ...specsTexte([b], fond, optionsTexte)[0], largeur: zone.largeur, espaceApres: 56 };
           return { ...riche(b), texte: b.texte, role: 'bold', taille, interligne: 1.15, couleur: fond.carte.texte, carte: { fond: fond.carte.fond, marge: 56 }, espaceApres: 56 };
@@ -556,7 +559,7 @@
         break;
       }
       case 'F1': {
-        const zoneCentre = { x: 140, largeur: L - 280, alignement: 'centre' };
+        const zoneCentre = { x: MARGES.gauche, largeur: L - MARGES.gauche - MARGES.droite, alignement: 'centre' };
         const specs = blocs.map((b) => ({ ...riche(b), texte: b.texte, role: b.style === 'corps' || b.style === 'citation' ? 'light' : 'bold', taille: T(52), interligne: 1.3, couleur: b.style === 'citation' ? fond.accent : fond.texte, espaceApres: 40 }));
         const pile = empiler(specs, zoneCentre, choisirPolice);
         const y0 = Math.round(H * 0.213);
@@ -564,7 +567,7 @@
         const lf = 420;
         const hf = Math.round((lf * 275) / 696);
         elements.push({ type: 'image', cle: 'fleurs', x: (L - lf) / 2, y: y0 + pile.hauteur + 60, l: lf, h: hf, libelle: 'Fleurs', couleur: fond.texte });
-        if (signature) elements.push({ type: 'image', cle: 'logo', x: (L - 260) / 2, y: H - 90 - 100, l: 260, h: 100, libelle: 'Logo Oh ! Potentiel', couleur: fond.texte });
+        if (signature) elements.push({ type: 'image', cle: 'logo', x: (L - 260) / 2, y: H - MARGES.basse - 100, l: 260, h: 100, libelle: 'Logo Oh ! Potentiel', couleur: fond.texte });
         break;
       }
       default: { // T1
@@ -578,12 +581,12 @@
     const libelleLogo = (cle) => (cle === 'logoClair' ? 'Logo clair' : 'Logo foncé');
     for (const e of elements) if (e.type === 'image' && e.cle === 'logo') { e.cle = cleLogo(choixLogo, fond.fond); e.libelle = libelleLogo(e.cle); }
     if (signature && gab !== 'F1') elements.push({ type: 'image', cle: cleLogo(choixLogo, derriere), libelle: libelleLogo(cleLogo(choixLogo, derriere)), x: MARGES.gauche, y: H - MARGES.basse - SIGNATURE.h, l: SIGNATURE.l, h: SIGNATURE.h, couleur: couleurPied });
-    if (logoPartout) elements.push({ type: 'image', cle: cleLogo(choixLogo, derriere), x: L - 81 - LOGO_PARTOUT.l, y: H - LOGO_PARTOUT.bas - LOGO_PARTOUT.h, l: LOGO_PARTOUT.l, h: LOGO_PARTOUT.h, libelle: 'Logo', couleur: couleurPied });
+    if (logoPartout) elements.push({ type: 'image', cle: cleLogo(choixLogo, derriere), x: L - MARGES.droite - LOGO_PARTOUT.l, y: H - LOGO_PARTOUT.bas - LOGO_PARTOUT.h, l: LOGO_PARTOUT.l, h: LOGO_PARTOUT.h, libelle: 'Logo', couleur: couleurPied });
     if (reglages.numero && !signature) {
       const police = choisirPolice('light');
       elements.push({ type: 'ligne', texte: `${index + 1}\u00A0/\u00A0${total}`, x: MARGES.gauche, y: H - 62, police, taille: 26, couleur: couleurPied, opacite: 0.75 });
     }
-    if (reglages.glisser && index < total - 1) elements.push({ type: 'fleche', x: L - 64, y: H / 2, couleur: gab === 'V4' && H / 2 > H * 0.556 ? couleurPied : fond.texte });
+    if (reglages.glisser && index < total - 1) elements.push({ type: 'fleche', x: L - Math.round(MARGES.droite / 2) + 3, y: H / 2, couleur: gab === 'V4' && H / 2 > H * 0.556 ? couleurPied : fond.texte });
 
     if (slideBrute.libre) {
       elements = elements.filter((e) => e.bloc === undefined && e.decorDe === undefined && e.type !== 'bloc');
@@ -774,7 +777,7 @@
       if (compo.libre) {
         const zones = compo.elements.filter((e) => e.type === 'bloc');
         const { l: Ls, h: Hs } = compo.fmt;
-        if (compo.deborde) alertes.push({ type: 'hors-slide', niveau: 'bloquant', slide: i, cible: 'design', message: 'Un bloc sort de la slide : une partie de son texte serait coupée à l’export.' });
+        if (compo.deborde) alertes.push({ type: 'hors-slide', niveau: 'bloquant', slide: i, cible: 'design', message: 'Un bloc sort de la page : une partie de son texte serait coupée à l’export.' });
         else if (zones.some((z) => z.x < MARGES.gauche - 1 || z.x + z.l > Ls - MARGES.droite + 1 || z.y < MARGES.haute - 1 || z.y + z.h > Hs - MARGES.basse + 1)) alertes.push({ type: 'hors-marges', niveau: 'avertissement', slide: i, cible: 'design', message: 'Un bloc sort des marges de la charte.' });
         let superposes = false;
         for (let a = 0; a < zones.length && !superposes; a++) for (let c = a + 1; c < zones.length; c++) {
@@ -793,10 +796,10 @@
     });
     const limite = LIMITES_SLIDES[article.reseau];
     if (article.slides.length > limite) {
-      alertes.push({ type: 'limite', niveau: 'bloquant', slide: null, cible: 'structure', message: `${article.slides.length} slides : la limite ${article.reseau === 'instagram' ? 'd’Instagram' : 'de LinkedIn'} est de ${limite}.` });
+      alertes.push({ type: 'limite', niveau: 'bloquant', slide: null, cible: 'structure', message: `${article.slides.length} pages : la limite ${article.reseau === 'instagram' ? 'd’Instagram' : 'de LinkedIn'} est de ${limite}.` });
     }
     for (const passage of passagesAbsents(article)) {
-      alertes.push({ type: 'manquant', niveau: 'bloquant', slide: null, cible: 'design', message: `Ce passage de l’article ne figure dans aucune slide : « ${passage.slice(0, 60)}${passage.length > 60 ? '…' : ''} ». Tout le texte doit être dans le carrousel : remets-le dans une slide, ou change l’accroche.` });
+      alertes.push({ type: 'manquant', niveau: 'bloquant', slide: null, cible: 'design', message: `Ce passage de l’article ne figure dans aucune page : « ${passage.slice(0, 60)}${passage.length > 60 ? '…' : ''} ». Tout le texte doit être dans le carrousel : remets-le dans une page, ou change l’accroche.` });
     }
     for (const ajout of textesAjoutes(article.texte, article.slides.map((sl) => ({ ...sl, blocs: sl.blocs.filter((b) => !b.lien) })))) {
       alertes.push({ type: 'ajout', niveau: 'avertissement', slide: ajout.slide, cible: 'design', message: `Ce texte n’existe pas dans l’article : « ${ajout.texte.slice(0, 50)}${ajout.texte.length > 50 ? '…' : ''} ». Vérifie qu’il est voulu.` });
@@ -860,6 +863,84 @@
   }
 
   // Passe une slide en mise en page libre : chaque paragraphe garde exactement sa place et son style.
+  /* ---------- Repères pendant un déplacement (Composition) ----------
+     boite : ce qu'on déplace, en pixels de la page. cibles : les autres éléments ({ x, y, l, h, axes }), axes = 'xy',
+     'x' ou 'y' (un bandeau ne sert qu'en hauteur). Renvoie le petit décalage qui aimante la boîte (ax, ay), les lignes
+     d'alignement à montrer et les écarts égaux (avec leur valeur), comme dans Keynote ou Figma. */
+  function reperesDeplacement(boite, cibles, fmt, options = {}) {
+    const seuil = options.seuil || 12;
+    const L = fmt.l; const H = fmt.h;
+    const sens = { x: { pos: 'x', taille: 'l', autre: 'y', autreTaille: 'h', fin: L, marges: [MARGES.gauche, L - MARGES.droite] },
+      y: { pos: 'y', taille: 'h', autre: 'x', autreTaille: 'l', fin: H, marges: [MARGES.haute, H - MARGES.basse] } };
+    const chevauche = (a, b, ax) => { const s = sens[ax]; return Math.min(a[s.autre] + a[s.autreTaille], b[s.autre] + b[s.autreTaille]) - Math.max(a[s.autre], b[s.autre]) > 0; };
+    const bords = (b, ax) => { const s = sens[ax]; return b[s.taille] > 0 ? [b[s.pos], b[s.pos] + b[s.taille] / 2, b[s.pos] + b[s.taille]] : [b[s.pos]]; };
+    const utiles = (ax) => cibles.filter((c) => !c.axes || c.axes.includes(ax));
+    const candidatsAlignement = (ax) => [
+      ...sens[ax].marges.map((v) => ({ v, sorte: 'marge' })),
+      { v: sens[ax].fin / 2, sorte: 'centre' },
+      ...utiles(ax).flatMap((c) => bords(c, ax).map((v) => ({ v, sorte: 'element', c }))),
+    ];
+    // Écarts égaux : entre la boîte et ses voisins dans ce sens (seulement ceux qui lui font face).
+    const candidatsEcarts = (b, ax) => {
+      const s = sens[ax];
+      const face = utiles(ax).filter((c) => chevauche(c, b, ax));
+      const avant = face.filter((c) => c[s.pos] + c[s.taille] <= b[s.pos] + seuil).sort((p, q) => (q[s.pos] + q[s.taille]) - (p[s.pos] + p[s.taille]));
+      const apres = face.filter((c) => c[s.pos] >= b[s.pos] + b[s.taille] - seuil).sort((p, q) => p[s.pos] - q[s.pos]);
+      const A = avant[0]; const B = apres[0];
+      const out = [];
+      if (A && B) {
+        const g = (B[s.pos] - (A[s.pos] + A[s.taille]) - b[s.taille]) / 2;
+        if (g >= 0) out.push({ cible: A[s.pos] + A[s.taille] + g, paires: [[A, null], [null, B]] });
+      }
+      if (A) {
+        const A2 = avant.find((c) => c !== A && c[s.pos] + c[s.taille] <= A[s.pos] && chevauche(c, A, ax));
+        if (A2) { const g = A[s.pos] - (A2[s.pos] + A2[s.taille]); if (g > 0) out.push({ cible: A[s.pos] + A[s.taille] + g, paires: [[A2, A], [A, null]] }); }
+      }
+      if (B) {
+        const B2 = apres.find((c) => c !== B && c[s.pos] >= B[s.pos] + B[s.taille] && chevauche(c, B, ax));
+        if (B2) { const g = B2[s.pos] - (B[s.pos] + B[s.taille]); if (g > 0) out.push({ cible: B[s.pos] - g - b[s.taille], paires: [[null, B], [B, B2]] }); }
+      }
+      return out;
+    };
+    const decalage = { x: 0, y: 0 };
+    for (const ax of ['x', 'y']) {
+      if (options.axes && !options.axes.includes(ax)) continue;
+      let meilleur = null;
+      for (const c of candidatsAlignement(ax)) for (const e of bords(boite, ax)) { const d = c.v - e; if (Math.abs(d) <= seuil && (!meilleur || Math.abs(d) < Math.abs(meilleur))) meilleur = d; }
+      if (boite[sens[ax].taille] > 0) for (const c of candidatsEcarts(boite, ax)) { const d = c.cible - boite[sens[ax].pos]; if (Math.abs(d) <= seuil && (meilleur === null || Math.abs(d) < Math.abs(meilleur) - 0.5)) meilleur = d; }
+      decalage[ax] = meilleur || 0;
+    }
+    // Ce qu'on montre, une fois la boîte aimantée.
+    const b = { ...boite, x: boite.x + decalage.x, y: boite.y + decalage.y };
+    const lignes = []; const vues = new Set(); const ecarts = [];
+    for (const ax of ['x', 'y']) {
+      if (options.axes && !options.axes.includes(ax)) continue;
+      const s = sens[ax];
+      for (const c of candidatsAlignement(ax)) {
+        if (!bords(b, ax).some((e) => Math.abs(c.v - e) < 0.5)) continue;
+        const cle = ax + Math.round(c.v) + c.sorte;
+        if (vues.has(cle)) continue;
+        vues.add(cle);
+        const debut = c.c ? Math.min(b[s.autre], c.c[s.autre]) - 16 : 0;
+        const fin = c.c ? Math.max(b[s.autre] + b[s.autreTaille], c.c[s.autre] + c.c[s.autreTaille]) + 16 : (ax === 'x' ? H : L);
+        lignes.push({ sens: ax === 'x' ? 'v' : 'h', pos: c.v, debut: Math.max(0, debut), fin: Math.min(ax === 'x' ? H : L, fin), sorte: c.sorte });
+      }
+      if (b[s.taille] > 0) {
+        for (const c of candidatsEcarts(b, ax)) {
+          if (Math.abs(c.cible - b[s.pos]) >= 0.5) continue;
+          for (const [p, q] of c.paires) {
+            const haut = p || b; const bas = q || b;
+            const de = haut[s.pos] + haut[s.taille]; const a = bas[s.pos];
+            const lo = Math.max(haut[s.autre], bas[s.autre]); const hi = Math.min(haut[s.autre] + haut[s.autreTaille], bas[s.autre] + bas[s.autreTaille]);
+            ecarts.push({ sens: ax === 'y' ? 'v' : 'h', de, a, travers: (lo + hi) / 2, valeur: Math.round(a - de) });
+          }
+          break;
+        }
+      }
+    }
+    return { ax: decalage.x, ay: decalage.y, lignes, ecarts };
+  }
+
   function figerSlide(slide, compo) {
     const zones = compo.elements.filter((e) => e.type === 'bloc');
     return {
@@ -905,7 +986,7 @@
     return solutions;
   }
 
-  const api = { imagesDe, RATIO_LOGO,
+  const api = { imagesDe, RATIO_LOGO, reperesDeplacement,
     PALETTE, FONDS, CHARTE_DEFAUT, construireFonds, fondsDe, naturesUtiles, natureAffichee, FORMATS, MARGES, NATURES, GABARITS, LIMITES_SLIDES,
     policeExacte, policeSysteme, fondFonce, cleLogo, couperLignes, composer, dessiner, gabaritParDefaut,
     compterMots, passagesManquants, textesAjoutes, controler, solutionsDebordement, figerSlide, revenirAuGabarit, decouperMecaniquement, proposerPresentation,

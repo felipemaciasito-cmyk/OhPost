@@ -33,6 +33,7 @@
     'Réponds uniquement avec un objet JSON, sans aucun texte autour :',
     '{"reponse":"une phrase","propositions":[{"nom":"…","pourquoi":"…","fond":"code","slides":[{"gabarit":"V1","paragraphes":[0],"styles":["titre"]}]}]}',
     'Dans chaque slide, « styles » donne le style de chaque paragraphe listé, dans le même ordre.',
+    'Dans les textes destinés à la personne (« reponse », « pourquoi »), dis « page » et jamais « slide » : c’est le mot employé dans son outil.',
   ].join('\n');
 
   const paragraphesNumerotes = (paragraphes) => paragraphes.map((p, i) => `[${i}] ${p}`).join('\n');

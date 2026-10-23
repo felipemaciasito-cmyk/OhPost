@@ -304,6 +304,7 @@
     '6. « vigilance » signale ce qui fait bouger une nuance, le ton ou le sens ; sinon, chaîne vide.',
     '6 bis. Chaque proposition a un « titre » de 2 à 5 mots qui dit l’effet qu’elle apporte (par exemple « Plus direct », « Ton plus chaleureux », « Rythme plus vif »), sans répéter le texte proposé ; deux propositions d’une même réponse n’ont jamais le même titre.',
     '7. « reponse » tutoie la personne, en 2 à 8 phrases ; tu peux aller à la ligne.',
+    '7 bis. Pour parler des images du carrousel, dis « page » et jamais « slide » : c’est le mot employé dans son outil.',
     '8. N’écris rien d’autre que cet objet JSON, une seule fois : ni balise, ni bloc de code, ni commentaire, ni excuse.',
     '',
     'Format :',

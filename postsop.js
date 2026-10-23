@@ -28,7 +28,7 @@
       texteReponse: () => '', requete: () => null, absent: true };
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
-  const VERSION = '2026-10-23.1'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-23.3'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -113,8 +113,8 @@
   const AIDES = {
     bibliotheque: { titre: 'Tes articles', textes: ['Trois sections : En cours, Publiés (validés par toi) et Corbeille, d’où tu peux restaurer un article.', 'Le menu « … » d’une carte permet de dupliquer, d’utiliser un article comme modèle pour un nouveau texte, de le marquer comme publié ou de le mettre à la corbeille.', 'Trie et affiche tes articles comme tu veux, en grille ou en liste. « Annuler » et ⌘Z (Ctrl+Z) reviennent en arrière à tout moment.', 'Calendrier : place tes articles sur une date, puis « Programmer un rappel » ajoute une alerte au calendrier de ton appareil. La publication automatique arrivera plus tard.'] },
     configuration: { titre: 'La configuration', textes: ['Charte : tes couleurs et tes tailles de texte. Tout changement s’applique à tous tes carrousels.', 'Ressources : tes polices, ton logo et tes fleurs, importés une fois et retrouvés sur tous tes appareils.', 'Réglages : le comportement de l’outil. Synchronisation : la liaison avec ton dépôt GitHub privé.', 'IA : le fournisseur d’intelligence artificielle et sa clé. Comme la clé GitHub, elle reste sur l’appareil : à saisir une fois sur chacun.'] },
-    texte: { titre: 'Étape 1 · Texte', textes: ['Ton texte est la référence du carrousel : chaque modification ici met les slides à jour, sans toucher à leur mise en page. Et un paragraphe modifié dans Design modifie aussi ce texte.', 'Avec une IA active (Configuration, onglet IA), « Relire avec CCB » propose des corrections sous forme de cartes : accepte, modifie ou refuse chacune ; rien n’est appliqué sans toi. Sans IA, la vérification LanguageTool surligne les fautes ; pour chacune, choisis la bonne correction ou ignore-la.', 'La typographie française se corrige toute seule quand tu tapes ou colles du texte, ici comme sur les slides : un message montre chaque correction, avec « Annuler ».', 'Discussion : sélectionne un passage, puis « CCB » (le petit robot). Donne tes consignes en langage naturel et demande plusieurs propositions ; « Appliquer » remplace le passage, « Annuler » le rétablit.', 'Les suggestions de style arriveront avec l’IA : tu sélectionneras un passage directement dans ton texte.'] },
-    composition: { titre: 'Étape 2 · Composition', textes: ['Tes slides, les unes sous les autres, exactement comme elles seront exportées. Clique dans un paragraphe pour l’écrire à sa place ; sélectionne des mots pour les mettre en forme avec la petite barre qui apparaît.', 'Entrée crée un nouveau paragraphe, ⇧Entrée un retour à la ligne, ⌘↩ (Ctrl+↩) un saut de slide. ⌫ au début d’un paragraphe le réunit au précédent ; au début d’une slide, avec la slide précédente.', 'Les menus en haut regroupent tout le reste : gabarits, fond, logo, redécoupage, et Vérifier pour les points à regarder. Ton texte reste la référence : chaque modification ici le met à jour.'] },
+    texte: { titre: 'Étape 1 · Texte', textes: ['Ton texte est la référence du carrousel : chaque modification ici met les pages à jour, sans toucher à leur mise en page. Et un paragraphe modifié dans Design modifie aussi ce texte.', 'Avec une IA active (Configuration, onglet IA), « Relire avec CCB » propose des corrections sous forme de cartes : accepte, modifie ou refuse chacune ; rien n’est appliqué sans toi. Sans IA, la vérification LanguageTool surligne les fautes ; pour chacune, choisis la bonne correction ou ignore-la.', 'La typographie française se corrige toute seule quand tu tapes ou colles du texte, ici comme sur les pages : un message montre chaque correction, avec « Annuler ».', 'Discussion : sélectionne un passage, puis « CCB » (le petit robot). Donne tes consignes en langage naturel et demande plusieurs propositions ; « Appliquer » remplace le passage, « Annuler » le rétablit.', 'Les suggestions de style arriveront avec l’IA : tu sélectionneras un passage directement dans ton texte.'] },
+    composition: { titre: 'Étape 2 · Composition', textes: ['Tes pages, les unes sous les autres, exactement comme elles seront exportées. Clique dans un paragraphe pour l’écrire à sa place ; sélectionne des mots pour les mettre en forme avec la petite barre qui apparaît.', 'Entrée crée un nouveau paragraphe, ⇧Entrée un retour à la ligne, ⌘↩ (Ctrl+↩) un saut de page. ⌫ au début d’un paragraphe le réunit au précédent ; au début d’une page, avec la page précédente.', 'Les menus en haut regroupent tout le reste : gabarits, fond, logo, redécoupage, et Vérifier pour les points à regarder. Ton texte reste la référence : chaque modification ici le met à jour.'] },
     description: { titre: 'Étape 4 · Description', textes: ['Le texte qui accompagne le carrousel : légende Instagram et texte du post LinkedIn.', 'Avec une IA active, « Proposer avec CCB » écrit une première version à partir de ton article. Tu choisis de l’utiliser ou non, puis tu la modifies : rien n’est publié tout seul.'] },
     export: { titre: 'Étape 5 · Export', textes: ['Les fichiers à publier : des images PNG pour Instagram, un PDF pour LinkedIn, ou les deux.', 'S’il reste des alertes, l’outil te les rappelle avant d’exporter : à toi de décider.', 'Une fois publié sur le réseau, marque l’article comme publié : il rejoint la section Publiés.', 'Calendrier : planifie la date de publication de chaque carrousel, et ajoute un rappel au calendrier de ton appareil.'] },
   };
@@ -491,7 +491,7 @@
       return h('canvas', proprietes);
     }
     if (onClick) return h('button', { type: 'button', className: 'slide-bouton', onClick, 'aria-label': etiquette }, h('canvas', proprietes));
-    return h('canvas', { ...proprietes, role: 'img', 'aria-label': etiquette || 'Slide' });
+    return h('canvas', { ...proprietes, role: 'img', 'aria-label': etiquette || 'Page' });
   }
 
   function useLargeur(defaut) {
@@ -638,7 +638,7 @@
       a.statut === 'Publié' && h('span', { className: 'tampon-publie' }, h(Icone, { nom: 'coche', taille: 16 }), 'Publié'));
     const details = (a) => h(Fragment, null,
       h('span', { className: 'carte-article-titre gill' }, a.titre),
-      h('span', { className: 'doux petit bloc' }, `${a.slides.length} slides · ${M.FORMATS[a.format].nom} · ${a.reseau === 'instagram' ? 'Instagram' : 'LinkedIn'}`),
+      h('span', { className: 'doux petit bloc' }, `${a.slides.length} pages · ${M.FORMATS[a.format].nom} · ${a.reseau === 'instagram' ? 'Instagram' : 'LinkedIn'}`),
       h('span', { className: 'carte-article-pied' }, a.programme && a.statut !== 'Publié' && !a.corbeille
           ? h(Pastille, { ton: 'ok' }, 'Programmé · ' + CAL.libelleCourt(a.programme.date))
           : h(Pastille, { ton: TON_STATUT[a.statut] }, a.statut === 'Publié' && a.publie ? 'Publié le ' + new Date(a.publie).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : a.statut === 'Prêt' ? 'Brouillon' : a.statut),
@@ -966,14 +966,14 @@
         h('div', { className: 'schema-reglages' },
           h('div', { className: 'etiquette-mini' }, 'Raccourcis pour ' + (element === 'logo' ? 'le logo' : 'les fleurs')),
           h(Segmente, { etiquette: 'Raccourcis', valeur: regleActuelle, onChange: poserRegle, options: [{ valeur: 'toutes', libelle: 'Toutes' }, { valeur: 'couverture', libelle: 'Couverture' }, { valeur: 'derniere', libelle: 'Dernière' }, { valeur: 'aucune', libelle: 'Aucune' }] }),
-          h('p', { className: 'doux petit' }, 'Glisse le logo et les fleurs sur la slide, tire le rond blanc pour la taille. Ou choisis slide par slide, en dessous.'))),
-      h('div', { className: 'etiquette-mini' }, 'Slide par slide'),
+          h('p', { className: 'doux petit' }, 'Glisse le logo et les fleurs sur la page, tire le rond blanc pour la taille. Ou choisis page par page, en dessous.'))),
+      h('div', { className: 'etiquette-mini' }, 'Page par page'),
       h('div', { className: 'schema-apercu' }, slides.map((sl, i) => h('div', { key: i, className: 'schema-vignette' },
         h(SlideCanvas, { slide: { ...sl, images: imagesSelonSchema(schema, i, n) }, formatId: format, fondId: fond, largeur: 88, index: i, total: n }),
         h('div', { className: 'schema-boutons' },
-          h('button', { type: 'button', className: cls('schema-bascule', presence('logo')[i] && 'actif'), 'aria-pressed': presence('logo')[i], 'aria-label': (presence('logo')[i] ? 'Retirer' : 'Mettre') + ' le logo sur la slide ' + (i + 1), onClick: () => basculer('logo', i) }, 'Logo'),
-          h('button', { type: 'button', className: cls('schema-bascule', presence('fleurs')[i] && 'actif'), 'aria-pressed': presence('fleurs')[i], 'aria-label': (presence('fleurs')[i] ? 'Retirer' : 'Mettre') + ' les fleurs sur la slide ' + (i + 1), onClick: () => basculer('fleurs', i) }, 'Fleurs'))))),
-      h('p', { className: 'doux petit' }, `Logo sur ${compte('logo')} slide${compte('logo') > 1 ? 's' : ''}, fleurs sur ${compte('fleurs')} slide${compte('fleurs') > 1 ? 's' : ''}. Tu pourras encore tout déplacer slide par slide dans Composition.`));
+          h('button', { type: 'button', className: cls('schema-bascule', presence('logo')[i] && 'actif'), 'aria-pressed': presence('logo')[i], 'aria-label': (presence('logo')[i] ? 'Retirer' : 'Mettre') + ' le logo sur la page ' + (i + 1), onClick: () => basculer('logo', i) }, 'Logo'),
+          h('button', { type: 'button', className: cls('schema-bascule', presence('fleurs')[i] && 'actif'), 'aria-pressed': presence('fleurs')[i], 'aria-label': (presence('fleurs')[i] ? 'Retirer' : 'Mettre') + ' les fleurs sur la page ' + (i + 1), onClick: () => basculer('fleurs', i) }, 'Fleurs'))))),
+      h('p', { className: 'doux petit' }, `Logo sur ${compte('logo')} page${compte('logo') > 1 ? 's' : ''}, fleurs sur ${compte('fleurs')} page${compte('fleurs') > 1 ? 's' : ''}. Tu pourras encore tout déplacer page par page dans Composition.`));
   }
 
   function FeuilleNouvelArticle({ etat, dispatch }) {
@@ -1005,7 +1005,7 @@
       modele && h('p', { className: 'note' }, `Mise en page reprise de « ${modele.titre} » : fond, format, réseau, gabarits et logo. Colle ton nouveau texte.`),
       h('label', { className: 'etiquette', htmlFor: 'texte-nouvel' }, 'Texte de l’article'),
       h(ZoneTexteTypo, { id: 'texte-nouvel', className: 'zone-texte', rows: 9, valeur: texte, onValeur: setTexte, placeholder: 'Colle ici le texte de ton article Word.' }),
-      h('p', { className: 'doux petit' }, paragraphes.length ? `${paragraphes.length} paragraphe(s) · ${M.compterMots(texte)} mots. Le découpage en slides se fera sans IA, paragraphe par paragraphe.` : 'Colle le texte de ton article : la typographie française est corrigée au passage.'),
+      h('p', { className: 'doux petit' }, paragraphes.length ? `${paragraphes.length} paragraphe(s) · ${M.compterMots(texte)} mots. Le découpage en pages se fera sans IA, paragraphe par paragraphe.` : 'Colle le texte de ton article : la typographie française est corrigée au passage.'),
       h(Ligne, { etiquette: 'Réseau', aide: 'Fixe le format d’export : images pour Instagram, PDF pour LinkedIn.' }, h(Segmente, { valeur: reseau, onChange: setReseau, options: [{ valeur: 'instagram', libelle: 'Instagram' }, { valeur: 'linkedin', libelle: 'LinkedIn' }] })),
       h(Ligne, { etiquette: 'Format', aide: '1:1 comme tes carrousels actuels, 4:5 pour plus de place.' }, h(Segmente, { valeur: format, onChange: setFormat, options: [{ valeur: 'carre', libelle: '1:1' }, { valeur: 'portrait', libelle: '4:5' }] })),
       h(Ligne, { etiquette: 'Fond', aide: 'Il pourra changer ensuite.' }, h(SelecteurFond, { valeur: fond, onChange: setFond })),
@@ -1013,7 +1013,7 @@
         h(Segmente, { etiquette: 'Logo et fleurs', valeur: schema ? 'moi' : 'gabarit', onChange: (v) => setSchema(v === 'moi' ? (schema || SCHEMA_DEPART) : null), options: [{ valeur: 'gabarit', libelle: 'Le gabarit décide' }, { valeur: 'moi', libelle: 'Je les place' }] })),
       schema && (decoupage.length
         ? h(SchemaLogoFleurs, { schema, onChange: setSchema, slides: decoupage, format, fond })
-        : h('p', { className: 'doux petit' }, 'Colle d’abord ton texte : le schéma montrera tes vraies slides.')));
+        : h('p', { className: 'doux petit' }, 'Colle d’abord ton texte : le schéma montrera tes vraies pages.')));
   }
 
   /* ================================================================== */
@@ -1550,7 +1550,7 @@
 
     return h('div', { className: 'deux-colonnes defilement-separe', ref: cadre, style: hauteur ? { '--hauteur-texte': hauteur + 'px' } : undefined },
       h('div', { className: 'colonne-principale' },
-        h(Carte, { titre: 'Texte de l’article', info: 'Ton texte est la référence : les slides suivent chaque modification, sans changer leur mise en page.', sousTitre: `${article.texte.length} paragraphes · ${M.compterMots(texteComplet)} mots. Une ligne vide sépare deux paragraphes. Les slides se mettent à jour à chaque modification.`, actions: h('div', { className: 'actions-texte' },
+        h(Carte, { titre: 'Texte de l’article', info: 'Ton texte est la référence : les pages suivent chaque modification, sans changer leur mise en page.', sousTitre: `${article.texte.length} paragraphes · ${M.compterMots(texteComplet)} mots. Une ligne vide sépare deux paragraphes. Les pages se mettent à jour à chaque modification.`, actions: h('div', { className: 'actions-texte' },
             h(Bouton, { variante: 'petit', onClick: () => setRemplacer('') }, 'Nouveau texte'),
             h('button', {
               type: 'button', className: cls('bouton-robot', disc.ouvert && 'actif'),
@@ -1596,7 +1596,7 @@
           onChoisirPassage: (t) => { const pos = R.placerPassage(texteComplet, t, null); if (pos) setSelection({ debut: pos[0], fin: pos[1] }); else disc.signaler('Ce passage n’est plus dans ton texte tel quel : sélectionne-le de nouveau.'); },
         })),
       remplacer !== null && h(Feuille, { titre: 'Nouveau texte', onAnnuler: () => setRemplacer(null), action: h(Bouton, { variante: 'principal', disabled: !remplacer.trim(), onClick: remplacerTout }, 'Remplacer') },
-        h('p', { className: 'note' }, 'Le nouveau texte est redécoupé en slides avec la même mise en page : fond, format, gabarits et logo. Tu pourras l’annuler juste après.'),
+        h('p', { className: 'note' }, 'Le nouveau texte est redécoupé en pages avec la même mise en page : fond, format, gabarits et logo. Tu pourras l’annuler juste après.'),
         h(ZoneTexteTypo, { className: 'zone-texte', rows: 12, valeur: remplacer, onValeur: setRemplacer, placeholder: 'Colle ici le nouveau texte.', 'aria-label': 'Nouveau texte' })));
   }
 
@@ -1698,7 +1698,7 @@
     }
 
     return h('div', { className: 'colonne-unique' },
-      h(Carte, { titre: 'Exporter', info: 'Les fichiers sont dessinés par le même moteur que l’aperçu : ce que tu vois est ce que tu obtiens.', sousTitre: `${total} slides · ${M.FORMATS[article.format].nom} · fond ${M.fondsDe(charte.palette)[article.fond].nom.toLowerCase()}` },
+      h(Carte, { titre: 'Exporter', info: 'Les fichiers sont dessinés par le même moteur que l’aperçu : ce que tu vois est ce que tu obtiens.', sousTitre: `${total} pages · ${M.FORMATS[article.format].nom} · fond ${M.fondsDe(charte.palette)[article.fond].nom.toLowerCase()}` },
         h(Ligne, { etiquette: 'Fichiers', aide: 'Images PNG pour Instagram, PDF pour LinkedIn (le réseau le recommande pour les carrousels).' },
           h(Segmente, { valeur: quoi, onChange: (v) => { setQuoi(v); setSuivi({ statut: 'repos' }); }, options: [{ valeur: 'png', libelle: 'Images PNG' }, { valeur: 'pdf', libelle: 'PDF' }, { valeur: 'les-deux', libelle: 'Les deux' }] })),
         h('p', { className: 'doux petit' }, `Résolution des images : ×${reglages.resolution === '1' ? 1 : 2} (modifiable dans Réglages).${exacte ? '' : ' Tes polices ne sont pas importées sur cet appareil : le rendu sera approché, et le PDF contiendra des images.'}`),
@@ -1706,7 +1706,7 @@
         suivi.statut === 'confirmation' && h('div', { className: 'confirmation' },
           h('p', null, h('strong', null, 'Avant d’exporter, il reste :')),
           h('ul', { className: 'liste-alertes' },
-            alertes.map((a) => h('li', { key: a.cle, className: a.niveau }, h('span', null, (a.slide !== null ? `Slide ${a.slide + 1} · ` : '') + a.message))),
+            alertes.map((a) => h('li', { key: a.cle, className: a.niveau }, h('span', null, (a.slide !== null ? `Page ${a.slide + 1} · ` : '') + a.message))),
             manquants.map((m) => h('li', { key: m, className: 'avertissement' }, h('span', null, `Il manque ${nomsImages[m] || m} : sa place restera vide dans les fichiers.`)))),
           h('div', { className: 'actions-ligne' },
             h(Bouton, { variante: 'principal', onClick: () => preparer(true) }, 'Exporter quand même'),
@@ -1722,7 +1722,7 @@
           ? h('div', { className: 'actions-ligne' }, h(Pastille, { ton: 'ok' }, 'Publié le ' + new Date(article.publie || Date.now()).toLocaleDateString('fr-FR')), h(Bouton, { variante: 'lien', onClick: () => dispatch({ type: 'statut', id: article.id, statut: 'Exporté' }) }, 'Remettre en cours'))
           : h(Bouton, { onClick: () => dispatch({ type: 'statut', id: article.id, statut: 'Publié' }) }, h(Icone, { nom: 'coche', taille: 18 }), 'Marquer comme publié')),
       h('div', { className: 'grille-export' }, article.slides.map((s, k) => h('div', { key: k, className: 'export-item' },
-        h(SlideCanvas, { slide: s, formatId: article.format, fondId: article.fond, largeur: 180, index: k, total, logo, etiquette: 'Slide ' + (k + 1) }), h('div', { className: 'doux petit centre' }, k + 1)))));
+        h(SlideCanvas, { slide: s, formatId: article.format, fondId: article.fond, largeur: 180, index: k, total, logo, etiquette: 'Page ' + (k + 1) }), h('div', { className: 'doux petit centre' }, k + 1)))));
   }
 
   /* ================================================================== */
@@ -1775,8 +1775,8 @@
             h('figcaption', null, h('strong', null, M.GABARITS[code].nom), h('span', { className: 'doux' }, M.GABARITS[code].aide)))))))),
       h(Carte, { titre: 'Règles', info: 'Le contrat que l’outil fait respecter automatiquement.' },
         h('div', { className: 'regles' },
-          h('div', null, h('h4', null, 'Obligatoire'), h('ul', { className: 'liste-simple' }, h('li', null, 'Marge gauche de 81 px ; texte aligné à gauche par défaut'), h('li', null, 'Un seul fond par carrousel'), h('li', null, 'Logo officiel sur la dernière slide'))),
-          h('div', null, h('h4', null, 'Autorisé'), h('ul', { className: 'liste-simple' }, h('li', null, 'Cinq fonds, dont deux nuances pâles'), h('li', null, 'Format 1:1 ou 4:5'), h('li', null, 'Dernière slide centrée'), h('li', null, 'Logo sur chaque slide (réglage)'), h('li', null, 'Alignement, gras, italique, souligné, taille et filet choisis paragraphe par paragraphe'))),
+          h('div', null, h('h4', null, 'Obligatoire'), h('ul', { className: 'liste-simple' }, h('li', null, 'Marges de 81 px à gauche et à droite, 110 px en haut et en bas, pour tous les gabarits ; texte aligné à gauche par défaut'), h('li', null, 'Un seul fond par carrousel'), h('li', null, 'Logo officiel sur la dernière page'))),
+          h('div', null, h('h4', null, 'Autorisé'), h('ul', { className: 'liste-simple' }, h('li', null, 'Cinq fonds, dont deux nuances pâles'), h('li', null, 'Format 1:1 ou 4:5'), h('li', null, 'Dernière page centrée'), h('li', null, 'Logo sur chaque page (réglage)'), h('li', null, 'Alignement, gras, italique, souligné, taille et filet choisis paragraphe par paragraphe'))),
           h('div', null, h('h4', null, 'Interdit'), h('ul', { className: 'liste-simple' }, h('li', null, 'Texte vert sur fond blanc ou pâle'), h('li', null, 'Texte blanc sur fond vert ou pâle'), h('li', null, 'Associations de couleurs peu lisibles'))))));
   }
 
@@ -1813,10 +1813,10 @@
         h(Ligne, { etiquette: 'Mode', aide: 'Automatique suit le réglage clair ou sombre de l’appareil.' }, h(Segmente, { valeur: etat.apparence, onChange: (v) => dispatch({ type: 'apparence', valeur: v }), options: [{ valeur: 'clair', libelle: 'Clair' }, { valeur: 'sombre', libelle: 'Sombre' }, { valeur: 'auto', libelle: 'Automatique' }] }))),
       h(Carte, { titre: 'Mise en page' },
         h(Ligne, { etiquette: 'Rythme visuel', aide: 'Utilisé par « Proposer une autre présentation ». Régulier : le même gabarit de texte partout. Contrasté : plus de variété.' }, h(Segmente, { valeur: r.rythme, onChange: regler('rythme'), options: [{ valeur: 'regulier', libelle: 'Régulier' }, { valeur: 'equilibre', libelle: 'Équilibré' }, { valeur: 'contraste', libelle: 'Contrasté' }] })),
-        h(Ligne, { etiquette: 'Mots maximum par slide', aide: `Au-delà, une alerte s’affiche dans Design. Tes carrousels actuels montent à 90 mots. Réglage : ${r.motsMax}.` }, h('input', { type: 'range', min: 30, max: 120, step: 5, value: r.motsMax, onChange: (e) => regler('motsMax')(Number(e.target.value)), 'aria-label': 'Mots maximum par slide' })),
-        h(Ligne, { etiquette: 'Logo sur chaque slide', aide: 'Un petit logo en bas à droite de toutes les slides. La dernière garde son logo de fin.' }, interrupteur('logoPartout', 'Logo sur chaque slide')),
-        h(Ligne, { etiquette: 'Numéro de slide', aide: 'Affiche « 2 / 6 » en bas à gauche.' }, interrupteur('numero', 'Numéro de slide')),
-        h(Ligne, { etiquette: 'Indicateur « glisser »', aide: 'Une petite flèche à droite invite à passer à la slide suivante.' }, interrupteur('glisser', 'Indicateur glisser'))),
+        h(Ligne, { etiquette: 'Mots maximum par page', aide: `Au-delà, une alerte s’affiche dans Design. Tes carrousels actuels montent à 90 mots. Réglage : ${r.motsMax}.` }, h('input', { type: 'range', min: 30, max: 120, step: 5, value: r.motsMax, onChange: (e) => regler('motsMax')(Number(e.target.value)), 'aria-label': 'Mots maximum par page' })),
+        h(Ligne, { etiquette: 'Logo sur chaque page', aide: 'Un petit logo en bas à droite de toutes les pages. La dernière garde son logo de fin.' }, interrupteur('logoPartout', 'Logo sur chaque page')),
+        h(Ligne, { etiquette: 'Numéro de page', aide: 'Affiche « 2 / 6 » en bas à gauche.' }, interrupteur('numero', 'Numéro de page')),
+        h(Ligne, { etiquette: 'Indicateur « glisser »', aide: 'Une petite flèche à droite invite à passer à la page suivante.' }, interrupteur('glisser', 'Indicateur glisser'))),
       h(Carte, { titre: 'Par défaut pour un nouvel article' },
         h(Ligne, { etiquette: 'Réseau', aide: 'Présélectionné à la création.' }, h(Segmente, { valeur: r.reseauDefaut, onChange: regler('reseauDefaut'), options: [{ valeur: 'instagram', libelle: 'Instagram' }, { valeur: 'linkedin', libelle: 'LinkedIn' }] })),
         h(Ligne, { etiquette: 'Format', aide: 'Présélectionné à la création.' }, h(Segmente, { valeur: r.formatDefaut, onChange: regler('formatDefaut'), options: [{ valeur: 'carre', libelle: '1:1' }, { valeur: 'portrait', libelle: '4:5' }] }))),

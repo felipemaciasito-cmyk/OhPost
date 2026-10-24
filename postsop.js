@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-24.7'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-24.8'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -1594,7 +1594,7 @@
     };
   }
 
-  function FenetreDiscussion({ disc, nomIA, passage, onRetirerPassage, onChoisirPassage }) {
+  function FenetreDiscussion({ disc, nomIA, passage, onRetirerPassage, onChoisirPassage, invitation }) {
     const [saisie, setSaisie] = useState('');
     const [passageEntier, setPassageEntier] = useState(false);
     const [passageConvEntier, setPassageConvEntier] = useState(false);
@@ -1634,7 +1634,7 @@
           h('span', null, h('strong', null, 'Passage choisi : '), '« ' + extrait + ' »',
             passage.length > 110 && h('button', { type: 'button', className: 'lien fort lien-passage', onClick: () => setPassageEntier(!passageEntier) }, passageEntier ? ' Réduire' : ' Voir en entier')),
           h(Bouton, { variante: 'icone', etiquette: 'Retirer le passage choisi', onClick: onRetirerPassage }, '×'))
-        : h('p', { className: 'doux petit' }, 'Aucun passage choisi : sélectionne-en un dans ton texte, ou cite-le dans ta demande.'),
+        : h('p', { className: 'doux petit' }, invitation || 'Aucun passage choisi : sélectionne-en un dans ton texte, ou cite-le dans ta demande.'),
       passage && passage.length > R.MAX_PASSAGE && h('p', { className: 'erreur petit' }, 'Passage trop long : choisis au plus un ou deux paragraphes.'),
       autrePassage && h('div', { className: 'discussion-passage ancien' },
         h('span', null, h('strong', null, 'Cette conversation portait sur : '), '« ' + (passageConvEntier ? autrePassage : couper(autrePassage, 90)) + ' »',

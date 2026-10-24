@@ -450,6 +450,12 @@
         return () => document.removeEventListener('selectionchange', surSelection);
       }, []);
       useEffect(() => { if (menu) setBarre(null); }, [menu]);
+      // Discussion ouverte : une nouvelle sélection de mots dans une page devient le passage discuté.
+      useEffect(() => {
+        if (!barre || !disc.ouvert) return;
+        const t = texteChoisi();
+        if (t && t !== passageIA) choisirPassageIA(t);
+      }, [barre, disc.ouvert]);
       useEffect(() => {
         // Seule la barre flottante suit la sélection : elle s'efface si la page défile vraiment.
         let depart = racine.scrollY;
@@ -1366,6 +1372,7 @@
       return h('div', { className: 'composition' },
         configIA && disc.ouvert && h(outilsIA.FenetreDiscussion, {
           disc, nomIA, passage: passageIA, onRetirerPassage: () => setZoneIA(null),
+          invitation: 'Aucun passage choisi : touche deux fois un bloc puis sélectionne des mots, ils deviennent le sujet de la discussion. Ou cite-les dans ta demande.',
           onChoisirPassage: (t) => { if (!choisirPassageIA(t)) disc.signaler('Ce passage n’est plus dans ton texte tel quel : sélectionne-le de nouveau dans un bloc.'); },
         }),
         h(BarreMenus, { menus, ouvert: menu, setOuvert: setMenu, droite: historique }),

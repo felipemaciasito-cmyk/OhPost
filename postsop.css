@@ -1028,3 +1028,5 @@ canvas.slide.editable { cursor: text; }
 .bouton-passage .robot { flex: none; }
 .propositions-post { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; align-items: flex-start; }
 .propositions-post .proposition-description { width: 100%; }
+/* Barre de sélection : le carré du filet est dessiné comme un trait, pour ne pas le confondre avec un fond */
+.filet-trait { display: inline-block; width: 5px; height: 20px; border-radius: 3px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18); }

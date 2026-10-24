@@ -410,7 +410,7 @@
     const riche = (b, retire = 0) => {
       const r = {};
       if (b.marques && b.marques.length) {
-        r.marques = b.marques.map((m) => ({ ...m, debut: m.debut - retire, fin: m.fin - retire, ...(m.taille ? { taille: Math.round(m.taille * echelle) } : {}), ...(m.couleur ? { couleurHex: m.couleur === 'accent' ? fond.accent : fond.texte } : {}), ...(m.filet ? { filetHex: couleurFiletDe(m.filet) } : {}) })).filter((m) => m.fin > 0);
+        r.marques = b.marques.map((m) => ({ ...m, debut: m.debut - retire, fin: m.fin - retire, ...(m.taille ? { taille: Math.round(m.taille * echelle) } : {}), ...(m.couleur ? { couleurHex: m.couleur === 'accent' ? fond.accent : m.couleur === 'texte' ? fond.texte : /^#[0-9a-f]{6}$/i.test(m.couleur) ? m.couleur : fond.texte } : {}), ...(m.filet ? { filetHex: couleurFiletDe(m.filet) } : {}) })).filter((m) => m.fin > 0);
       }
       if (b.alignement) r.alignement = b.alignement;
       const indice = slide.blocs.indexOf(b);

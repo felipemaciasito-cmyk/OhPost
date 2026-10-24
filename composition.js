@@ -1005,12 +1005,58 @@
         { type: 'titre', libelle: 'Taille libre' },
         { type: 'libre', rendu: (fermer) => h(TailleLibre, { appliquer: (px) => { fermer(); formater({ taille: px }, `Taille ${px} px.`); } }) },
       ];
-      const menuCouleur = () => [
-        { type: 'titre', libelle: 'Couleurs permises sur ce fond' },
-        item(h(Fragment, null, h('span', { className: 'pastille-couleur', style: { background: fond.texte } }), 'Couleur du texte'), () => formater({ couleur: 'texte' })),
-        item(h(Fragment, null, h('span', { className: 'pastille-couleur', style: { background: fond.accent } }), 'Couleur de mise en valeur'), () => formater({ couleur: 'accent' })),
-        item('Couleur d’origine', () => formater({ couleur: null })),
-      ];
+      // ---- Couleurs : le fond réel derrière un bloc, la couleur actuelle, ce qui reste lisible ----
+      const joli = (nom) => nom.replace(/([A-Z])/g, ' $1').toLowerCase().replace(/\bpale\b/, 'pâle');
+      const hexVers = (hex) => { const c = String(hex || '').replace('#', ''); return c.length === 6 ? [0, 2, 4].map((k) => parseInt(c.slice(k, k + 2), 16)) : null; };
+      const melanger = (dessus, dessous, alpha) => { const a = hexVers(dessus); const b = hexVers(dessous); if (!a || !b || alpha >= 1) return dessus; return '#' + a.map((x, k) => Math.round(x * alpha + b[k] * (1 - alpha)).toString(16).padStart(2, '0')).join(''); };
+      const resoudre = (v) => (v === 'accent' ? fond.accent : v === 'texte' ? fond.texte : v);
+      const cibleCouleur = () => (blocCourant ? { i: edition.i, n: edition.n } : cibles()[0] || null);
+      // Ce qui est réellement dessiné derrière le bloc : fond de la page, puis bandeaux, encadrés et fonds de paragraphe (avec leur opacité).
+      const fondSous = (c) => {
+        const compo = c && vu.current.compositions[c.i];
+        const bx = compo && boiteDe(c.i, c.n);
+        if (!bx) return fond.fond;
+        const cx = bx.x + bx.l / 2; const cy = bx.y + Math.min(bx.h / 2, 40);
+        let couleur = fond.fond;
+        for (const e of compo.elements) if (e.type === 'rect' && e.l > 40 && e.h > 30 && cx >= e.x && cx <= e.x + e.l && cy >= e.y && cy <= e.y + e.h) couleur = melanger(e.couleur, couleur, e.opacite || 1);
+        return couleur;
+      };
+      const couleurActuelle = () => {
+        const c = cibleCouleur();
+        if (!c) return fond.texte;
+        if (blocCourant) {
+          const [d, f] = plage();
+          const vals = [...new Set((blocCourant.marques || []).filter((m) => m.couleur && m.debut < Math.max(f, d + 1) && m.fin > d).map((m) => m.couleur))];
+          if (vals.length === 1) return resoudre(vals[0]);
+        }
+        const compo = vu.current.compositions[c.i];
+        const ligne = compo && compo.elements.find((e) => e.type === 'ligne' && e.bloc === c.n);
+        return ligne ? ligne.couleur : fond.texte;
+      };
+      const candidatsTexte = () => {
+        const vus = new Set();
+        return [['texte', 'Couleur du texte', fond.texte], ['accent', 'Couleur de mise en valeur', fond.accent]]
+          .concat(Object.entries(charte.palette || {}).map(([nom, hex]) => [hex, 'Charte · ' + joli(nom), hex]))
+          .filter(([, , hex]) => { const k = String(hex).toLowerCase(); if (vus.has(k)) return false; vus.add(k); return true; });
+      };
+      const LISIBLE = 3; // contraste minimal pour du texte de grande taille (charte : 33 px et plus)
+      const poserCouleur = (v, hex, sous) => formater({ couleur: v }, contraste(hex, sous) < LISIBLE ? 'Attention : cette couleur est peu lisible sur ce fond.' : 'Couleur appliquée.');
+      const menuCouleur = () => {
+        const sous = fondSous(cibleCouleur());
+        const actuelle = String(couleurActuelle()).toLowerCase();
+        const tous = candidatsTexte();
+        const lisibles = tous.filter(([, , hex]) => contraste(hex, sous) >= LISIBLE);
+        const autres = tous.filter(([, , hex]) => contraste(hex, sous) < LISIBLE);
+        const ligne = ([v, nom, hex]) => item(h(Fragment, null, h('span', { className: 'pastille-couleur', style: { background: hex } }), nom), () => poserCouleur(v, hex, sous), { coche: String(hex).toLowerCase() === actuelle });
+        return [
+          { type: 'titre', libelle: 'Lisibles sur ce fond' },
+          ...lisibles.map(ligne),
+          ...(autres.length ? [{ type: 'titre', libelle: 'Peu lisibles sur ce fond' }, ...autres.map(ligne)] : []),
+          { type: 'libre', rendu: () => h('label', { className: 'couleur-libre' }, h('span', null, 'Couleur libre'), h('input', { type: 'color', defaultValue: /^#[0-9a-f]{6}$/.test(actuelle) ? actuelle : '#003846', 'aria-label': 'Choisir une couleur libre pour le texte', onChange: (e) => poserCouleur(e.target.value, e.target.value, sous) })) },
+          trait,
+          item('Couleur d’origine', () => formater({ couleur: null }, 'Couleur d’origine rétablie.')),
+        ];
+      };
       // Filet latéral : à côté des lignes choisies (sélection pendant l'écriture) ou du paragraphe entier ; couleurs de la charte ou couleur libre.
       const menuFilet = () => {
         const [d, f] = blocCourant ? plage() : [0, 0];
@@ -1039,6 +1085,20 @@
         formater({ filet: deja ? null : dernierFilet }, deja ? 'Filet retiré de ces lignes.' : 'Filet ajouté à côté des lignes choisies.');
       };
       const couleurFiletVue = dernierFilet === 'charte' ? fond.filet || fond.accent : dernierFilet === 'accent' ? fond.accent : dernierFilet === 'texte' ? fond.texte : dernierFilet;
+      // Le carré du filet montre le filet du paragraphe ou des lignes choisies ; à défaut, la couleur qui sera posée.
+      const filetActuel = () => {
+        const deFilet = (v) => (v === 'charte' || v === true ? fond.filet || fond.accent : v === 'accent' ? fond.accent : v === 'texte' ? fond.texte : v);
+        if (blocCourant) {
+          const [d, f] = plage();
+          const vals = [...new Set((blocCourant.marques || []).filter((m) => m.filet && m.debut < Math.max(f, d + 1) && m.fin > d).map((m) => m.filet))];
+          if (vals.length === 1) return deFilet(vals[0]);
+          if (blocCourant.filet) return deFilet(blocCourant.filetCouleur || 'charte');
+        } else {
+          const c = cibles()[0];
+          if (c && c.b.filet) return deFilet(c.b.filetCouleur || 'charte');
+        }
+        return couleurFiletVue;
+      };
       // Fond du paragraphe : aucun, couleur, rectangle ou suivant les lignes, angles arrondis ou droits ; ou celui du gabarit.
       const luminance = (hex) => { const c = String(hex || '').replace('#', ''); if (c.length !== 6) return 0.5; const v = [0, 2, 4].map((k) => { const x = parseInt(c.slice(k, k + 2), 16) / 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
       const contraste = (a, b) => { const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
@@ -1046,9 +1106,19 @@
       const fondActuel = () => { const c = cibles()[0]; return c && c.b.fondBloc && typeof c.b.fondBloc === 'object' ? c.b.fondBloc : null; };
       const poserFond = (champs, annonce) => {
         if (!blocCourant && !cibles().length) return exigerBloc();
+        const cs = cibles();
+        const texteAvant = couleurActuelle();
         paragraphe((c) => ({ fondBloc: { couleur: 'accent', forme: 'rectangle', angles: 'arrondis', ...(c.b.fondBloc && typeof c.b.fondBloc === 'object' ? c.b.fondBloc : {}), ...champs } }));
+        // Le fond tel qu'il sera vu : sa couleur à 85 % sur le fond de la page.
         const couleur = couleurDe(champs.couleur || (fondActuel() || {}).couleur || 'accent');
-        dispatch({ type: 'message', message: contraste(couleur, fond.texte) < 3 && contraste(couleur, fond.accent) < 3 ? 'Attention : le texte risque d’être peu lisible sur ce fond. Change sa couleur (Format › Couleur) ou choisis un autre fond.' : (annonce || 'Fond du paragraphe modifié.') });
+        const fondVu = melanger(couleur, fond.fond, M.OPACITE_FONDS || 1);
+        if (contraste(texteAvant, fondVu) >= LISIBLE) { dispatch({ type: 'message', message: annonce || 'Fond du paragraphe modifié.' }); return; }
+        // Peu lisible : on propose la couleur de la charte la plus lisible sur ce fond, appliquée d'un geste.
+        const meilleure = candidatsTexte().map(([v, nom, hex]) => ({ v, nom, c: contraste(hex, fondVu) })).sort((a, b) => b.c - a.c)[0];
+        const faire = () => majA((a) => cs.reduce((x, c) => OP.formater(c.i, c.n, 0, (c.b.texte || '').length, { couleur: meilleure.v })(x), a), null, `Texte passé en ${meilleure.nom.replace('Charte · ', '').toLowerCase()}.`);
+        dispatch({ type: 'message', message: meilleure && meilleure.c >= LISIBLE
+          ? { texte: 'Le texte devient peu lisible sur ce fond.', action: { libelle: 'Passer le texte en ' + meilleure.nom.replace('Charte · ', '').toLowerCase(), faire } }
+          : 'Attention : le texte risque d’être peu lisible sur ce fond. Choisis un autre fond.' });
       };
       const menuFond = () => {
         const actuel = fondActuel();
@@ -1341,7 +1411,7 @@
           position: barre, st, deplie, setDeplie: (v) => { setDeplie(v); ecrirePref('postsop-barre-depliee', v ? 'oui' : 'non'); },
           presets, fond, natures: natures(), sous: sousBarre, setSous: setSousBarre,
           actions: { basculer, formater, aligner, basculerFilet, filetLignes, effacer, natureDe, ajouterImage },
-          menuCouleur, menuTaille, menuFilet, couleurFilet: couleurFiletVue, menuFond, menuAssistant: () => menuAssistant(true), Robot: outilsIA.Robot,
+          menuCouleur, menuTaille, menuFilet, couleurFilet: filetActuel(), couleurTexte: couleurActuelle(), menuFond, menuAssistant: () => menuAssistant(true), Robot: outilsIA.Robot,
         }));
     }
 
@@ -1502,7 +1572,7 @@
     }
 
     // Barre flottante « dépliable », sans contour : cinq outils, et une seconde rangée à la demande.
-    function BarreFlottante({ position, st, deplie, setDeplie, presets, fond, natures, sous, setSous, actions, menuCouleur, menuTaille, menuFilet, couleurFilet, menuFond, menuAssistant, Robot }) {
+    function BarreFlottante({ position, st, deplie, setDeplie, presets, fond, natures, sous, setSous, actions, menuCouleur, menuTaille, menuFilet, couleurFilet, couleurTexte, menuFond, menuAssistant, Robot }) {
       const refFilet = useRef(null);
       const refRobotBarre = useRef(null);
       const refFond = useRef(null);
@@ -1539,12 +1609,12 @@
           presets.map(([nom, px]) => bouton(String(px), () => actions.formater({ taille: px }), { titre: `${nom} · ${px} px`, actif: st.taille === px, classe: 'puce-taille' })),
           h('span', { className: 'separateur', 'aria-hidden': 'true' }),
           h('button', { ref: refCouleur, type: 'button', className: 'outil', title: 'Couleur', 'aria-label': 'Couleur', 'aria-haspopup': 'true', 'aria-expanded': sous === 'couleur', onMouseDown: garder, onClick: () => setSous(sous === 'couleur' ? null : 'couleur') },
-            h('span', { className: 'pastille-couleur', style: { background: fond.accent } })),
+            h('span', { className: 'pastille-couleur', style: { background: couleurTexte || fond.texte } })),
           ...[['gauche', 'M4 6h16M4 12h10M4 18h14', 'Aligner à gauche'], ['centre', 'M4 6h16M7 12h10M5 18h14', 'Centrer'], ['droite', 'M4 6h16M10 12h10M6 18h14', 'Aligner à droite']].map(([v, d, t]) => h('button', { key: v, type: 'button', className: cls('outil', st.alignement === v && 'actif'), title: t, 'aria-label': t, 'aria-pressed': st.alignement === v, onMouseDown: garder, onClick: () => actions.aligner(v) },
             h('svg', { className: 'icone', width: 18, height: 18, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' })))),
           bouton(h('span', { className: 'filet-icone', 'aria-hidden': 'true', style: { background: couleurFilet } }), actions.filetLignes, { titre: 'Filet latéral sur les lignes choisies', actif: st.filetLignes || st.filet }),
           h('button', { ref: refFilet, type: 'button', className: 'outil outil-couleur-filet', title: 'Couleur du filet', 'aria-label': 'Couleur du filet', 'aria-haspopup': 'true', 'aria-expanded': sous === 'filet', onMouseDown: garder, onClick: () => setSous(sous === 'filet' ? null : 'filet') },
-            h('span', { className: 'pastille-couleur', style: { background: couleurFilet } }), h('span', { className: 'fleche-mini', 'aria-hidden': 'true' }, '▾')),
+            h('span', { className: 'filet-trait', style: { background: couleurFilet } }), h('span', { className: 'fleche-mini', 'aria-hidden': 'true' }, '▾')),
           h('button', { ref: refFond, type: 'button', className: 'outil outil-fond', title: 'Fond du paragraphe', 'aria-label': 'Fond du paragraphe', 'aria-haspopup': 'true', 'aria-expanded': sous === 'fond', onMouseDown: garder, onClick: () => setSous(sous === 'fond' ? null : 'fond') },
             h('span', { className: 'icone-fond', 'aria-hidden': 'true' }, 'A')),
           bouton(h('svg', { className: 'icone', width: 18, height: 18, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d: 'M4 20h16M7 16L17 6M14 3l7 7-7 7', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' })), actions.effacer, { titre: 'Effacer la mise en forme' })),

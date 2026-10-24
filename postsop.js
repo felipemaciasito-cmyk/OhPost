@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-24.3'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-24.4'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -575,6 +575,7 @@
         // « annulation » : une action précise à défaire (une correction typographique, même si l'on a continué d'écrire) ;
         // « annulable » : la dernière étape de l'historique.
         (m.annulable || m.annulation) && h('button', { type: 'button', className: 'lien fort', onPointerDown: () => { arme.current = true; }, onClick: (e) => { if (!voulu(e)) return; arme.current = false; dispatch(m.annulation || { type: 'annuler' }); dispatch({ type: 'message', message: null }); } }, 'Annuler'),
+        m.action && h('button', { type: 'button', className: 'lien fort', onPointerDown: () => { arme.current = true; }, onClick: (e) => { if (!voulu(e)) return; arme.current = false; dispatch({ type: 'message', message: null }); m.action.faire(); } }, m.action.libelle),
         h('button', { type: 'button', className: 'lien', onPointerDown: () => { arme.current = true; }, onClick: (e) => { if (!voulu(e)) return; arme.current = false; dispatch({ type: 'message', message: null }); } }, 'Fermer')));
   }
 

@@ -99,8 +99,9 @@
       page.drawRectangle({ x: 0, y: 0, width: l, height: h, color: versRgb(PDFLib, c.fond.fond) });
       for (const e of c.elements) {
         if (e.type === 'rect') {
-          if (e.rayon) page.drawSvgPath(cheminArrondi(e.x, e.y, e.l, e.h, e.rayon), { x: 0, y: h, color: versRgb(PDFLib, e.couleur) });
-          else page.drawRectangle({ x: e.x, y: h - e.y - e.h, width: e.l, height: e.h, color: versRgb(PDFLib, e.couleur) });
+          // Fonds de texte et bandeaux : même opacité réduite que sur l'écran.
+          if (e.rayon) page.drawSvgPath(cheminArrondi(e.x, e.y, e.l, e.h, e.rayon), { x: 0, y: h, color: versRgb(PDFLib, e.couleur), opacity: e.opacite || 1 });
+          else page.drawRectangle({ x: e.x, y: h - e.y - e.h, width: e.l, height: e.h, color: versRgb(PDFLib, e.couleur), opacity: e.opacite || 1 });
         } else if (e.type === 'ligne') {
           const trace = e.police.trace ? e.police.trace(e.texte, e.x, e.y, e.taille) : '';
           if (trace) page.drawSvgPath(trace, { x: 0, y: h, color: versRgb(PDFLib, e.couleur), opacity: e.opacite || 1 });

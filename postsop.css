@@ -226,7 +226,8 @@ input[type="range"] { width: 220px; accent-color: var(--action); }
 .mention a { color: inherit; }
 
 .panneau-aide {
-  position: fixed; top: 84px; right: 20px; z-index: 40; width: min(380px, calc(100vw - 40px));
+  position: fixed; top: 84px; right: 20px; z-index: 46; width: min(380px, calc(100vw - 40px));
+  max-height: calc(100vh - 104px); overflow-y: auto; /* au-dessus de la barre de menus collante (40), sous les fenêtres (50) */
   padding: 22px; border-radius: 18px; background: var(--surface); color: var(--texte);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28); border: 1px solid var(--trait);
 }
@@ -1002,3 +1003,6 @@ canvas.slide.editable { cursor: text; }
 .mep-favori:hover { background: var(--surface-2); }
 .bouton.secondaire.actif { background: var(--surface); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.16); }
 .bouton-mise-en-page { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 14px; white-space: nowrap; }
+
+.mep-finitions { display: flex; flex-direction: column; gap: 6px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--trait); }
+.mep-finitions h3 { margin: 0 0 4px; font-size: 18px; }

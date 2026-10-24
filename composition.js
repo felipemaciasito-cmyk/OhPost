@@ -1266,7 +1266,7 @@
       const zoneAffichee = zoneEdition || (edition && zoneMemoire.current) || null;
       const historique = h('span', { className: 'historique-menus' },
         h('span', { className: 'position' }, `Page ${active + 1} sur ${total}`),
-        h('button', { type: 'button', className: 'bouton secondaire bouton-mise-en-page', onClick: () => dispatch({ type: 'feuille', feuille: { reglages: article.id } }), title: 'Propositions de CCB, mes favoris, sans IA, texte, dimensions et réseau' },
+        h('button', { type: 'button', className: 'bouton secondaire bouton-mise-en-page', onClick: () => dispatch({ type: 'feuille', feuille: { reglages: article.id } }), title: 'Propositions de CCB, mes favoris, sans IA, fond, logo et fleurs' },
           h('svg', { width: 18, height: 18, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('rect', { x: 3, y: 4, width: 7, height: 16, rx: 1.5, fill: 'none', stroke: 'currentColor', strokeWidth: 2 }), h('rect', { x: 14, y: 4, width: 7, height: 7, rx: 1.5, fill: 'none', stroke: 'currentColor', strokeWidth: 2 }), h('rect', { x: 14, y: 13, width: 7, height: 7, rx: 1.5, fill: 'none', stroke: 'currentColor', strokeWidth: 2 })),
           'Mise en page…'),
         h('button', { ref: refRobot, type: 'button', className: cls('bouton-robot', 'bouton-robot-menu', (menuIA || disc.ouvert) && 'actif'), 'aria-label': 'CCB · Creative Collaborative Boost', title: 'CCB · Creative Collaborative Boost', 'aria-haspopup': 'true', 'aria-expanded': menuIA, onMouseDown: garder, onClick: () => { setMenu(null); setMenuIA(!menuIA); } }, h(outilsIA.Robot, { taille: 34 })),

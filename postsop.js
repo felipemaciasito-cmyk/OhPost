@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-23.8'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-23.9'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -115,7 +115,7 @@
     bibliotheque: { titre: 'Tes articles', textes: ['Trois sections : En cours, Publiés (validés par toi) et Corbeille, d’où tu peux restaurer un article.', 'Le menu « … » d’une carte permet de dupliquer, d’utiliser un article comme modèle pour un nouveau texte, de le marquer comme publié ou de le mettre à la corbeille.', 'Trie et affiche tes articles comme tu veux, en grille ou en liste. « Annuler » et ⌘Z (Ctrl+Z) reviennent en arrière à tout moment.', 'Calendrier : place tes articles sur une date, puis « Programmer un rappel » ajoute une alerte au calendrier de ton appareil. La publication automatique arrivera plus tard.'] },
     configuration: { titre: 'La configuration', textes: ['Charte : tes couleurs et tes tailles de texte. Tout changement s’applique à tous tes carrousels.', 'Ressources : tes polices, ton logo et tes fleurs, importés une fois et retrouvés sur tous tes appareils.', 'Réglages : le comportement de l’outil. Synchronisation : la liaison avec ton dépôt GitHub privé.', 'IA : le fournisseur d’intelligence artificielle et sa clé. Comme la clé GitHub, elle reste sur l’appareil : à saisir une fois sur chacun.'] },
     texte: { titre: 'Étape 1 · Texte', textes: ['Ton texte est la référence du carrousel : chaque modification ici met les pages à jour, sans toucher à leur mise en page. Et un paragraphe modifié dans Mise en page modifie aussi ce texte.', 'Relis ton texte avant de passer à la mise en page : CCB composera ses propositions sur le texte corrigé.', 'Avec une IA active (Configuration, onglet IA), « Relire avec CCB » propose des corrections sous forme de cartes : accepte, modifie ou refuse chacune ; rien n’est appliqué sans toi. Sans IA, la vérification LanguageTool surligne les fautes ; pour chacune, choisis la bonne correction ou ignore-la.', 'La typographie française se corrige toute seule quand tu tapes ou colles du texte, ici comme sur les pages : un message montre chaque correction, avec « Annuler ».', 'Discussion : sélectionne un passage, puis « CCB » (le petit robot). Donne tes consignes en langage naturel et demande plusieurs propositions ; « Appliquer » remplace le passage, « Annuler » le rétablit.'] },
-    composition: { titre: 'Étape 2 · Mise en page', textes: ['La première fois que tu arrives ici, la fenêtre de mise en page s’ouvre : propositions de CCB, tes favoris, ou le découpage sans IA. Le bouton « Mise en page… », à droite des menus, la rouvre quand tu veux, pour changer aussi le texte, les dimensions ou le réseau.', 'Tes pages, les unes sous les autres, exactement comme elles seront exportées. Clique dans un paragraphe pour l’écrire à sa place ; sélectionne des mots pour les mettre en forme avec la petite barre qui apparaît.', 'Entrée crée un nouveau paragraphe, ⇧Entrée un retour à la ligne, ⌘↩ (Ctrl+↩) un saut de page. ⌫ au début d’un paragraphe le réunit au précédent ; au début d’une page, avec la page précédente.', 'Les menus en haut regroupent tout le reste : gabarits, fond, logo, et Vérifier pour les points à regarder. Ton texte reste la référence : chaque modification ici le met à jour.'] },
+    composition: { titre: 'Étape 2 · Mise en page', textes: ['La première fois que tu arrives ici, la fenêtre de mise en page s’ouvre : propositions de CCB, tes favoris, ou le découpage sans IA. Le bouton « Mise en page… », à droite des menus, la rouvre quand tu veux : autres propositions, favoris, fond, logo et fleurs, ou remplacement complet du texte. Le réseau et les dimensions se changent dans le menu Carrousel.', 'Tes pages, les unes sous les autres, exactement comme elles seront exportées. Clique dans un paragraphe pour l’écrire à sa place ; sélectionne des mots pour les mettre en forme avec la petite barre qui apparaît.', 'Entrée crée un nouveau paragraphe, ⇧Entrée un retour à la ligne, ⌘↩ (Ctrl+↩) un saut de page. ⌫ au début d’un paragraphe le réunit au précédent ; au début d’une page, avec la page précédente.', 'Les menus en haut regroupent tout le reste : gabarits, fond, logo, et Vérifier pour les points à regarder. Ton texte reste la référence : chaque modification ici le met à jour.'] },
     publication: { titre: 'Étape 3 · Publication', textes: ['Tout pour publier, dans l’ordre : le texte du post, le fichier, la date de publication, puis « Marquer comme publié ».', 'Le texte du post : écris-le ou demande une proposition à CCB, puis « Copier » pour le coller sur le réseau.', 'Le fichier : un PDF pour LinkedIn, des images PNG pour Instagram. S’il reste des alertes, l’outil te les rappelle avant : à toi de décider.', 'La date : programme-la (elle apparaît dans le calendrier de la bibliothèque) ou choisis « Ne pas programmer ».'] },
   };
 
@@ -1164,7 +1164,7 @@
       let sl = slides.length ? slides : M.decouperMecaniquement(paragraphes, format, fond, choisirPolice, { charte, reglages });
       if (schema) sl = sl.map((x, i) => ({ ...x, images: imagesSelonSchema(schema, i, sl.length) }));
       if (edite) {
-        dispatch({ type: 'article', id: edite.id, maj: (a) => L.lierArticle({ ...a, reseau, format, fond, texte: paragraphes, slides: sl }), annonce: 'Mise en page et réglages appliqués.' });
+        dispatch({ type: 'article', id: edite.id, maj: (a) => L.lierArticle({ ...a, reseau, format, fond, texte: paragraphes, slides: sl }), annonce: 'Mise en page appliquée.' });
         dispatch({ type: 'feuille', feuille: null });
         return;
       }
@@ -1258,24 +1258,32 @@
           configIA && PROP && h(Bouton, { variante: 'petit', disabled: etatGen === 'encours', onClick: () => generer(plans.length > 0) }, plans.length ? 'Proposer 3 autres' : 'Proposer 3 mises en page'))),
       fil && slides.length > 0 && h(ApercuFil, { slides, format, fond, texte: paragraphes[0], onFermer: () => setFil(false) }));
 
-    const etapes = ['Texte et réglages', 'Mise en page', 'Logo et fleurs'];
+    // Deux étapes : le texte (à remplacer si besoin), puis la mise en page avec le fond, le logo et les fleurs.
+    // Le réseau et les dimensions se changent dans le menu Carrousel.
+    const etapes = ['Texte', 'Mise en page'];
     const aller = (k) => { if (k === etape || (k > 1 && !paragraphes.length)) return; setEtape(k); };
     const pied = h(Fragment, null,
       h(Bouton, { disabled: etape === 1, onClick: () => setEtape(etape - 1) }, 'Étape précédente'),
-      etape < 3
-        ? h(Bouton, { variante: 'principal', disabled: !paragraphes.length, onClick: () => setEtape(etape + 1) }, etape === 1 ? 'Continuer : mise en page' : 'Continuer : logo et fleurs')
-        : h(Bouton, { variante: 'principal', disabled: !paragraphes.length, onClick: terminer }, edite ? 'Appliquer' : 'Créer l’article'));
-    return h(Feuille, { titre: premiere ? 'Choisis ta mise en page' : 'Mise en page et réglages', classe: etape === 2 ? 'assistant large' : 'assistant', onAnnuler: () => dispatch({ type: 'feuille', feuille: null }), action: h('span', { className: 'doux petit' }, `Étape ${etape} sur 3`), pied },
-      // Les étapes restent cliquables : on revient à tout moment modifier les réglages.
+      etape < 2
+        ? h(Bouton, { variante: 'principal', disabled: !paragraphes.length, onClick: () => setEtape(2) }, 'Continuer : mise en page')
+        : h(Bouton, { variante: 'principal', disabled: !paragraphes.length, onClick: terminer }, 'Appliquer'));
+    const champTexteSeul = h(Fragment, null,
+      h('label', { className: 'etiquette', htmlFor: 'texte-nouvel' }, 'Texte de l’article'),
+      h(ZoneTexteTypo, { id: 'texte-nouvel', className: 'zone-texte', rows: 12, valeur: texte, onValeur: setTexte, placeholder: 'Colle ici le nouveau texte de ton article.' }),
+      h('p', { className: 'doux petit' }, paragraphes.length ? `${paragraphes.length} paragraphe(s) · ${M.compterMots(texte)} mots.` : 'Colle le texte de ton article : la typographie française est corrigée au passage.'));
+    return h(Feuille, { titre: premiere ? 'Choisis ta mise en page' : 'Mise en page', classe: etape === 2 ? 'assistant large' : 'assistant', onAnnuler: () => dispatch({ type: 'feuille', feuille: null }), action: h('span', { className: 'doux petit' }, `Étape ${etape} sur 2`), pied },
+      // Les étapes restent cliquables : on revient à tout moment au texte.
       h('ol', { className: 'etapes-assistant' }, etapes.map((nom, k) => h('li', { key: nom },
         h('button', { type: 'button', className: cls(k + 1 === etape && 'actif', k + 1 < etape && 'faite'), 'aria-current': k + 1 === etape ? 'step' : undefined, disabled: k + 1 > 1 && !paragraphes.length, onClick: () => aller(k + 1) }, `${k + 1}. ${nom}`)))),
-      edite && etape === 1 && h('p', { className: 'note' }, 'Changer le texte ici le redécoupe : la mise en page actuelle ne sera plus proposée.'),
-      etape === 1 && champTexte,
+      edite && etape === 1 && h('p', { className: 'note' }, 'Remplacer le texte ici le redécoupe : la mise en page actuelle ne sera plus proposée.'),
+      etape === 1 && champTexteSeul,
       etape === 2 && etapeMiseEnPage,
-      etape === 3 && h(Fragment, null,
+      etape === 2 && h('div', { className: 'mep-finitions' },
+        h('h3', { className: 'gill' }, 'Fond, logo et fleurs'),
         h(Ligne, { etiquette: 'Fond', aide: plan ? 'Celui de la mise en page choisie. Tu peux le changer.' : 'Il pourra changer ensuite.' }, h(SelecteurFond, { valeur: fond, onChange: setFond })),
         champLogo));
   }
+
 
   /* ================================================================== */
   /* 6. Atelier                                                          */

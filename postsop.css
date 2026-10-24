@@ -1006,3 +1006,4 @@ canvas.slide.editable { cursor: text; }
 
 .mep-finitions { display: flex; flex-direction: column; gap: 6px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--trait); }
 .mep-finitions h3 { margin: 0 0 4px; font-size: 18px; }
+.pied-droite { margin-left: auto; }

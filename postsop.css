@@ -1046,3 +1046,21 @@ canvas.slide.editable { cursor: text; }
 @keyframes fleurTour { to { transform: rotate(72deg); } }
 @keyframes fleurOuvre { 0%, 100% { transform: rotate(var(--r)) translateY(0); } 45% { transform: rotate(var(--r)) translateY(-1.6px); } }
 @media (prefers-reduced-motion: reduce) { .bouton-fleur .fleur, .bouton-fleur .petale { animation: none !important; } }
+
+/* ---------- Nouvel article : questionnaire (format, titre) ---------- */
+.question h3 { margin: 0 0 2px; font-size: 18px; }
+.question p { margin: 0 0 10px; }
+.question + .question { margin-top: 22px; }
+.formats { display: flex; gap: 14px; }
+.format { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 16px 12px; border-radius: 16px; background: var(--surface); border: 2px solid transparent; color: var(--texte); font: inherit; cursor: pointer; }
+.format[aria-pressed="true"] { border-color: var(--touche); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08); }
+.dessin-format { display: block; width: 64px; height: 64px; border-radius: 4px; background: var(--action); margin-bottom: 4px; }
+.dessin-format.portrait { height: 80px; }
+.ligne-titre { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+.ligne-titre .champ-texte { flex: 1; min-width: 0; }
+.titres-proposes { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.titre-propose { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--trait); }
+.titre-propose strong { font-size: 16px; }
+.mep-message .actions-ligne { margin-top: 6px; flex-wrap: wrap; }
+/* Écran vierge du nouvel article : le champ s'adapte à la hauteur de l'écran pour que « Continuer » reste visible au-dessus des boutons du bas */
+.zone-attente { height: max(150px, calc(100vh - 470px)); height: max(150px, calc(100dvh - 470px)); resize: none; }

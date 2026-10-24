@@ -44,6 +44,7 @@
   const FONCTION_RESEAU = {
     LinkedIn: 'Sur LinkedIn, le carrousel est un document qu’on feuillette depuis le fil : la couverture doit donner envie de l’ouvrir (une promesse ou une tension claire), chaque slide porte une seule idée, la dernière conclut et invite à réagir si le texte le permet.',
     Instagram: 'Sur Instagram, la couverture doit arrêter le défilement en une seconde : peu de mots, très lisibles ; chaque slide se lit d’un coup d’œil ; la dernière conclut et invite à réagir si le texte le permet.',
+    'LinkedIn et Instagram': 'Le carrousel sera publié sur LinkedIn (un document qu’on feuillette) et sur Instagram (des images qui défilent) : une couverture qui donne envie d’ouvrir et arrête le défilement, peu de mots par slide, une seule idée par slide, la dernière conclut et invite à réagir si le texte le permet.',
   };
 
   // Pages au plus pour la création d'un article : 6, ou 7 quand le texte est long (au-delà d'environ 60 mots par page).

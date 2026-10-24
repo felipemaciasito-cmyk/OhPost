@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-24.5'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-24.6'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -76,6 +76,7 @@
     'Et parfois, une conversation courageuse évite une démission que personne ne souhaitait.',
   ];
 
+  const nomReseau = (r) => (r === 'instagram' ? 'Instagram' : r === 'deux' ? 'LinkedIn et Instagram' : 'LinkedIn');
   const DESCRIPTIONS_VIDES = { instagram: { fr: '', en: '' }, linkedin: { fr: '', en: '' } };
 
   // Article d'exemple : ton carrousel « Clara », créé à la première ouverture.
@@ -162,6 +163,14 @@
     return ia - ib;
   });
 
+  // Un article encore vide (texte jamais collé) est supprimé quand on le quitte, sans passer par la corbeille.
+  function sansArticleVide(etat, sauf) {
+    const a = etat.articles.find((x) => x.id === etat.articleId);
+    if (!a || a.id === sauf || !a.attenteTexte || (a.texte && a.texte.length)) return etat;
+    const articles = etat.articles.filter((x) => x.id !== a.id);
+    return { ...etat, articles, projet: { ...etat.projet, ordre: (etat.projet.ordre || []).filter((id) => id !== a.id) } };
+  }
+
   function reducteur(etat, action) {
     switch (action.type) {
       case 'charger': {
@@ -170,8 +179,8 @@
         const ouvert = articles.some((a) => a.id === etat.articleId);
         return { ...etat, pret: true, articles, projet, ...(ouvert ? {} : { ecran: etat.ecran === 'atelier' ? 'bibliotheque' : etat.ecran, articleId: null }) };
       }
-      case 'ecran': return { ...etat, ecran: action.ecran, feuille: null, message: null, aide: false, edition: false, ...(action.onglet ? { onglet: action.onglet } : {}) };
-      case 'ouvrir': return { ...etat, ecran: 'atelier', articleId: action.id, etape: 'texte', slide: 0, message: null, aide: false };
+      case 'ecran': etat = action.ecran !== 'atelier' ? sansArticleVide(etat) : etat; return { ...etat, ecran: action.ecran, feuille: null, message: null, aide: false, edition: false, ...(action.onglet ? { onglet: action.onglet } : {}) };
+      case 'ouvrir': etat = sansArticleVide(etat, action.id); return { ...etat, ecran: 'atelier', articleId: action.id, etape: 'texte', slide: 0, message: null, aide: false };
       case 'etape': case 'aller': {
         const etape = etapeDe(action.etape);
         const suite = { ...etat, etape, slide: action.type === 'aller' && action.slide != null ? action.slide : etat.slide, message: null };
@@ -218,7 +227,15 @@
         const articles = etat.articles.map((a) => (a.id === action.id ? { ...a, statut: action.statut, publie: action.statut === 'Publié' ? maintenant() : null } : a));
         return { ...avecHistorique(etat, articles), message: { texte: action.statut === 'Publié' ? 'Article marqué comme publié : il est rangé dans la section Publiés.' : 'Article remis en cours.', annulable: true } };
       }
+      case 'nouveauVide': {
+        etat = sansArticleVide(etat);
+        const r = etat.projet.reglages;
+        const article = { id: nouvelId(), titre: 'Nouvel article', statut: 'Brouillon', reseau: 'deux', format: r.formatDefaut || 'portrait', fond: 'bleu', logo: 'auto', modifie: maintenant(), texte: [], slides: [], descriptions: DESCRIPTIONS_VIDES, attenteTexte: true, misEnPage: false };
+        const e = avecHistorique(etat, [article, ...etat.articles]);
+        return { ...e, projet: { ...e.projet, ordre: [article.id, ...(e.projet.ordre || [])] }, ecran: 'atelier', articleId: article.id, etape: 'texte', slide: 0, feuille: null };
+      }
       case 'depuisModele': {
+        etat = sansArticleVide(etat);
         // La mise en page du modèle est reprise ; l'article s'ouvre à l'étape Texte, avec un champ vierge pour le nouveau texte.
         const modele = etat.articles.find((a) => a.id === action.id);
         if (!modele) return etat;
@@ -659,7 +676,7 @@
       a.statut === 'Publié' && h('span', { className: 'tampon-publie' }, h(Icone, { nom: 'coche', taille: 16 }), 'Publié'));
     const details = (a) => h(Fragment, null,
       h('span', { className: 'carte-article-titre gill' }, a.titre),
-      h('span', { className: 'doux petit bloc' }, `${a.slides.length} pages · ${M.FORMATS[a.format].nom} · ${a.reseau === 'instagram' ? 'Instagram' : 'LinkedIn'}`),
+      h('span', { className: 'doux petit bloc' }, `${a.slides.length} pages · ${M.FORMATS[a.format].nom} · ${nomReseau(a.reseau)}`),
       h('span', { className: 'carte-article-pied' }, a.programme && a.statut !== 'Publié' && !a.corbeille
           ? h(Pastille, { ton: 'ok' }, 'Programmé · ' + CAL.libelleCourt(a.programme.date))
           : h(Pastille, { ton: TON_STATUT[a.statut] }, a.statut === 'Publié' && a.publie ? 'Publié le ' + new Date(a.publie).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : a.statut === 'Prêt' ? 'Brouillon' : a.statut),
@@ -679,7 +696,7 @@
           h('div', { className: 'actions-ligne' },
             h(Bouton, { onClick: () => dispatch({ type: 'feuille', feuille: 'calendrier' }), 'aria-haspopup': 'dialog' }, h(Icone, { nom: 'calendrier' }), 'Calendrier'),
             h(Bouton, { variante: 'icone', etiquette: 'Configuration', titre: 'Configuration', onClick: () => dispatch({ type: 'ecran', ecran: 'configuration' }) }, h(Icone, { nom: 'engrenage' })),
-            h(Bouton, { variante: 'principal', onClick: () => dispatch({ type: 'feuille', feuille: 'nouvel' }) }, h(Icone, { nom: 'plus' }), 'Nouvel article'))),
+            h(Bouton, { variante: 'principal', onClick: () => dispatch({ type: 'nouveauVide' }) }, h(Icone, { nom: 'plus' }), 'Nouvel article'))),
         h('div', { className: 'outils-bibliotheque' },
           h(Segmente, { etiquette: 'Section', valeur: b.section, onChange: regler('section'), options: [
             { valeur: 'encours', libelle: `En cours (${sections.encours.length})` },
@@ -693,7 +710,7 @@
             b.section === 'corbeille' && liste.length > 0 && h(Bouton, { variante: 'danger', onClick: () => dispatch({ type: 'feuille', feuille: 'vider' }) }, 'Vider la corbeille'))),
         b.section === 'corbeille' && h('p', { className: 'note' }, 'Les articles de la corbeille ne s’affichent plus ailleurs. Restaure-les depuis leur menu « … ».'),
         !liste.length && h('div', { className: 'vide' }, h('p', { className: 'gill' }, { encours: 'Aucun article en cours.', publies: 'Aucun article publié pour l’instant.', corbeille: 'La corbeille est vide.' }[b.section]),
-          b.section === 'encours' && h(Bouton, { variante: 'principal', onClick: () => dispatch({ type: 'feuille', feuille: 'nouvel' }) }, h(Icone, { nom: 'plus' }), 'Créer un article')),
+          b.section === 'encours' && h(Bouton, { variante: 'principal', onClick: () => dispatch({ type: 'nouveauVide' }) }, h(Icone, { nom: 'plus' }), 'Créer un article')),
         b.vue === 'grille'
           ? h('div', { className: 'grille-articles' }, liste.map((a, i) => h('article', { key: a.id, className: cls('carte-article', a.statut === 'Publié' && 'publie', b.section === 'corbeille' && 'en-corbeille') },
             h('button', { type: 'button', className: 'carte-article-ouvrir', disabled: etat.edition || b.section === 'corbeille', onClick: () => dispatch({ type: 'ouvrir', id: a.id }), 'aria-label': 'Ouvrir ' + a.titre },
@@ -820,7 +837,7 @@
       const debut = p.date.replace(/-/g, '') + 'T' + h + mi + '00';
       const fin = p.date.replace(/-/g, '') + 'T' + String((Number(h) + 1) % 24).padStart(2, '0') + mi + '00';
       const echapper = (t) => String(t).replace(/[\\;,]/g, (c) => '\\' + c).replace(/\n/g, '\\n');
-      const reseau = article.reseau === 'linkedin' ? 'LinkedIn' : 'Instagram';
+      const reseau = nomReseau(article.reseau);
       return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//PostsOP//Calendrier//FR', 'BEGIN:VEVENT',
         'UID:' + article.id + '-' + debut + '@postsop', 'DTSTAMP:' + new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, ''),
         'DTSTART:' + debut, 'DTEND:' + fin, 'SUMMARY:' + echapper('Publier « ' + article.titre + ' » sur ' + reseau),
@@ -894,7 +911,7 @@
                     h('div', { className: 'calendrier-champs' },
                       h('label', null, h('span', null, 'Date'), h('input', { className: 'champ-texte', type: 'date', value: f.programme.date, onChange: (e) => e.target.value && majArticle(f.id, (x) => ({ ...x, programme: { ...x.programme, date: e.target.value, mode: null } })) })),
                       h('label', null, h('span', null, 'Heure'), h('input', { className: 'champ-texte', type: 'time', value: f.programme.heure || '09:00', onChange: (e) => e.target.value && majArticle(f.id, (x) => ({ ...x, programme: { ...x.programme, heure: e.target.value, mode: null } })) }))),
-                    h('p', { className: 'doux petit' }, 'Réseau : ' + (f.reseau === 'linkedin' ? 'LinkedIn' : 'Instagram') + ', celui de l’article.'),
+                    h('p', { className: 'doux petit' }, 'Réseau : ' + nomReseau(f.reseau) + ', celui de l’article.'),
                     f.programme.mode === 'rappel' && h('p', { className: 'ok petit' }, 'Rappel programmé. Si tu changes la date ou l’heure, programme-le de nouveau.'),
                     h('div', { className: 'calendrier-boutons' },
                       h(Bouton, { variante: 'principal', onClick: () => rappel(f) }, h(Icone, { nom: 'calendrier', taille: 18 }), f.programme.mode === 'rappel' ? 'Programmer un nouveau rappel' : 'Programmer un rappel'),
@@ -911,7 +928,7 @@
               h('p', { className: 'doux petit' }, choisi ? 'Touche maintenant un jour du calendrier.' : 'Touche un article, puis un jour.'),
               aProgrammer.length
                 ? h('div', { className: 'calendrier-liste' }, aProgrammer.map((a) => h('button', { key: a.id, type: 'button', className: cls('calendrier-a-programmer', choisi === a.id && 'actif'), 'aria-pressed': choisi === a.id, onClick: () => { setChoisi(choisi === a.id ? null : a.id); setFiche(null); } },
-                  h('span', { className: 'gill' }, a.titre), h('span', { className: 'doux petit' }, (a.reseau === 'linkedin' ? 'LinkedIn' : 'Instagram') + ' · ' + a.statut))))
+                  h('span', { className: 'gill' }, a.titre), h('span', { className: 'doux petit' }, nomReseau(a.reseau) + ' · ' + a.statut))))
                 : h('p', { className: 'ok petit' }, 'Tous tes articles en cours sont programmés.'))))));
   }
 
@@ -1069,7 +1086,7 @@
     const choixEffectif = plan ? choix : (choix === 'actuelle' && actuelleValable ? 'actuelle' : 'simple');
     const auHasard = choixEffectif === 'simple' && hasard && hasard.cle === cleTexte ? hasard : null;
     const slides = plan ? PROP.construireSlides(plan, paragraphes) : choixEffectif === 'actuelle' ? edite.slides : auHasard ? auHasard.slides : decoupage;
-    const reseauNom = reseau === 'linkedin' ? 'LinkedIn' : 'Instagram';
+    const reseauNom = nomReseau(reseau);
     const catalogueTexte = () => PROP.catalogue(M.GABARITS, fonds, M.NATURES);
     const debordeDe = (pl) => (sl, i, total) => M.composer(sl, format, pl.fond, choisirPolice, { charte, reglages, index: i, total }).deborde;
     const garder = (pl) => PROP.aere(pl, paragraphes, debordeDe(pl), maxPages);
@@ -1524,7 +1541,7 @@
       const historique = avant.messages;
       maj({ ...avant, passageConv: historique.length ? avant.passageConv : (passage || ''), messages: historique.concat([{ de: 'moi', texte }]), etat: 'encours', detail: '' });
       try {
-        const brut = await IA.demander(config, { systeme: R.SYSTEME_DISCUSSION, texte: R.messageDiscussion(texteComplet, passage || '', historique, options.precision ? options.precision + '\n\n' + texte : texte, { profil, titre: article.titre, reseau: article.reseau === 'linkedin' ? 'LinkedIn' : 'Instagram' }), maxJetons: 4000, delai: 120000 , json: R.JSON_DISCUSSION });
+        const brut = await IA.demander(config, { systeme: R.SYSTEME_DISCUSSION, texte: R.messageDiscussion(texteComplet, passage || '', historique, options.precision ? options.precision + '\n\n' + texte : texte, { profil, titre: article.titre, reseau: nomReseau(article.reseau) }), maxJetons: 4000, delai: 120000 , json: R.JSON_DISCUSSION });
         const r = R.lireDiscussion(brut);
         const x = dernier.current;
         maj({ ...x, etat: 'repos', messages: x.messages.concat([{ de: 'ia', texte: r.reponse, pistes: r.pistes || [], passage: passage || '', propositions: r.propositions.map((q) => ({ ...q, apercu: T.appliquer(q.apres, T.corrections(q.apres)), statut: 'attente' })) }]) });
@@ -1712,26 +1729,110 @@
       rel.props.map((p) => h(CarteProposition, { key: p.id, p, rel })));
   }
 
-  // Nouvel article d'après un modèle : un champ vierge pour le texte ; « Créer les pages » applique la mise en page du modèle.
+  // Nouvel article (vide, ou d'après un modèle) : un champ vierge pour le texte, puis un court questionnaire (format, titre).
   function TexteEnAttente({ etat, dispatch, article, majA }) {
     const { choisirPolice, charte, reglages } = useContext(Contexte);
-    const modele = etat.articles.find((a) => a.id === article.attenteTexte);
+    const modele = typeof article.attenteTexte === 'string' ? etat.articles.find((a) => a.id === article.attenteTexte) : null;
     const [texte, setTexte] = useState('');
+    const [questions, setQuestions] = useState(false);
     const paragraphes = texte.split(/\n\s*\n|\n/).map((p) => p.trim()).filter(Boolean);
-    useEffect(() => { const z = document.getElementById('texte-modele'); if (z) z.focus(); }, []);
-    const creerPages = () => {
-      let sl = M.decouperMecaniquement(paragraphes, article.format, article.fond, choisirPolice, { charte, reglages });
+    useEffect(() => { const z = document.getElementById('texte-modele'); if (z && !questions) z.focus(); }, [questions]);
+    const commencer = ({ format, titre }) => {
+      let sl = M.decouperMecaniquement(paragraphes, format, article.fond, choisirPolice, { charte, reglages });
       if (modele) sl = appliquerModele(sl, modele);
       const premier = paragraphes[0];
-      majA((a) => { const { attenteTexte, ...reste } = a; return L.lierArticle({ ...reste, titre: premier.length > 48 ? premier.slice(0, 48) + '…' : premier, texte: paragraphes, slides: sl }); }, null, `Pages créées avec la mise en page de « ${modele ? modele.titre : 'ton modèle'} ».`);
+      const nom = titre || (premier.length > 48 ? premier.slice(0, 48) + '…' : premier);
+      majA((a) => { const { attenteTexte, ...reste } = a; return L.lierArticle({ ...reste, titre: nom, format, texte: paragraphes, slides: sl }); }, null,
+        modele ? `Pages créées avec la mise en page de « ${modele.titre} ».` : 'Article prêt : relis ton texte, la mise en page s’ouvrira à l’étape 2.');
       if (etat.etape !== 'texte') dispatch({ type: 'etape', etape: 'texte' });
     };
     return h('div', { className: 'colonne-unique' },
-      h(Carte, { titre: 'Nouveau texte', sousTitre: modele ? `Mise en page reprise de « ${modele.titre} » : fond, dimensions, réseau, gabarits et logo.` : 'Mise en page reprise du modèle.' },
-        etat.etape !== 'texte' && h('p', { className: 'note' }, 'Colle d’abord le texte de ton article : les pages seront créées avec la mise en page du modèle.'),
-        h(ZoneTexteTypo, { id: 'texte-modele', className: 'zone-texte', rows: 14, valeur: texte, onValeur: setTexte, placeholder: 'Colle ici le texte de ton nouvel article.', 'aria-label': 'Nouveau texte' }),
-        h('p', { className: 'doux petit' }, paragraphes.length ? `${paragraphes.length} paragraphe(s) · ${M.compterMots(texte)} mots.` : 'La typographie française est corrigée au passage.'),
-        h('div', { className: 'actions-ligne' }, h(Bouton, { variante: 'principal', disabled: !paragraphes.length, onClick: creerPages }, 'Créer les pages'))));
+      h(Carte, { titre: 'Ton texte', sousTitre: modele ? `Mise en page reprise de « ${modele.titre} » : format, fond, gabarits et logo.` : 'Colle le texte de ton article : la typographie française est corrigée au passage.' },
+        etat.etape !== 'texte' && h('p', { className: 'note' }, 'Colle d’abord le texte de ton article.'),
+        h(ZoneTexteTypo, { id: 'texte-modele', className: 'zone-texte zone-attente', rows: 8, valeur: texte, onValeur: setTexte, placeholder: 'Colle ici le texte de ton article.', 'aria-label': 'Texte de l’article' }),
+        h('p', { className: 'doux petit' }, paragraphes.length ? `${paragraphes.length} paragraphe(s) · ${M.compterMots(texte)} mots.` : 'Un article laissé vide est supprimé quand tu le quittes.'),
+        h('div', { className: 'actions-ligne' }, h(Bouton, { variante: 'principal', disabled: !paragraphes.length, onClick: () => setQuestions(true) }, 'Continuer'))),
+      questions && h(Questionnaire, { etat, article, paragraphes, modele, retour: () => setQuestions(false), commencer }));
+  }
+
+  // Le questionnaire du nouvel article : le format (sauf d'après un modèle) et le titre (son nom dans la bibliothèque).
+  function Questionnaire({ etat, article, paragraphes, modele, retour, commencer }) {
+    const [format, setFormat] = useState(modele ? modele.format : article.format || 'portrait');
+    const [mode, setMode] = useState('auto');
+    const [titre, setTitre] = useState('');
+    const [bulle, setBulle] = useState(false);
+    const [props, setProps] = useState({ etat: 'repos', liste: [], detail: '' });
+    const [disc, setDisc] = useState({ ouverte: false, messages: [], saisie: '', enCours: false });
+    const refBulle = useRef(null);
+    const configIA = IA.active();
+    const nomIA = IA.ASSISTANT.nom;
+    const profil = (etat.projet && etat.projet.profilEditorial) || '';
+    const texte = paragraphes.join('\n\n');
+    const premier = paragraphes[0] || '';
+    useEffect(() => {
+      if (!bulle) return undefined;
+      const fermer = (e) => { if (refBulle.current && !refBulle.current.contains(e.target)) setBulle(false); };
+      document.addEventListener('pointerdown', fermer);
+      return () => document.removeEventListener('pointerdown', fermer);
+    }, [bulle]);
+    async function generer() {
+      setBulle(false); setDisc((d) => ({ ...d, ouverte: false }));
+      setProps({ etat: 'encours', liste: [], detail: '' });
+      try {
+        const brut = await IA.demander(configIA, { systeme: R.consigneTitres(), texte: R.blocProfil(profil) + R.consigne(texte), maxJetons: 1500, delai: 90000, json: R.JSON_TITRES });
+        const liste = R.lireTitres(brut);
+        if (!liste.length) throw new Error('la réponse est vide. Réessaie.');
+        setProps({ etat: 'fait', liste, detail: '' });
+      } catch (erreur) { setProps({ etat: 'erreur', liste: [], detail: erreur instanceof IA.ErreurIA ? erreur.message : `${nomIA} n’a pas pu proposer de titre : ${erreur.message}` }); }
+    }
+    async function envoyer() {
+      const demande = disc.saisie.trim();
+      if (!demande || disc.enCours) return;
+      const historique = disc.messages;
+      setDisc({ ...disc, messages: historique.concat([{ de: 'moi', texte: demande }]), saisie: '', enCours: true });
+      try {
+        const brut = await IA.demander(configIA, { systeme: R.SYSTEME_TITRE_DISCUSSION, texte: R.messageTitre(texte, historique, demande, profil), maxJetons: 800, delai: 90000 });
+        const rep = String(brut || '').trim() || '…';
+        setDisc((d) => ({ ...d, enCours: false, messages: d.messages.concat([{ de: 'ccb', texte: rep }]) }));
+      } catch (erreur) { setDisc((d) => ({ ...d, enCours: false, messages: d.messages.concat([{ de: 'ccb', texte: erreur instanceof IA.ErreurIA ? erreur.message : 'Je n’ai pas pu répondre : ' + erreur.message }]) })); }
+    }
+    const titresDans = (t) => [...String(t).matchAll(/«\s*([^»]{2,80}?)\s*»/g)].map((m) => m[1]);
+    const choisirTitre = (t) => { setTitre(t); setMode('perso'); setProps({ etat: 'repos', liste: [], detail: '' }); };
+    const pret = mode === 'auto' || titre.trim();
+    return h(Feuille, { titre: 'Ton nouvel article', onAnnuler: retour, pied: h('span', { className: 'pied-droite' }, h(Bouton, { variante: 'principal', disabled: !pret, onClick: () => commencer({ format, titre: mode === 'perso' ? titre.trim() : '' }) }, 'Commencer')) },
+      modele
+        ? h('p', { className: 'doux petit' }, `Mise en page reprise de « ${modele.titre} » : format, fond, gabarits et logo.`)
+        : h('section', { className: 'question' },
+          h('h3', null, 'Quel format ?'),
+          h('p', { className: 'doux petit' }, 'Les deux conviennent à LinkedIn et à Instagram.'),
+          h('div', { className: 'formats', role: 'group', 'aria-label': 'Format' },
+            [['carre', 'Carré · 1:1', 'Comme tes carrousels actuels'], ['portrait', 'Portrait · 4:5', 'Plus de place, plus visible dans le fil']].map(([v, nom, aide]) => h('button', { key: v, type: 'button', className: 'format', 'aria-pressed': format === v, onClick: () => setFormat(v) },
+              h('span', { className: cls('dessin-format', v) }), h('strong', null, nom), h('span', { className: 'doux petit' }, aide))))),
+      h('section', { className: 'question' },
+        h('h3', null, 'Quel titre dans ta bibliothèque ?'),
+        h('p', { className: 'doux petit' }, 'Il sert à retrouver l’article ; il n’apparaît pas sur les pages.'),
+        h(Segmente, { etiquette: 'Titre', valeur: mode, onChange: setMode, options: [{ valeur: 'auto', libelle: 'Les premières lignes' }, { valeur: 'perso', libelle: 'Écrire un titre' }] }),
+        mode === 'auto' && h('p', { className: 'doux petit' }, `Titre : « ${premier.length > 48 ? premier.slice(0, 48) + '…' : premier} »`),
+        mode === 'perso' && h(Fragment, null,
+          h('div', { className: 'ligne-titre' },
+            h('input', { className: 'champ-texte', type: 'text', value: titre, placeholder: 'Ton titre', 'aria-label': 'Titre de l’article', onChange: (e) => setTitre(e.target.value), autoFocus: true }),
+            configIA && h('span', { ref: refBulle, className: 'ancre-bulle' },
+              h('button', { type: 'button', className: cls('bouton-robot', bulle && 'actif'), 'aria-label': nomIA, title: nomIA, 'aria-haspopup': 'true', 'aria-expanded': bulle, onClick: () => setBulle(!bulle) }, h(Robot, { taille: 40 })),
+              bulle && h('div', { className: 'bulle-ccb', role: 'menu', 'aria-label': nomIA },
+                h('button', { type: 'button', role: 'menuitem', className: 'item-bulle', onClick: generer }, h('strong', null, 'Générer 3 propositions'), h('span', { className: 'doux petit' }, 'Trois titres tirés de ton texte')),
+                h('button', { type: 'button', role: 'menuitem', className: 'item-bulle', onClick: () => { setBulle(false); setProps({ etat: 'repos', liste: [], detail: '' }); setDisc((d) => ({ ...d, ouverte: true })); } }, h('strong', null, 'Discuter'), h('span', { className: 'doux petit' }, 'Chercher le titre avec ' + nomIA))))),
+          props.etat === 'encours' && h('p', { className: 'doux petit', role: 'status' }, `${nomIA} cherche trois titres…`),
+          props.etat === 'erreur' && h('p', { className: 'erreur petit', role: 'status' }, props.detail),
+          props.etat === 'fait' && h('div', { className: 'titres-proposes' }, props.liste.map((p, k) => h('div', { key: k, className: 'titre-propose' },
+            h('div', null, h('strong', null, p.titre), p.pourquoi && h('div', { className: 'doux petit' }, p.pourquoi)),
+            h(Bouton, { variante: 'petit', onClick: () => choisirTitre(p.titre) }, 'Choisir')))),
+          disc.ouverte && h('div', { className: 'mep-discussion' },
+            disc.messages.length > 0 && h('div', { className: 'mep-fil-messages' }, disc.messages.map((m, k) => h('div', { key: k, className: cls('mep-message', m.de === 'moi' ? 'moi' : 'ccb') }, m.texte,
+              m.de === 'ccb' && titresDans(m.texte).length > 0 && h('div', { className: 'actions-ligne' }, titresDans(m.texte).map((t) => h(Bouton, { key: t, variante: 'petit', onClick: () => choisirTitre(t) }, 'Utiliser « ' + t + ' »')))))),
+            disc.enCours && h('p', { className: 'doux petit', role: 'status' }, `${nomIA} réfléchit…`),
+            h('div', { className: 'mep-saisie' },
+              h('textarea', { rows: 2, value: disc.saisie, placeholder: 'Par exemple : plus court, plus doux, avec le prénom…', 'aria-label': 'Ta demande à ' + nomIA, onChange: (e) => setDisc({ ...disc, saisie: e.target.value }), onKeyDown: (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); envoyer(); } } }),
+              h(Bouton, { variante: 'principal', disabled: !disc.saisie.trim() || disc.enCours, onClick: envoyer }, 'Envoyer'))))));
   }
 
   function EtapeTexte({ etat, dispatch, article, majA }) {
@@ -2009,7 +2110,7 @@
 
   function EtapeExport({ dispatch, article, majA, partie, numeros = {} }) {
     const { choisirPolice, reglages, charte, images } = useContext(Contexte);
-    const [quoi, setQuoi] = useState(article.reseau === 'linkedin' ? 'pdf' : 'png');
+    const [quoi, setQuoi] = useState(article.reseau === 'linkedin' ? 'pdf' : article.reseau === 'deux' ? 'les-deux' : 'png');
     const [suivi, setSuivi] = useState({ statut: 'repos' });
     const total = article.slides.length;
     const logo = article.logo || 'auto';
@@ -2091,15 +2192,19 @@
   /* ---------- Étape 3 : Publication (texte du post, fichier, date, publié) ---------- */
   function EtapePublication({ etat, dispatch, article, majA }) {
     const [reseau, setReseau] = useState(article.reseau === 'instagram' ? 'instagram' : 'linkedin');
+    const deux = article.reseau === 'deux';
+    const changerReseau = (v) => { majA((a) => ({ ...a, reseau: v }), null, `Publication prévue sur ${nomReseau(v)}.`); if (v !== 'deux') setReseau(v); };
     const [fil, setFil] = useState(false);
     const logo = article.logo || 'auto';
     const total = article.slides.length;
     return h('div', { className: 'publication' },
       h('div', { className: 'publication-etapes' },
-        h('div', { className: 'publication-reseau' }, h('span', { className: 'doux petit' }, 'Texte du post pour'),
+        h(Carte, { titre: 'Où publies-tu ce carrousel ?', sousTitre: 'Il décide du texte à préparer et des fichiers : PDF pour LinkedIn, images pour Instagram.' },
+          h(Segmente, { etiquette: 'Réseau de publication', valeur: article.reseau || 'deux', onChange: changerReseau, options: [{ valeur: 'linkedin', libelle: 'LinkedIn' }, { valeur: 'instagram', libelle: 'Instagram' }, { valeur: 'deux', libelle: 'Les deux' }] })),
+        deux && h('div', { className: 'publication-reseau' }, h('span', { className: 'doux petit' }, 'Texte du post pour'),
           h(Segmente, { etiquette: 'Réseau du texte', petit: true, valeur: reseau, onChange: setReseau, options: [{ valeur: 'linkedin', libelle: 'LinkedIn' }, { valeur: 'instagram', libelle: 'Instagram' }] })),
-        h(EtapeDescription, { key: reseau, etat, dispatch, article, majA, seulement: reseau, numero: 1 }),
-        h(EtapeExport, { etat, dispatch, article, majA, partie: 'fichiers', numeros: { fichiers: 2 } }),
+        h(EtapeDescription, { key: (deux ? reseau : article.reseau || 'linkedin'), etat, dispatch, article, majA, seulement: deux ? reseau : (article.reseau === 'instagram' ? 'instagram' : 'linkedin'), numero: 1 }),
+        h(EtapeExport, { key: 'fichiers-' + article.reseau, etat, dispatch, article, majA, partie: 'fichiers', numeros: { fichiers: 2 } }),
         h(CarteProgrammation, { dispatch, article, majA, numero: 3 }),
         h(EtapeExport, { etat, dispatch, article, majA, partie: 'publie', numeros: { publie: 4 } })),
       h('aside', { className: 'publication-apercu', 'aria-label': 'Aperçu du carrousel' },

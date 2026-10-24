@@ -249,6 +249,24 @@
     const liste = o ? o.propositions : [];
     return liste.map((t) => nettoyerDescription(String(t || ''))).filter(Boolean).slice(0, 3);
   }
+  // Titre de l'article (son nom dans la bibliothèque, jamais affiché sur les pages) : trois propositions expliquées.
+  const JSON_TITRES = { nom: 'titres', description: 'Trois titres pour l’article.', schema: { type: 'object', properties: { propositions: { type: 'array', items: { type: 'object', properties: { titre: { type: 'string' }, pourquoi: { type: 'string' } }, required: ['titre', 'pourquoi'] } } }, required: ['propositions'] } };
+  const SYSTEME_TITRES = [
+    'Tu proposes un titre court pour un article : il sert seulement à le retrouver dans une bibliothèque, il n’apparaît pas dans le carrousel.',
+    'Règles : 2 à 8 mots ; tiré du texte, sans rien inventer (aucun fait, chiffre ou nom absent du texte) ; pas de guillemets autour, pas d’émoji ; français soigné.',
+    'Pour chaque titre, une explication d’une phrase (« pourquoi ») qui dit ce qu’il met en avant.',
+    REGLE_PROFIL,
+  ].join('\n');
+  const consigneTitres = () => SYSTEME_TITRES + '\n\nPropose trois titres vraiment différents. Réponds uniquement avec un objet JSON : {"propositions": [{"titre": "…", "pourquoi": "…"}, …]}';
+  function lireTitres(brut) {
+    const o = premierObjet(brut, (x) => Array.isArray(x.propositions));
+    return (o ? o.propositions : []).filter((p) => p && p.titre).map((p) => ({ titre: nettoyerDescription(String(p.titre)).replace(/^«\s*|\s*»$/g, ''), pourquoi: String(p.pourquoi || '').trim() })).slice(0, 3);
+  }
+  // Petite discussion sur le titre : une réponse courte, qui peut proposer des titres entre « ».
+  const SYSTEME_TITRE_DISCUSSION = SYSTEME_TITRES + '\n\nTu échanges avec la personne pour trouver ce titre : réponds en une à trois phrases, en tutoyant, et mets chaque titre proposé entre « ».';
+  const messageTitre = (texte, historique, demande, profil) => [blocProfil(profil) + 'Voici l’article, entre <article> et </article> :', '<article>', texte, '</article>', '',
+    ...historique.map((m) => (m.de === 'moi' ? 'Personne : ' : 'Toi : ') + m.texte), 'Personne : ' + demande].join('\n');
+
   // Précision ajoutée à chaque demande de la discussion sur le texte du post.
   const precisionPost = (reseau) => `Le texte entre <article> et </article> est le texte du post ${RESEAUX[reseau] ? RESEAUX[reseau].nom : ''} qui accompagne le carrousel, pas l’article lui-même. Garde ses règles : pas d’émoji, rien d’inventé.`;
 
@@ -397,7 +415,7 @@
   const JSON_DISCUSSION = { nom: 'repondre', description: 'Ta réponse à la personne, avec tes éventuelles propositions et des pistes pour continuer.', schema: { type: 'object', properties: { reponse: texteS, propositions: { type: 'array', items: { type: 'object', properties: { titre: texteS, avant: texteS, apres: texteS, pourquoi: texteS, vigilance: texteS }, required: ['titre', 'avant', 'apres'] } }, pistes: { type: 'array', items: texteS } }, required: ['reponse', 'propositions'] } };
   const JSON_FORMULATIONS = { nom: 'formulations', description: 'De nouvelles formulations du passage.', schema: { type: 'object', properties: { formulations: { type: 'array', items: texteS } }, required: ['formulations'] } };
 
-  const api = { JSON_DESCRIPTIONS, consigneDescriptions, lireDescriptions, precisionPost, blocProfil, REGLE_PROFIL, MAX_PROFIL, JSON_RELECTURE, JSON_DISCUSSION, JSON_FORMULATIONS, extraireObjets, premierObjet, formulationsDe, SYSTEME_FORMULATIONS, messageFormulations, lireFormulations, MAX_FORMULATIONS, SYSTEME_DISCUSSION, messageDiscussion, lireDiscussion, placerPassage, MAX_HISTORIQUE, ACTIONS, MAX_PASSAGE, consigneSuggestion, consigneSuggestionTexte, lireSuggestion, RESEAUX, consigneDescription, nettoyerDescription, SYSTEME, consigne, lireReponse, simplifier, trouver, localiser, appliquer, apercu, recaler, TYPES, MAX_PROPOSITIONS };
+  const api = { JSON_TITRES, consigneTitres, lireTitres, SYSTEME_TITRE_DISCUSSION, messageTitre, JSON_DESCRIPTIONS, consigneDescriptions, lireDescriptions, precisionPost, blocProfil, REGLE_PROFIL, MAX_PROFIL, JSON_RELECTURE, JSON_DISCUSSION, JSON_FORMULATIONS, extraireObjets, premierObjet, formulationsDe, SYSTEME_FORMULATIONS, messageFormulations, lireFormulations, MAX_FORMULATIONS, SYSTEME_DISCUSSION, messageDiscussion, lireDiscussion, placerPassage, MAX_HISTORIQUE, ACTIONS, MAX_PASSAGE, consigneSuggestion, consigneSuggestionTexte, lireSuggestion, RESEAUX, consigneDescription, nettoyerDescription, SYSTEME, consigne, lireReponse, simplifier, trouver, localiser, appliquer, apercu, recaler, TYPES, MAX_PROPOSITIONS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else racine.PostsOPRelecture = api;
 })(typeof window !== 'undefined' ? window : globalThis);

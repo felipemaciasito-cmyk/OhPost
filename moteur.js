@@ -119,7 +119,7 @@
     return fondFonce(couleurDerriere) ? 'logoClair' : 'logo';
   }
 
-  const LIMITES_SLIDES = { instagram: 20, linkedin: 100 }; // à vérifier au développement : elles changent
+  const LIMITES_SLIDES = { instagram: 20, linkedin: 100, deux: 20 }; // à vérifier au développement : elles changent
 
   /* ---------- Polices ---------- */
 
@@ -814,7 +814,7 @@
     });
     const limite = LIMITES_SLIDES[article.reseau];
     if (article.slides.length > limite) {
-      alertes.push({ type: 'limite', niveau: 'bloquant', slide: null, cible: 'structure', message: `${article.slides.length} pages : la limite ${article.reseau === 'instagram' ? 'd’Instagram' : 'de LinkedIn'} est de ${limite}.` });
+      alertes.push({ type: 'limite', niveau: 'bloquant', slide: null, cible: 'structure', message: `${article.slides.length} pages : la limite ${article.reseau === 'instagram' || article.reseau === 'deux' ? 'd’Instagram' : 'de LinkedIn'} est de ${limite}.` });
     }
     for (const passage of passagesAbsents(article)) {
       alertes.push({ type: 'manquant', niveau: 'bloquant', slide: null, cible: 'design', message: `Ce passage de l’article ne figure dans aucune page : « ${passage.slice(0, 60)}${passage.length > 60 ? '…' : ''} ». Tout le texte doit être dans le carrousel : remets-le dans une page, ou change l’accroche.` });

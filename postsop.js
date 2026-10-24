@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-24.6'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-24.7'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -1047,6 +1047,8 @@
     const edite = etat.feuille && etat.feuille.reglages ? etat.articles.find((a) => a.id === etat.feuille.reglages) : null;
     // Premier passage de l'article à l'étape Mise en page : CCB compose tout de suite ses propositions.
     const premiere = !!(edite && etat.feuille.premiere);
+    // « Générer 3 propositions » depuis le robot de Mise en page : CCB compose dès l'ouverture, « Actuelle » reste proposée.
+    const genererDemande = !!(edite && etat.feuille.generer);
     const base = modele || edite;
     const [texte, setTexte] = useState(edite ? edite.texte.join('\n\n') : '');
     const [reseau, setReseau] = useState(base ? base.reseau : r.reseauDefaut);
@@ -1125,7 +1127,7 @@
     }
     // En arrivant à l'étape « Mise en page » d'un nouvel article, CCB compose ses propositions (une fois par texte, réseau et format).
     useEffect(() => {
-      if (premiere && etape === 2 && configIA && PROP && paragraphes.length && gen.cle !== cleTexte && gen.etat !== 'encours') { setChoix('simple'); setPageVue(0); generer(false); }
+      if ((premiere || genererDemande) && etape === 2 && configIA && PROP && paragraphes.length && gen.cle !== cleTexte && gen.etat !== 'encours') { if (premiere) setChoix('simple'); setPageVue(0); generer(false); }
     }, [etape, cleTexte]);
     const choisir = (v) => {
       const k = v === 'simple' || v === 'actuelle' || v === 'favori' ? v : Number(v);

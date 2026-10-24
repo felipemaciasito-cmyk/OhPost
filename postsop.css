@@ -1064,3 +1064,5 @@ canvas.slide.editable { cursor: text; }
 .mep-message .actions-ligne { margin-top: 6px; flex-wrap: wrap; }
 /* Écran vierge du nouvel article : le champ s'adapte à la hauteur de l'écran pour que « Continuer » reste visible au-dessus des boutons du bas */
 .zone-attente { height: max(150px, calc(100vh - 470px)); height: max(150px, calc(100dvh - 470px)); resize: none; }
+/* Bulle du robot de Mise en page : deux choix, comme dans Publication */
+.bulle-choix { display: flex; flex-direction: column; gap: 2px; width: 280px; }

@@ -1156,11 +1156,16 @@
         if (!configIA) return [{ type: 'titre', libelle: 'CCB · Creative Collaborative Boost' }, { type: 'note', texte: 'Pour utiliser l’IA, ajoute une clé dans Configuration, onglet IA.' }];
         const sel = texteChoisi();
         const rapides = [['Clarifier', 'Clarifie ce passage.'], ['Raccourcir', 'Raccourcis ce passage.'], ['Plus percutant', 'Rends ce passage plus percutant.'], ['3 propositions', 'Donne-moi 3 propositions différentes pour ce passage.']];
+        // Robot de la barre de menus : une bulle à deux choix, comme dans Publication.
+        if (!depuisBarre) return [{ type: 'libre', rendu: (fermer) => h('div', { className: 'bulle-choix', role: 'group', 'aria-label': nomIA },
+          h('button', { type: 'button', role: 'menuitem', className: 'item-bulle', onMouseDown: garder, onClick: () => { fermer(); setMenuIA(false); dispatch({ type: 'feuille', feuille: { reglages: article.id, generer: true } }); } },
+            h('strong', null, 'Générer 3 propositions'), h('span', { className: 'doux petit' }, 'Trois mises en page pour ce carrousel')),
+          h('button', { type: 'button', role: 'menuitem', className: 'item-bulle', onMouseDown: garder, onClick: () => { fermer(); setMenuIA(false); ouvrirDiscussion(sel || ''); } },
+            h('strong', null, 'Discuter'), h('span', { className: 'doux petit' }, sel ? 'À propos du passage choisi' : 'Retravailler ton texte avec ' + nomIA))) }];
+        // Robot de la barre de sélection : la discussion et les actions rapides sur le passage choisi.
         return [
           { type: 'titre', libelle: 'CCB · Creative Collaborative Boost' },
           ...(sel ? [item('Discuter de ce passage avec ' + nomIA, () => ouvrirDiscussion(sel)), ...rapides.map(([nom, demande]) => item(nom, () => ouvrirDiscussion(sel, demande)))] : [item('Discuter avec ' + nomIA, () => ouvrirDiscussion(''))]),
-          ...(depuisBarre ? [] : [trait, item('Apparence générale…', () => { setMenuIA(false); dispatch({ type: 'feuille', feuille: { reglages: article.id } }); })]),
-          ...(!sel && !depuisBarre ? [{ type: 'note', texte: 'Sélectionne un passage dans un bloc pour le retravailler avec l’IA.' }] : []),
         ];
       };
       const menuAlignement = () => [['gauche', 'Aligner à gauche'], ['centre', 'Centrer'], ['droite', 'Aligner à droite']].map(([v, nom]) => item(nom, () => aligner(v), { coche: blocCourant ? st.alignement === v : undefined }));

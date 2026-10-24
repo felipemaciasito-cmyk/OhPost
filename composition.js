@@ -116,7 +116,7 @@
     /* Éditeur posé exactement sur le paragraphe de la slide            */
     /* ================================================================ */
 
-    function EditeurBloc({ bloc, zone, fond, echelleSlide, depart, version, onTexte, onTouche, refExterne }) {
+    function EditeurBloc({ bloc, zone, fond, echelleSlide, depart, version, onTexte, onTouche, refExterne, selection }) {
       const ref = useRef(null);
       const rendu = useRef({ texte: null, marques: null, version: -1 });
       const attendu = useRef(null);
@@ -187,7 +187,9 @@
         style: {
           left: zone.x + 'px', top: zone.y + 'px', width: zone.l + 'px', minHeight: zone.h + 'px',
           fontFamily: FAMILLE, fontWeight: zone.role === 'bold' ? 700 : 300, fontSize: zone.taille + 'px', lineHeight: zone.taille * zone.interligne + 'px',
-          color: zone.couleur, textAlign: zone.alignement === 'centre' ? 'center' : zone.alignement === 'droite' ? 'right' : 'left', caretColor: fond.accent,
+          color: zone.couleur, textAlign: zone.alignement === 'centre' ? 'center' : zone.alignement === 'droite' ? 'right' : 'left', caretColor: (selection && selection.curseur) || fond.accent,
+          // Sélection : un aplat qui contraste avec le fond et un texte qui contraste avec l'aplat.
+          '--sel-fond': (selection && selection.fond) || 'rgba(201, 212, 32, 0.45)', '--sel-texte': (selection && selection.texte) || 'inherit',
         },
         onInput: lire,
         onCompositionStart: () => { saisieEnCours.current = true; },
@@ -349,7 +351,24 @@
       const texteArticle = article.texte.join('\n\n');
       const [zoneIA, setZoneIA] = useState(null);
       const passageIA = zoneIA ? texteArticle.slice(zoneIA.d, zoneIA.f) : '';
-      const disc = outilsIA.useDiscussion(article, texteArticle, majA, (d0, f0) => setZoneIA({ d: d0, f: f0 }), (etat.projet && etat.projet.profilEditorial) || '');
+      // Dans Mise en page, CCB sait sur quelle page on travaille : son gabarit, son volume, si elle déborde.
+      const precisionPage = (() => {
+        const n = article.slides.length;
+        // La page du passage discuté s'il y en a un, sinon la page en cours.
+        const extrait = zoneIA ? texteArticle.slice(zoneIA.d, zoneIA.f).split('\n')[0].trim().slice(0, 40) : '';
+        const kPassage = extrait ? article.slides.findIndex((s0) => s0.blocs.some((b) => (b.texte || '').includes(extrait))) : -1;
+        const k = kPassage >= 0 ? kPassage : Math.min(etat.slide || 0, n - 1);
+        const sl = article.slides[k]; if (!sl) return '';
+        const g = M.GABARITS[M.gabaritParDefaut(sl, k)] || {};
+        const texteP = sl.blocs.map((b) => b.texte).join(' ');
+        const mots = texteP.split(/\s+/).filter(Boolean).length;
+        const c = M.composer(sl, article.format, article.fond, choisirPolice, { index: k, total: n, reglages, charte });
+        return [`La personne travaille la mise en page de son carrousel (étape Mise en page), page ${k + 1} sur ${n}, gabarit « ${g.nom || '?'} ».`,
+          `Texte de cette page (environ ${mots} mots) : « ${texteP.slice(0, 600)} ».`,
+          'Sur une page de carrousel, le texte doit se lire d’un coup d’œil : une idée par page, environ 20 à 40 mots, des phrases courtes ; tes propositions servent cette lecture page par page (raccourcir, rythmer, faire ressortir une phrase-clé) sans changer le sens.',
+          c.deborde ? 'Attention : le texte de cette page déborde, il faut le raccourcir pour qu’il tienne.' : mots > 50 ? 'Cette page est chargée : propose de quoi l’alléger si c’est utile.' : ''].filter(Boolean).join('\n');
+      })();
+      const disc = outilsIA.useDiscussion(article, texteArticle, majA, (d0, f0) => setZoneIA({ d: d0, f: f0 }), (etat.projet && etat.projet.profilEditorial) || '', { precision: precisionPage });
       const [menuIA, setMenuIA] = useState(false);
       const refRobot = useRef(null);
       const refFleur = useRef(null);
@@ -366,6 +385,8 @@
       const [tailleEcran, setTailleEcran] = useState(() => lirePref('postsop-taille-slides', 'moyennes'));
       const [marges, setMarges] = useState(false);
       const [miseEnAvant, setMiseEnAvant] = useState(null); // { i, blocs } : élément montré depuis Vérifier
+      const signatureFonds = article.fond + '|' + article.slides.map((sl) => sl.blocs.map((b) => (b.fondBloc && typeof b.fondBloc === 'object' ? b.fondBloc.couleur || 'accent' : '')).join(',')).join(';');
+      const fondsAvant = useRef(signatureFonds);
       useEffect(() => { if (!miseEnAvant) return undefined; const t = setTimeout(() => setMiseEnAvant(null), 2600); return () => clearTimeout(t); }, [miseEnAvant]);
       const [deplie, setDeplie] = useState(() => lirePref('postsop-barre-depliee', 'non') === 'oui');
       const [barre, setBarre] = useState(null);
@@ -1048,7 +1069,44 @@
           .filter(([, , hex]) => { const k = String(hex).toLowerCase(); if (vus.has(k)) return false; vus.add(k); return true; });
       };
       const LISIBLE = 3; // contraste minimal pour du texte de grande taille (charte : 33 px et plus)
+      // Sur fond sombre, aplat vert anis et texte bleu foncé ; sur fond clair, aplat bleu foncé et texte blanc.
+      const couleursSelection = () => {
+        const c = cibleCouleur(); const sous = fondSous(c);
+        const sombre = contraste(sous, '#FFFFFF') > contraste(sous, '#12313A');
+        return sombre ? { fond: '#C9D420', texte: '#12313A', curseur: '#C9D420' } : { fond: '#003846', texte: '#FFFFFF', curseur: '#003846' };
+      };
       const poserCouleur = (v, hex, sous) => formater({ couleur: v }, contraste(hex, sous) < LISIBLE ? 'Attention : cette couleur est peu lisible sur ce fond.' : 'Couleur appliquée.');
+      // Le fond de la page ou d'un paragraphe vient de changer : chaque bloc dont le texte n'est plus lisible prend
+      // la couleur de la charte la plus lisible sur son fond (annulable). Un choix fait exprès ensuite est respecté.
+      useEffect(() => {
+        if (fondsAvant.current === signatureFonds) return;
+        fondsAvant.current = signatureFonds;
+        const aCorriger = [];
+        article.slides.forEach((sl, i) => {
+          const compo = compositions[i];
+          if (!compo) return;
+          sl.blocs.forEach((b, n) => {
+            const lignes = compo.elements.filter((e) => e.type === 'ligne' && e.bloc === n);
+            if (!lignes.length) return;
+            const sous = fondSous({ i, n });
+            if (lignes.some((l) => contraste(l.couleur, sous) < LISIBLE)) {
+              // D'abord la couleur d'origine du style, si elle est lisible sur ce fond (un retour en arrière retrouve l'original).
+              if ((b.marques || []).some((m) => m.couleur)) {
+                const sansCouleur = { ...sl, blocs: sl.blocs.map((bb, k) => (k === n ? { ...bb, marques: (bb.marques || []).map(({ couleur, ...m }) => m) } : bb)) };
+                const c0 = M.composer(sansCouleur, article.format, article.fond, choisirPolice, { index: i, total, reglages, charte, logo });
+                const l0 = c0.elements.filter((e) => e.type === 'ligne' && e.bloc === n);
+                if (l0.length && l0.every((l) => contraste(l.couleur, sous) >= LISIBLE)) { aCorriger.push({ i, n, v: null, nom: 'sa couleur d’origine', long: (b.texte || '').length }); return; }
+              }
+              const meilleure = candidatsTexte().map(([v, nom, hex]) => ({ v, nom, c: contraste(hex, sous) })).sort((x, y) => y.c - x.c)[0];
+              if (meilleure && meilleure.c >= LISIBLE) aCorriger.push({ i, n, v: meilleure.v, nom: meilleure.nom, long: (b.texte || '').length });
+            }
+          });
+        });
+        if (!aCorriger.length) return;
+        const noms = [...new Set(aCorriger.map((c) => c.nom.replace('Charte · ', '').replace(/^Couleur du texte$/, 'couleur du texte').replace(/^Couleur de mise en valeur$/, 'couleur de mise en valeur')))].join(' et ');
+        majA((a) => aCorriger.reduce((x, c) => OP.formater(c.i, c.n, 0, c.long, { couleur: c.v })(x), a), null,
+          `${aCorriger.length > 1 ? aCorriger.length + ' paragraphes passés' : 'Texte passé'} en ${noms} pour rester lisible${aCorriger.length > 1 ? 's' : ''} sur le nouveau fond.`);
+      }, [signatureFonds]);
       const menuCouleur = () => {
         const sous = fondSous(cibleCouleur());
         const actuelle = String(couleurActuelle()).toLowerCase();
@@ -1114,19 +1172,9 @@
       const fondActuel = () => { const c = cibles()[0]; return c && c.b.fondBloc && typeof c.b.fondBloc === 'object' ? c.b.fondBloc : null; };
       const poserFond = (champs, annonce) => {
         if (!blocCourant && !cibles().length) return exigerBloc();
-        const cs = cibles();
-        const texteAvant = couleurActuelle();
         paragraphe((c) => ({ fondBloc: { couleur: 'accent', forme: 'rectangle', angles: 'arrondis', ...(c.b.fondBloc && typeof c.b.fondBloc === 'object' ? c.b.fondBloc : {}), ...champs } }));
-        // Le fond tel qu'il sera vu : sa couleur à 85 % sur le fond de la page.
-        const couleur = couleurDe(champs.couleur || (fondActuel() || {}).couleur || 'accent');
-        const fondVu = melanger(couleur, fond.fond, M.OPACITE_FONDS || 1);
-        if (contraste(texteAvant, fondVu) >= LISIBLE) { dispatch({ type: 'message', message: annonce || 'Fond du paragraphe modifié.' }); return; }
-        // Peu lisible : on propose la couleur de la charte la plus lisible sur ce fond, appliquée d'un geste.
-        const meilleure = candidatsTexte().map(([v, nom, hex]) => ({ v, nom, c: contraste(hex, fondVu) })).sort((a, b) => b.c - a.c)[0];
-        const faire = () => majA((a) => cs.reduce((x, c) => OP.formater(c.i, c.n, 0, (c.b.texte || '').length, { couleur: meilleure.v })(x), a), null, `Texte passé en ${meilleure.nom.replace('Charte · ', '').toLowerCase()}.`);
-        dispatch({ type: 'message', message: meilleure && meilleure.c >= LISIBLE
-          ? { texte: 'Le texte devient peu lisible sur ce fond.', action: { libelle: 'Passer le texte en ' + meilleure.nom.replace('Charte · ', '').toLowerCase(), faire } }
-          : 'Attention : le texte risque d’être peu lisible sur ce fond. Choisis un autre fond.' });
+        // La couleur du texte suit le fond : si le texte devient peu lisible, l'effet « signatureFonds » le corrige.
+        dispatch({ type: 'message', message: annonce || 'Fond du paragraphe modifié.' });
       };
       const menuFond = () => {
         const actuel = fondActuel();
@@ -1161,7 +1209,7 @@
       const menuAssistant = (depuisBarre) => {
         if (!configIA) return [{ type: 'titre', libelle: 'CCB · Creative Collaborative Boost' }, { type: 'note', texte: 'Pour utiliser l’IA, ajoute une clé dans Configuration, onglet IA.' }];
         const sel = texteChoisi();
-        const rapides = [['Clarifier', 'Clarifie ce passage.'], ['Raccourcir', 'Raccourcis ce passage.'], ['Plus percutant', 'Rends ce passage plus percutant.'], ['3 propositions', 'Donne-moi 3 propositions différentes pour ce passage.']];
+        const rapides = [['Clarifier', 'Clarifie ce passage.'], ['Raccourcir', 'Raccourcis ce passage pour qu’il tienne mieux dans sa page.'], ['Plus percutant', 'Rends ce passage plus percutant.'], ['3 propositions', 'Donne-moi 3 propositions différentes pour ce passage.']];
         // Robot de la barre de menus : une bulle à deux choix, comme dans Publication.
         if (!depuisBarre) return [{ type: 'libre', rendu: (fermer) => h('div', { className: 'bulle-choix', role: 'group', 'aria-label': nomIA },
           h('button', { type: 'button', role: 'menuitem', className: 'item-bulle', onMouseDown: garder, onClick: () => { fermer(); setMenuIA(false); dispatch({ type: 'feuille', feuille: { reglages: article.id, generer: true } }); } },
@@ -1428,7 +1476,7 @@
                       style: e.sens === 'v' ? { left: e.travers + 'px', top: e.de + 'px', height: e.a - e.de + 'px' } : { top: e.travers + 'px', left: e.de + 'px', width: e.a - e.de + 'px' } },
                       h('span', { className: 'repere-valeur' }, e.valeur))),
                     enEdition && blocCourant && zoneAffichee && h(EditeurBloc, {
-                      key: edition.cle, bloc: blocCourant, zone: zoneAffichee, fond, echelleSlide: s.echelle || 1, depart: edition.depart, version, refExterne: editeurRef,
+                      key: edition.cle, bloc: blocCourant, zone: zoneAffichee, fond, echelleSlide: s.echelle || 1, depart: edition.depart, version, refExterne: editeurRef, selection: couleursSelection(),
                       onTexte: ecrire, onTouche: toucher,
                     })))));
           })),

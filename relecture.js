@@ -230,7 +230,7 @@
       'Règles impératives :',
       '1. Écris en français, avec la voix de l’article : même personne (je, nous), même ton, phrases courtes.',
       '2. N’invente rien : aucun fait, chiffre, prénom, résultat ou citation qui ne soit dans l’article. Ne renforce aucune affirmation.',
-      '3. Ne recopie pas l’article : donne envie de le lire dans le carrousel.',
+      '3. Ne recopie pas l’article : donne envie de le lire dans le carrousel. Si le carrousel est résumé (nombre de pages, couverture, dernière page), complète-le sans répéter sa couverture mot pour mot, et accorde ta fin avec sa dernière page.',
       '4. ' + r.regles,
       '5. Pas d’émoji, pas de titre, pas de guillemets autour de ta réponse.',
       '6. ' + REGLE_PROFIL + ' Il t’aide notamment à choisir l’accroche, la question finale et les hashtags qui parlent à ce public.',
@@ -267,8 +267,17 @@
   const messageTitre = (texte, historique, demande, profil) => [blocProfil(profil) + 'Voici l’article, entre <article> et </article> :', '<article>', texte, '</article>', '',
     ...historique.map((m) => (m.de === 'moi' ? 'Personne : ' : 'Toi : ') + m.texte), 'Personne : ' + demande].join('\n');
 
+  // Le carrousel tel qu'il sera vu : le texte du post doit le compléter, pas le répéter.
+  function resumeCarrousel(slides) {
+    if (!slides || !slides.length) return '';
+    const texteDe = (sl) => sl.blocs.map((b) => b.texte).join(' ').replace(/\s+/g, ' ').trim();
+    const couv = texteDe(slides[0]); const fin = slides.length > 1 ? texteDe(slides[slides.length - 1]) : '';
+    return `Le carrousel compte ${slides.length} page${slides.length > 1 ? 's' : ''}. Sa couverture dit : « ${couv.slice(0, 240)} ».` + (fin ? ` Sa dernière page dit : « ${fin.slice(0, 240)} ».` : '');
+  }
+  // Où se trouve la personne quand elle parle à CCB : chaque endroit a son objectif, transmis avec chaque demande.
+  const CONTEXTE_TEXTE = 'Étape Texte : la personne relit et améliore son article avant qu’il soit mis en pages en carrousel. Aide-la sur le fond, la clarté, la structure, le rythme et le style ; la mise en page viendra ensuite. Garde la voix de l’article.';
   // Précision ajoutée à chaque demande de la discussion sur le texte du post.
-  const precisionPost = (reseau) => `Le texte entre <article> et </article> est le texte du post ${RESEAUX[reseau] ? RESEAUX[reseau].nom : ''} qui accompagne le carrousel, pas l’article lui-même. Garde ses règles : pas d’émoji, rien d’inventé.`;
+  const precisionPost = (reseau, slides) => `Le texte entre <article> et </article> est le texte du post ${RESEAUX[reseau] ? RESEAUX[reseau].nom : ''} qui accompagne le carrousel, pas l’article lui-même. Garde ses règles : pas d’émoji, rien d’inventé. Il donne envie d’ouvrir le carrousel sans répéter sa couverture mot pour mot. ${resumeCarrousel(slides)}`.trim();
 
   // Nettoie la réponse (guillemets ou balises éventuels) ; la typographie française est appliquée ensuite.
   function nettoyerDescription(brut) {
@@ -354,6 +363,7 @@
       '<article>\n' + numerote + '\n</article>',
       passage ? '\nPassage choisi' + (ou >= 0 ? ` (paragraphe ${ou + 1} sur ${paras.length})` : '') + ', entre les balises <passage> et </passage> :\n<passage>\n' + passage + '\n</passage>' : '\nAucun passage n’est choisi : la personne parle de l’article en général ou désigne un passage dans sa demande.',
       fil ? '\nDébut de la conversation :\n' + fil : '',
+      infos.contexte ? '\nOù l’on en est :\n' + infos.contexte : '',
       '\nNouvelle demande de la personne :\n' + demande,
     ].filter(Boolean).join('\n');
   }
@@ -415,7 +425,7 @@
   const JSON_DISCUSSION = { nom: 'repondre', description: 'Ta réponse à la personne, avec tes éventuelles propositions et des pistes pour continuer.', schema: { type: 'object', properties: { reponse: texteS, propositions: { type: 'array', items: { type: 'object', properties: { titre: texteS, avant: texteS, apres: texteS, pourquoi: texteS, vigilance: texteS }, required: ['titre', 'avant', 'apres'] } }, pistes: { type: 'array', items: texteS } }, required: ['reponse', 'propositions'] } };
   const JSON_FORMULATIONS = { nom: 'formulations', description: 'De nouvelles formulations du passage.', schema: { type: 'object', properties: { formulations: { type: 'array', items: texteS } }, required: ['formulations'] } };
 
-  const api = { JSON_TITRES, consigneTitres, lireTitres, SYSTEME_TITRE_DISCUSSION, messageTitre, JSON_DESCRIPTIONS, consigneDescriptions, lireDescriptions, precisionPost, blocProfil, REGLE_PROFIL, MAX_PROFIL, JSON_RELECTURE, JSON_DISCUSSION, JSON_FORMULATIONS, extraireObjets, premierObjet, formulationsDe, SYSTEME_FORMULATIONS, messageFormulations, lireFormulations, MAX_FORMULATIONS, SYSTEME_DISCUSSION, messageDiscussion, lireDiscussion, placerPassage, MAX_HISTORIQUE, ACTIONS, MAX_PASSAGE, consigneSuggestion, consigneSuggestionTexte, lireSuggestion, RESEAUX, consigneDescription, nettoyerDescription, SYSTEME, consigne, lireReponse, simplifier, trouver, localiser, appliquer, apercu, recaler, TYPES, MAX_PROPOSITIONS };
+  const api = { CONTEXTE_TEXTE, resumeCarrousel, JSON_TITRES, consigneTitres, lireTitres, SYSTEME_TITRE_DISCUSSION, messageTitre, JSON_DESCRIPTIONS, consigneDescriptions, lireDescriptions, precisionPost, blocProfil, REGLE_PROFIL, MAX_PROFIL, JSON_RELECTURE, JSON_DISCUSSION, JSON_FORMULATIONS, extraireObjets, premierObjet, formulationsDe, SYSTEME_FORMULATIONS, messageFormulations, lireFormulations, MAX_FORMULATIONS, SYSTEME_DISCUSSION, messageDiscussion, lireDiscussion, placerPassage, MAX_HISTORIQUE, ACTIONS, MAX_PASSAGE, consigneSuggestion, consigneSuggestionTexte, lireSuggestion, RESEAUX, consigneDescription, nettoyerDescription, SYSTEME, consigne, lireReponse, simplifier, trouver, localiser, appliquer, apercu, recaler, TYPES, MAX_PROPOSITIONS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else racine.PostsOPRelecture = api;
 })(typeof window !== 'undefined' ? window : globalThis);

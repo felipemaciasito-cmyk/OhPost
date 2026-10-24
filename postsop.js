@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-24.8'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-25.2'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -1067,6 +1067,7 @@
     const [discussion, setDiscussion] = useState([]); // { de: 'moi' | 'ccb', texte }
     const [saisie, setSaisie] = useState('');
     const [discEnCours, setDiscEnCours] = useState(false);
+    const voixMep = useConversationVocale({ envoyer: (t) => envoyer(t), messages: discussion, occupe: discEnCours });
     const [favori, setFavori] = useState(null);         // carrousel favori appliqué à ce texte
     const [favorisOuverts, setFavorisOuverts] = useState(false);
     const [noteFavori, setNoteFavori] = useState('');
@@ -1154,8 +1155,8 @@
     };
 
     // Discussion avec CCB : elle modifie la proposition affichée, ou compose trois propositions qui suivent tes indications.
-    async function envoyer() {
-      const demande = saisie.trim();
+    async function envoyer(force) {
+      const demande = (typeof force === 'string' ? force : saisie).trim();
       if (!demande || discEnCours || !configIA || !PROP) return;
       const fil0 = discussion.concat([{ de: 'moi', texte: demande }]);
       setDiscussion(fil0); setSaisie(''); setDiscEnCours(true);
@@ -1251,17 +1252,26 @@
       discEnCours && h('div', { className: 'mep-attente petit', role: 'status' }, h('span', { className: 'rond-attente', 'aria-hidden': 'true' }), `${IA.ASSISTANT.nom} réfléchit…`),
       h('label', { className: 'etiquette petit', htmlFor: 'indications-ccb' }, `Tes indications pour ${IA.ASSISTANT.nom}`),
       h('div', { className: 'mep-saisie' },
+        h(EtatVoix, { voix: voixMep, nomIA: IA.ASSISTANT.nom }),
         h('textarea', { id: 'indications-ccb', rows: 3, value: saisie, placeholder: 'Par exemple : plus de citations en grand, un fond vert pâle, une couverture plus percutante…', onChange: (e) => setSaisie(e.target.value), onKeyDown: (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); envoyer(); } } }),
-        h(Bouton, { variante: 'principal', disabled: !saisie.trim() || discEnCours || !configIA, onClick: envoyer }, 'Envoyer')));
+        h('div', { className: 'actions-ligne' }, h(BoutonMicro, { voix: voixMep, nomIA: IA.ASSISTANT.nom }), h(Bouton, { variante: 'principal', disabled: !saisie.trim() || discEnCours || !configIA, onClick: () => envoyer() }, 'Envoyer'))));
 
     const etapeMiseEnPage = h('div', { className: 'mise-en-page' },
       h('div', { className: 'mep-choix' },
         h(Segmente, { etiquette: 'Mises en page proposées', valeur: String(choixEffectif), onChange: choisir, options }),
-        favorisCarrousels.length > 0 && h('button', { type: 'button', className: cls('bouton secondaire', favorisOuverts && 'actif'), 'aria-expanded': favorisOuverts, onClick: () => setFavorisOuverts(!favorisOuverts) }, '★ Mes favoris'),
+        // L'étoile garde la proposition affichée dans tes favoris ; la petite flèche ouvre la liste des favoris.
+        h('span', { className: 'etoile-favoris', role: 'group', 'aria-label': 'Favoris' },
+          h('button', { type: 'button', className: cls('etoile', dejaFavori && 'pleine'), 'aria-pressed': !!dejaFavori, disabled: !plan, onClick: basculerFavori,
+            title: !plan ? 'Choisis une proposition de CCB pour la garder' : dejaFavori ? 'Retirer de mes favoris' : 'Garder dans mes favoris', 'aria-label': !plan ? 'Garder dans mes favoris (choisis d’abord une proposition)' : dejaFavori ? 'Retirer de mes favoris' : 'Garder dans mes favoris' },
+            h('svg', { width: 22, height: 22, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d: 'M12 3.2l2.6 5.5 6 .7-4.4 4.1 1.2 5.9L12 16.5l-5.4 2.9 1.2-5.9L3.4 9.4l6-.7z', fill: dejaFavori ? 'currentColor' : 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinejoin: 'round' }))),
+          h('button', { type: 'button', className: cls('fleche-favoris', favorisOuverts && 'actif'), 'aria-expanded': favorisOuverts, 'aria-label': 'Mes favoris', title: 'Mes favoris', onClick: () => setFavorisOuverts(!favorisOuverts) },
+            h('svg', { width: 12, height: 12, viewBox: '0 0 12 12', 'aria-hidden': 'true' }, h('path', { d: 'M2.5 4.5 6 8l3.5-3.5', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' })))),
         configIA && PROP && h('button', { type: 'button', className: cls('bouton-robot', discOuverte && 'actif'), 'aria-label': discOuverte ? `Fermer la discussion avec ${IA.ASSISTANT.nom}` : `Donner des indications à ${IA.ASSISTANT.nom}`, title: discOuverte ? `Fermer la discussion avec ${IA.ASSISTANT.nom}` : `Donner des indications à ${IA.ASSISTANT.nom}`, 'aria-expanded': discOuverte, onClick: () => setDiscOuverte(!discOuverte) }, h(Robot, { taille: 44 }))),
       favorisOuverts && h('div', { className: 'mep-favoris', role: 'group', 'aria-label': 'Mes carrousels favoris' },
         h('p', { className: 'doux petit' }, 'Appliqués à ce texte : même rythme, mêmes gabarits, même fond.'),
-        favorisCarrousels.map((f) => h('button', { key: f.id, type: 'button', className: 'mep-favori', onClick: () => appliquerFavori(f) }, h('strong', null, f.nom), f.origine && h('span', { className: 'doux petit' }, 'D’après « ' + f.origine + ' »')))),
+        favorisCarrousels.length
+          ? favorisCarrousels.map((f) => h('button', { key: f.id, type: 'button', className: 'mep-favori', onClick: () => appliquerFavori(f) }, h('strong', null, f.nom), f.origine && h('span', { className: 'doux petit' }, 'D’après « ' + f.origine + ' »')))
+          : h('p', { className: 'doux petit' }, 'Aucun carrousel favori pour l’instant : touche l’étoile sur une proposition de CCB pour la garder.')),
       noteFavori && h('p', { className: 'erreur petit' }, noteFavori),
       etatGen === 'encours' && !discEnCours && h('div', { className: 'note mep-attente', role: 'status' }, h('span', { className: 'rond-attente', 'aria-hidden': 'true' }), `${IA.ASSISTANT.nom} compose trois carrousels pour ${reseauNom}, en ${maxPages} pages au plus… environ 20 à 40 secondes. Chaque proposition est vérifiée page par page avant de s’afficher.`),
       etatGen === 'erreur' && h('div', { className: 'erreur-boite', role: 'alert' }, h('p', null, gen.detail), h(Bouton, { variante: 'petit', onClick: () => generer(false) }, 'Réessayer')),
@@ -1275,7 +1285,11 @@
               h('button', { type: 'button', className: 'bouton-rond', 'aria-label': 'Page suivante', disabled: vue >= slides.length - 1, onClick: () => setPageVue(vue + 1) }, h(Icone, { nom: 'droite', taille: 20 }))),
             h('div', { className: 'doux petit centre' }, `Page ${vue + 1} sur ${slides.length}`),
             h('div', { className: 'mep-bande' }, slides.map((sl, i) => h('button', { key: i, type: 'button', className: cls('mep-vignette', i === vue && 'actif'), 'aria-label': `Voir la page ${i + 1}`, 'aria-pressed': i === vue, onClick: () => setPageVue(i) },
-              h(SlideCanvas, { slide: sl, formatId: format, fondId: fond, largeur: 52, index: i, total: slides.length }))))) : null),
+              h(SlideCanvas, { slide: sl, formatId: format, fondId: fond, largeur: 52, index: i, total: slides.length })))),
+            // Sous l'aperçu, l'un au-dessus de l'autre : voir le post, puis demander d'autres propositions.
+            h('div', { className: 'mep-actions-apercu' },
+              h(Bouton, { onClick: () => setFil(true), disabled: !slides.length }, 'Aperçu du post'),
+              configIA && PROP && h(Bouton, { disabled: etatGen === 'encours', onClick: () => generer(plans.length > 0) }, plans.length ? 'Proposer 3 autres' : 'Proposer 3 mises en page'))) : null),
         h('div', { className: 'mep-infos' },
           h('h3', { className: 'gill' }, nomChoix),
           h('div', { className: 'doux petit' }, `${slides.length} page${slides.length > 1 ? 's' : ''}, fond ${(fonds[fond] || {}).nom ? fonds[fond].nom.toLowerCase() : fond}, environ ${moyenne} mots par page`),
@@ -1283,10 +1297,8 @@
           discussionCCB,
           !discOuverte && h('p', null, pourquoiChoix),
           gen.detail && etatGen === 'repos' && h('p', { className: 'doux petit' }, gen.detail),
-          h(Bouton, { onClick: () => setFil(true), disabled: !slides.length }, 'Aperçu du post'),
           choixEffectif === 'simple' && h(Bouton, { variante: 'petit', onClick: autreAuHasard }, 'Une autre au hasard'),
-          plan && h(Bouton, { variante: 'petit', onClick: basculerFavori }, dejaFavori ? '★ Dans tes favoris' : '☆ Garder dans mes favoris'),
-          configIA && PROP && h(Bouton, { variante: 'petit', disabled: etatGen === 'encours', onClick: () => generer(plans.length > 0) }, plans.length ? 'Proposer 3 autres' : 'Proposer 3 mises en page'))),
+          )),
       fil && slides.length > 0 && h(ApercuFil, { slides, format, fond, texte: paragraphes[0], onFermer: () => setFil(false) }));
 
     // Un seul écran : les mises en page, puis le fond, le logo et les fleurs. Le texte se remplace à l'étape Texte
@@ -1543,7 +1555,7 @@
       const historique = avant.messages;
       maj({ ...avant, passageConv: historique.length ? avant.passageConv : (passage || ''), messages: historique.concat([{ de: 'moi', texte }]), etat: 'encours', detail: '' });
       try {
-        const brut = await IA.demander(config, { systeme: R.SYSTEME_DISCUSSION, texte: R.messageDiscussion(texteComplet, passage || '', historique, options.precision ? options.precision + '\n\n' + texte : texte, { profil, titre: article.titre, reseau: nomReseau(article.reseau) }), maxJetons: 4000, delai: 120000 , json: R.JSON_DISCUSSION });
+        const brut = await IA.demander(config, { systeme: R.SYSTEME_DISCUSSION, texte: R.messageDiscussion(texteComplet, passage || '', historique, texte, { profil, titre: article.titre, reseau: nomReseau(article.reseau), contexte: options.precision || '' }), maxJetons: 4000, delai: 120000 , json: R.JSON_DISCUSSION });
         const r = R.lireDiscussion(brut);
         const x = dernier.current;
         maj({ ...x, etat: 'repos', messages: x.messages.concat([{ de: 'ia', texte: r.reponse, pistes: r.pistes || [], passage: passage || '', propositions: r.propositions.map((q) => ({ ...q, apercu: T.appliquer(q.apres, T.corrections(q.apres)), statut: 'attente' })) }]) });
@@ -1594,6 +1606,106 @@
     };
   }
 
+
+  /* ---------- Conversation à voix haute avec CCB (voix de l'appareil, mains libres) ----------
+     Le micro écoute ; quand tu te tais, ta phrase est envoyée et transcrite dans la discussion ; CCB répond à voix haute,
+     puis le micro se remet à écouter. On arrête en touchant de nouveau le micro. Tout passe par le navigateur (Safari) :
+     la transcription est faite par Apple, la voix est celle de l'iPad. */
+  const Reconnaissance = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
+  const voixDisponible = () => !!Reconnaissance && typeof window !== 'undefined' && 'speechSynthesis' in window;
+  function voixFrancaise() {
+    const voix = (window.speechSynthesis.getVoices() || []).filter((v) => /^fr(-|_|$)/i.test(v.lang));
+    // Les voix « améliorées » ou « premium » de l'iPad d'abord, puis la voix française par défaut.
+    return voix.find((v) => /premium|enhanced|améliorée/i.test(v.name)) || voix.find((v) => /fr-FR/i.test(v.lang) && v.localService) || voix[0] || null;
+  }
+  const pourLaVoix = (t) => String(t || '').replace(/[«»"“”]/g, '').replace(/\s+/g, ' ').trim();
+  function useConversationVocale({ envoyer, messages, occupe }) {
+    const [actif, setActif] = useState(false);
+    const [phase, setPhase] = useState('repos'); // repos, ecoute, attente, parole, erreur
+    const [partiel, setPartiel] = useState('');
+    const [detail, setDetail] = useState('');
+    const reco = useRef(null);
+    const actifRef = useRef(false);
+    const dejaDit = useRef(messages.length);
+    // Toujours la dernière version de « envoyer » : l'écoute démarrée plus tôt envoie avec l'état du moment.
+    const envoyerRef = useRef(envoyer); envoyerRef.current = envoyer;
+    const ecouter = () => {
+      if (!actifRef.current || !Reconnaissance) return;
+      try {
+        const r = new Reconnaissance();
+        r.lang = 'fr-FR'; r.interimResults = true; r.continuous = false; r.maxAlternatives = 1;
+        let final = '';
+        r.onresult = (e) => {
+          let t = ''; final = '';
+          for (let k = 0; k < e.results.length; k++) { t += e.results[k][0].transcript; if (e.results[k].isFinal) final += e.results[k][0].transcript; }
+          setPartiel(t);
+        };
+        r.onerror = (e) => {
+          if (e.error === 'no-speech' || e.error === 'aborted') return;
+          setDetail(e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'Le micro est refusé : autorise-le pour ce site dans les réglages de Safari.' : 'Le micro ne répond pas (' + e.error + ').');
+          setPhase('erreur'); actifRef.current = false; setActif(false);
+        };
+        r.onend = () => {
+          reco.current = null;
+          const phrase = final.trim();
+          setPartiel('');
+          if (!actifRef.current) return;
+          if (phrase) { setPhase('attente'); envoyerRef.current(phrase); } else ecouter(); // silence : on réécoute
+        };
+        reco.current = r; setPhase('ecoute'); r.start();
+      } catch (e) { setDetail('Le micro n’a pas pu démarrer : touche-le de nouveau.'); setPhase('erreur'); }
+    };
+    const parler = (texte) => {
+      const synth = window.speechSynthesis;
+      synth.cancel();
+      const u = new SpeechSynthesisUtterance(pourLaVoix(texte));
+      const v = voixFrancaise(); if (v) u.voice = v;
+      u.lang = (v && v.lang) || 'fr-FR'; u.rate = 1.02;
+      u.onend = () => { if (actifRef.current) ecouter(); else setPhase('repos'); };
+      u.onerror = u.onend;
+      setPhase('parole'); synth.speak(u);
+    };
+    // Une nouvelle réponse de CCB arrive pendant la conversation : il la dit à voix haute.
+    useEffect(() => {
+      const n = messages.length;
+      if (n > dejaDit.current) {
+        const dernier = messages[n - 1];
+        dejaDit.current = n;
+        if (actifRef.current && dernier && dernier.de !== 'moi' && dernier.texte) parler(dernier.texte);
+      }
+    }, [messages.length]);
+    // La demande n'a pas eu de réponse (erreur) : on se remet à écouter.
+    useEffect(() => { if (actifRef.current && phase === 'attente' && !occupe) { const t = setTimeout(() => { if (actifRef.current && dejaDit.current === messages.length) ecouter(); }, 400); return () => clearTimeout(t); } return undefined; }, [occupe]);
+    useEffect(() => () => { actifRef.current = false; if (reco.current) try { reco.current.abort(); } catch (e) { /* déjà arrêté */ } if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel(); }, []);
+    const basculer = () => {
+      if (actifRef.current) {
+        actifRef.current = false; setActif(false); setPhase('repos'); setPartiel('');
+        if (reco.current) try { reco.current.abort(); } catch (e) { /* déjà arrêté */ }
+        window.speechSynthesis.cancel();
+        return;
+      }
+      if (!voixDisponible()) { setDetail('La conversation à voix haute n’est pas disponible dans ce navigateur. Sur iPad, utilise Safari ; la touche micro du clavier reste possible.'); setPhase('erreur'); return; }
+      // Débloque la voix de l'iPad pendant ce toucher (Safari n'autorise le son qu'après un geste).
+      try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; window.speechSynthesis.speak(u); } catch (e) { /* sans effet */ }
+      dejaDit.current = messages.length;
+      actifRef.current = true; setActif(true); setDetail(''); ecouter();
+    };
+    return { actif, phase, partiel, detail, basculer, disponible: voixDisponible() };
+  }
+  function BoutonMicro({ voix, nomIA }) {
+    const libelle = voix.actif ? 'Arrêter la conversation à voix haute' : 'Parler à ' + nomIA + ' à voix haute';
+    return h('button', { type: 'button', className: cls('bouton-micro', voix.actif && 'actif', voix.phase), 'aria-pressed': voix.actif, 'aria-label': libelle, title: libelle, onClick: voix.basculer },
+      h('svg', { width: 20, height: 20, viewBox: '0 0 24 24', 'aria-hidden': 'true' },
+        h('rect', { x: 9, y: 3, width: 6, height: 11, rx: 3, fill: 'currentColor' }),
+        h('path', { d: 'M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' })));
+  }
+  function EtatVoix({ voix, nomIA }) {
+    if (voix.phase === 'erreur') return h('p', { className: 'erreur petit', role: 'status' }, voix.detail);
+    if (!voix.actif) return null;
+    const textes = { ecoute: 'Je t’écoute…', attente: nomIA + ' réfléchit…', parole: nomIA + ' te répond…', repos: '' };
+    return h('p', { className: 'etat-voix', role: 'status' }, h('span', { className: cls('pastille-voix', voix.phase), 'aria-hidden': 'true' }), textes[voix.phase] || '', voix.partiel && h('span', { className: 'partiel' }, ' « ' + voix.partiel + ' »'));
+  }
+
   function FenetreDiscussion({ disc, nomIA, passage, onRetirerPassage, onChoisirPassage, invitation }) {
     const [saisie, setSaisie] = useState('');
     const [passageEntier, setPassageEntier] = useState(false);
@@ -1602,6 +1714,7 @@
     useEffect(() => { if (fil.current) fil.current.scrollTop = fil.current.scrollHeight; }, [disc.messages.length, disc.etat]);
     const encours = disc.etat === 'encours';
     const envoyer = (t) => { if (!encours && t.trim()) { disc.envoyer(t, passage); setSaisie(''); } };
+    const voix = useConversationVocale({ envoyer: (t) => envoyer(t), messages: disc.messages, occupe: disc.etat === 'encours' });
     const couper = (t, n) => (t && t.length > n ? t.slice(0, n).replace(/\s\S*$/, '') + '…' : t);
     const extrait = passage && (passageEntier ? passage : couper(passage, 110));
     const autrePassage = disc.passageConv && disc.passageConv.trim() !== (passage || '').trim() && disc.passageConv;
@@ -1662,8 +1775,10 @@
         })()),
       disc.etat === 'erreur' && h('p', { className: 'erreur petit', role: 'status' }, disc.detail),
       h('div', { className: 'discussion-raccourcis' }, RACCOURCIS_DISCUSSION.map(([libelle, demande]) => h('button', { key: libelle, type: 'button', className: 'puce', disabled: encours, onClick: () => envoyer(demande) }, libelle))),
+      h(EtatVoix, { voix, nomIA }),
       h('div', { className: 'discussion-saisie' },
         h('input', { className: 'champ-texte', value: saisie, placeholder: 'Ta consigne, en langage naturel', 'aria-label': 'Ta consigne à ' + nomIA, onChange: (e) => setSaisie(e.target.value), onKeyDown: (e) => { if (e.key === 'Enter') { e.preventDefault(); envoyer(saisie); } } }),
+        h(BoutonMicro, { voix, nomIA }),
         h(Bouton, { variante: 'principal', disabled: encours || !saisie.trim(), onClick: () => envoyer(saisie) }, 'Envoyer')),
       );
   }
@@ -1770,6 +1885,7 @@
     const nomIA = IA.ASSISTANT.nom;
     const profil = (etat.projet && etat.projet.profilEditorial) || '';
     const texte = paragraphes.join('\n\n');
+    const voixTitre = useConversationVocale({ envoyer: (t) => envoyer(t), messages: disc.messages, occupe: disc.enCours });
     const premier = paragraphes[0] || '';
     useEffect(() => {
       if (!bulle) return undefined;
@@ -1787,8 +1903,8 @@
         setProps({ etat: 'fait', liste, detail: '' });
       } catch (erreur) { setProps({ etat: 'erreur', liste: [], detail: erreur instanceof IA.ErreurIA ? erreur.message : `${nomIA} n’a pas pu proposer de titre : ${erreur.message}` }); }
     }
-    async function envoyer() {
-      const demande = disc.saisie.trim();
+    async function envoyer(force) {
+      const demande = (typeof force === 'string' ? force : disc.saisie).trim();
       if (!demande || disc.enCours) return;
       const historique = disc.messages;
       setDisc({ ...disc, messages: historique.concat([{ de: 'moi', texte: demande }]), saisie: '', enCours: true });
@@ -1834,7 +1950,8 @@
             disc.enCours && h('p', { className: 'doux petit', role: 'status' }, `${nomIA} réfléchit…`),
             h('div', { className: 'mep-saisie' },
               h('textarea', { rows: 2, value: disc.saisie, placeholder: 'Par exemple : plus court, plus doux, avec le prénom…', 'aria-label': 'Ta demande à ' + nomIA, onChange: (e) => setDisc({ ...disc, saisie: e.target.value }), onKeyDown: (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); envoyer(); } } }),
-              h(Bouton, { variante: 'principal', disabled: !disc.saisie.trim() || disc.enCours, onClick: envoyer }, 'Envoyer'))))));
+              h('div', { className: 'actions-ligne' }, h(BoutonMicro, { voix: voixTitre, nomIA }), h(Bouton, { variante: 'principal', disabled: !disc.saisie.trim() || disc.enCours, onClick: () => envoyer() }, 'Envoyer'))),
+            h(EtatVoix, { voix: voixTitre, nomIA })))));
   }
 
   function EtapeTexte({ etat, dispatch, article, majA }) {
@@ -1881,7 +1998,7 @@
       return () => document.removeEventListener('selectionchange', suivre);
     }, []);
     const passageChoisi = selection && texteComplet.slice(selection.debut, selection.fin);
-    const disc = useDiscussion(article, texteComplet, majA, choisirSelection, profilEditorial);
+    const disc = useDiscussion(article, texteComplet, majA, choisirSelection, profilEditorial, { precision: R.CONTEXTE_TEXTE });
     const typo = useMemo(() => T.correctionsArticle(article), [article.texte, article.slides, article.langue]);
     // Après une correction typographique, le curseur reste juste après ce que tu viens de taper.
     useApresRendu(() => {
@@ -2021,7 +2138,7 @@
     const [bulle, setBulle] = useState(false);      // bulle du robot : trois propositions ou discussion
     const refBulle = useRef(null);
     const disc = useDiscussion(article, texteCourant, majA, (debut, fin) => setSelDesc({ debut, fin }), profil, {
-      cle: article.id + ':post:' + reseauCourant, ecrire: (t) => majA(OP.description(reseauCourant, t), null), precision: R.precisionPost(reseauCourant),
+      cle: article.id + ':post:' + reseauCourant, ecrire: (t) => majA(OP.description(reseauCourant, t), null), precision: R.precisionPost(reseauCourant, article.slides),
     });
     useEffect(() => {
       if (!bulle) return undefined;
@@ -2038,7 +2155,7 @@
       setBulle(false);
       majProp(reseau, { etat: 'encours', trois: true });
       try {
-        const brut = await IA.demander(config, { systeme: R.consigneDescriptions(reseau), texte: R.consigne(article.texte.join('\n\n'), profil), maxJetons: 3000, delai: 120000, json: R.JSON_DESCRIPTIONS });
+        const brut = await IA.demander(config, { systeme: R.consigneDescriptions(reseau), texte: R.consigne(article.texte.join('\n\n'), profil) + '\n\n' + R.resumeCarrousel(article.slides), maxJetons: 3000, delai: 120000, json: R.JSON_DESCRIPTIONS });
         let textes = R.lireDescriptions(brut);
         if (!textes.length) { const t = R.nettoyerDescription(typeof brut === 'string' ? brut : ''); if (t && !/^\{/.test(t)) textes = [t]; }
         if (!textes.length) throw new Error('La réponse de l’IA est vide. Réessaie.');
@@ -2053,7 +2170,7 @@
       if (!config) return;
       majProp(reseau, { etat: 'encours' });
       try {
-        const brut = await IA.demander(config, { systeme: R.consigneDescription(reseau), texte: R.consigne(article.texte.join('\n\n'), (etat && etat.projet && etat.projet.profilEditorial) || ''), maxJetons: 1500, delai: 90000 });
+        const brut = await IA.demander(config, { systeme: R.consigneDescription(reseau), texte: R.consigne(article.texte.join('\n\n'), (etat && etat.projet && etat.projet.profilEditorial) || '') + '\n\n' + R.resumeCarrousel(article.slides), maxJetons: 1500, delai: 90000 });
         const t = R.nettoyerDescription(brut);
         if (!t) throw new Error('La réponse de l’IA est vide. Réessaie.');
         majProp(reseau, { etat: 'fait', texte: T.appliquer(t, T.corrections(t)) });

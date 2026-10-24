@@ -1030,3 +1030,19 @@ canvas.slide.editable { cursor: text; }
 .propositions-post .proposition-description { width: 100%; }
 /* Barre de sélection : le carré du filet est dessiné comme un trait, pour ne pas le confondre avec un fond */
 .filet-trait { display: inline-block; width: 5px; height: 20px; border-radius: 3px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18); }
+
+/* Barre de menus de Mise en page : bouton fleur (ajouter le logo ou les fleurs).
+   Fleur de la charte en 34 points, pastille « + » vert anis qui dépasse en haut à droite ;
+   au survol, la fleur fait un cinquième de tour pendant que ses pétales s'ouvrent puis se referment. */
+.bouton-fleur { position: relative; width: 44px; height: 44px; flex: none; padding: 0; border: 0; border-radius: 12px; background: transparent; color: var(--texte); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: background-color 0.2s ease; overflow: visible; }
+.bouton-fleur:hover, .bouton-fleur.actif { background: var(--surface-2); }
+.bouton-fleur:focus-visible { outline: 2px solid var(--touche); outline-offset: 2px; }
+.bouton-fleur .fleur { width: 34px; height: 34px; display: block; transform-origin: 50% 50%; }
+.bouton-fleur .petale { transform-origin: 12px 12px; transform-box: view-box; }
+.bouton-fleur .pastille-ajout { position: absolute; top: -5px; right: -5px; width: 15px; height: 15px; pointer-events: none; }
+.bouton-fleur .pastille-ajout .liseré { stroke: var(--surface); stroke-width: 1.8; }
+.bouton-fleur:hover .fleur { animation: fleurTour 0.7s cubic-bezier(0.45, 0, 0.2, 1) forwards; }
+.bouton-fleur:hover .petale { animation: fleurOuvre 0.7s ease-in-out; }
+@keyframes fleurTour { to { transform: rotate(72deg); } }
+@keyframes fleurOuvre { 0%, 100% { transform: rotate(var(--r)) translateY(0); } 45% { transform: rotate(var(--r)) translateY(-1.6px); } }
+@media (prefers-reduced-motion: reduce) { .bouton-fleur .fleur, .bouton-fleur .petale { animation: none !important; } }

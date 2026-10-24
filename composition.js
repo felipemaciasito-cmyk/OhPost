@@ -352,6 +352,8 @@
       const disc = outilsIA.useDiscussion(article, texteArticle, majA, (d0, f0) => setZoneIA({ d: d0, f: f0 }), (etat.projet && etat.projet.profilEditorial) || '');
       const [menuIA, setMenuIA] = useState(false);
       const refRobot = useRef(null);
+      const refFleur = useRef(null);
+      const [ajoutOuvert, setAjoutOuvert] = useState(false); // bouton fleur : ajouter le logo ou les fleurs
       useEffect(() => {
         if (!menuIA) return undefined;
         const touche = (e) => { if (e.key === 'Escape') setMenuIA(false); };
@@ -1338,6 +1340,18 @@
       const zoneAffichee = zoneEdition || (edition && zoneMemoire.current) || null;
       const historique = h('span', { className: 'historique-menus' },
         h('span', { className: 'position' }, `Page ${active + 1} sur ${total}`),
+        // Ajouter le logo ou les fleurs : la fleur de la charte, avec un « + » vert anis qui dépasse en haut à droite.
+        h('button', { ref: refFleur, type: 'button', className: cls('bouton-fleur', ajoutOuvert && 'actif'), title: 'Ajouter le logo ou les fleurs', 'aria-label': 'Ajouter le logo ou les fleurs', 'aria-haspopup': 'true', 'aria-expanded': ajoutOuvert, onMouseDown: garder, onClick: () => setAjoutOuvert(!ajoutOuvert) },
+          h('svg', { className: 'fleur', viewBox: '0 0 24 24', 'aria-hidden': 'true' },
+            h('g', { fill: 'currentColor' }, [0, 72, 144, 216, 288].map((a) => h('circle', { key: a, className: 'petale', style: { '--r': a + 'deg', transform: `rotate(${a}deg)` }, cx: 12, cy: 6.6, r: 3.3 }))),
+            h('circle', { cx: 12, cy: 12, r: 2.6, fill: '#C9D420' })),
+          h('svg', { className: 'pastille-ajout', viewBox: '0 0 15 15', 'aria-hidden': 'true' },
+            h('circle', { cx: 7.5, cy: 7.5, r: 6.6, fill: '#C9D420', className: 'liseré' }),
+            h('path', { d: 'M7.5 4.6v5.8M4.6 7.5h5.8', stroke: '#12313A', strokeWidth: 1.6, strokeLinecap: 'round' }))),
+        ajoutOuvert && h(Popover, { ancre: refFleur, fermer: () => setAjoutOuvert(false), etiquette: 'Ajouter', contenu: () => [
+          { type: 'titre', libelle: 'Ajouter sur cette page' },
+          item('Logo', () => { setAjoutOuvert(false); ajouterImage('logo'); }),
+          item('Fleurs', () => { setAjoutOuvert(false); ajouterImage('fleurs'); })] }),
         h('button', { type: 'button', className: 'bouton secondaire bouton-mise-en-page', onClick: () => dispatch({ type: 'feuille', feuille: { reglages: article.id } }), title: 'Apparence générale : propositions de CCB, mes favoris, sans IA, fond, logo et fleurs' },
           h('svg', { width: 18, height: 18, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('rect', { x: 3, y: 4, width: 7, height: 16, rx: 1.5, fill: 'none', stroke: 'currentColor', strokeWidth: 2 }), h('rect', { x: 14, y: 4, width: 7, height: 7, rx: 1.5, fill: 'none', stroke: 'currentColor', strokeWidth: 2 }), h('rect', { x: 14, y: 13, width: 7, height: 7, rx: 1.5, fill: 'none', stroke: 'currentColor', strokeWidth: 2 })),
           'Apparence générale'),
@@ -1576,7 +1590,6 @@
       const refFilet = useRef(null);
       const refRobotBarre = useRef(null);
       const refFond = useRef(null);
-      const refAjout = useRef(null);
       const ref = useRef(null);
       const refStyle = useRef(null);
       const refCouleur = useRef(null);
@@ -1601,9 +1614,6 @@
           bouton(h('i', { className: 'serif' }, 'I'), () => actions.basculer('italique'), { titre: 'Italique (⌘I)', actif: st.italique }),
           bouton(h('u', null, 'U'), () => actions.basculer('souligne'), { titre: 'Souligné (⌘U)', actif: st.souligne }),
           bouton(h('svg', { className: cls('icone', deplie && 'retournee'), width: 18, height: 18, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d: 'M6 9l6 6 6-6', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' })), () => setDeplie(!deplie), { titre: deplie ? 'Moins d’outils' : 'Plus d’outils', classe: 'deplier' }),
-          // Ajout rapide : le logo ou les fleurs, au centre de la page en cours.
-          h('button', { ref: refAjout, type: 'button', className: cls('outil', 'outil-ajout', sous === 'ajout' && 'actif'), title: 'Ajouter le logo ou les fleurs', 'aria-label': 'Ajouter le logo ou les fleurs', 'aria-haspopup': 'true', 'aria-expanded': sous === 'ajout', onMouseDown: garder, onClick: () => setSous(sous === 'ajout' ? null : 'ajout') },
-            h('svg', { className: 'icone', width: 18, height: 18, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d: 'M12 5v14M5 12h14', fill: 'none', stroke: 'currentColor', strokeWidth: 2.2, strokeLinecap: 'round' }))),
           h('button', { ref: refRobotBarre, type: 'button', className: cls('outil', 'outil-robot', sous === 'ia' && 'actif'), title: 'CCB · Creative Collaborative Boost', 'aria-label': 'CCB · Creative Collaborative Boost', 'aria-haspopup': 'true', 'aria-expanded': sous === 'ia', onMouseDown: garder, onClick: () => setSous(sous === 'ia' ? null : 'ia') }, h(Robot, { taille: 30 }))),
         deplie && h('div', { className: 'rang second' },
           presets.map(([nom, px]) => bouton(String(px), () => actions.formater({ taille: px }), { titre: `${nom} · ${px} px`, actif: st.taille === px, classe: 'puce-taille' })),
@@ -1622,10 +1632,6 @@
         sous === 'couleur' && h(Popover, { ancre: refCouleur, fermer: () => setSous(null), etiquette: 'Couleur', contenu: menuCouleur }),
         sous === 'filet' && h(Popover, { ancre: refFilet, fermer: () => setSous(null), etiquette: 'Couleur du filet', contenu: menuFilet }),
         sous === 'fond' && h(Popover, { ancre: refFond, fermer: () => setSous(null), etiquette: 'Fond du paragraphe', contenu: menuFond }),
-        sous === 'ajout' && h(Popover, { ancre: refAjout, fermer: () => setSous(null), etiquette: 'Ajouter', contenu: () => [
-          { type: 'titre', libelle: 'Ajouter sur cette page' },
-          { type: 'action', libelle: 'Logo', action: () => { setSous(null); actions.ajouterImage('logo'); } },
-          { type: 'action', libelle: 'Fleurs', action: () => { setSous(null); actions.ajouterImage('fleurs'); } }] }),
         sous === 'ia' && h(Popover, { ancre: refRobotBarre, fermer: () => setSous(null), etiquette: 'CCB · Creative Collaborative Boost', contenu: menuAssistant }));
     }
 

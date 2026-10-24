@@ -363,6 +363,8 @@
       const [menu, setMenu] = useState(null);
       const [tailleEcran, setTailleEcran] = useState(() => lirePref('postsop-taille-slides', 'moyennes'));
       const [marges, setMarges] = useState(false);
+      const [miseEnAvant, setMiseEnAvant] = useState(null); // { i, blocs } : élément montré depuis Vérifier
+      useEffect(() => { if (!miseEnAvant) return undefined; const t = setTimeout(() => setMiseEnAvant(null), 2600); return () => clearTimeout(t); }, [miseEnAvant]);
       const [deplie, setDeplie] = useState(() => lirePref('postsop-barre-depliee', 'non') === 'oui');
       const [barre, setBarre] = useState(null);
       const [sousBarre, setSousBarre] = useState(null);
@@ -1085,7 +1087,7 @@
         return [
           { type: 'titre', libelle: 'CCB · Creative Collaborative Boost' },
           ...(sel ? [item('Discuter de ce passage avec ' + nomIA, () => ouvrirDiscussion(sel)), ...rapides.map(([nom, demande]) => item(nom, () => ouvrirDiscussion(sel, demande)))] : [item('Discuter avec ' + nomIA, () => ouvrirDiscussion(''))]),
-          ...(depuisBarre ? [] : [trait, item('Mise en page…', () => { setMenuIA(false); dispatch({ type: 'feuille', feuille: { reglages: article.id } }); })]),
+          ...(depuisBarre ? [] : [trait, item('Apparence générale…', () => { setMenuIA(false); dispatch({ type: 'feuille', feuille: { reglages: article.id } }); })]),
           ...(!sel && !depuisBarre ? [{ type: 'note', texte: 'Sélectionne un passage dans un bloc pour le retravailler avec l’IA.' }] : []),
         ];
       };
@@ -1255,7 +1257,7 @@
           ] },
         ] },
         { nom: 'Vérifier', titre: h(Fragment, null, 'Vérifier ', h('span', { className: cls('compteur', !alertes.length && 'ok') }, alertes.length || '✓')), classe: 'large', contenu: () => [
-          { type: 'libre', rendu: (fermer) => h(PanneauVerifier, { article, alertes, nbValidees: toutes.length - alertes.length, majA, choisirPolice, contexteRendu: { reglages, charte, logo }, voir: (i) => { fermer(); allerA(i); } }) },
+          { type: 'libre', rendu: (fermer) => h(PanneauVerifier, { article, alertes, nbValidees: toutes.length - alertes.length, majA, choisirPolice, contexteRendu: { reglages, charte, logo }, voir: (i, blocs) => { fermer(); allerA(i); if (blocs && blocs.length) { setMiseEnAvant({ i, blocs, n: Date.now() }); } } }) },
         ] },
       ];
 
@@ -1266,9 +1268,9 @@
       const zoneAffichee = zoneEdition || (edition && zoneMemoire.current) || null;
       const historique = h('span', { className: 'historique-menus' },
         h('span', { className: 'position' }, `Page ${active + 1} sur ${total}`),
-        h('button', { type: 'button', className: 'bouton secondaire bouton-mise-en-page', onClick: () => dispatch({ type: 'feuille', feuille: { reglages: article.id } }), title: 'Propositions de CCB, mes favoris, sans IA, fond, logo et fleurs' },
+        h('button', { type: 'button', className: 'bouton secondaire bouton-mise-en-page', onClick: () => dispatch({ type: 'feuille', feuille: { reglages: article.id } }), title: 'Apparence générale : propositions de CCB, mes favoris, sans IA, fond, logo et fleurs' },
           h('svg', { width: 18, height: 18, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('rect', { x: 3, y: 4, width: 7, height: 16, rx: 1.5, fill: 'none', stroke: 'currentColor', strokeWidth: 2 }), h('rect', { x: 14, y: 4, width: 7, height: 7, rx: 1.5, fill: 'none', stroke: 'currentColor', strokeWidth: 2 }), h('rect', { x: 14, y: 13, width: 7, height: 7, rx: 1.5, fill: 'none', stroke: 'currentColor', strokeWidth: 2 })),
-          'Mise en page…'),
+          'Apparence générale'),
         h('button', { ref: refRobot, type: 'button', className: cls('bouton-robot', 'bouton-robot-menu', (menuIA || disc.ouvert) && 'actif'), 'aria-label': 'CCB · Creative Collaborative Boost', title: 'CCB · Creative Collaborative Boost', 'aria-haspopup': 'true', 'aria-expanded': menuIA, onMouseDown: garder, onClick: () => { setMenu(null); setMenuIA(!menuIA); } }, h(outilsIA.Robot, { taille: 34 })),
         menuIA && h('div', { className: 'voile-menu', 'aria-hidden': 'true', onPointerDown: () => setMenuIA(false) }),
         menuIA && h(Popover, { ancre: refRobot, fermer: () => setMenuIA(false), etiquette: 'CCB · Creative Collaborative Boost', contenu: () => menuAssistant(false) }));
@@ -1302,6 +1304,7 @@
                   onPointerLeave: () => setSurvol(null),
                 },
                   h('div', { className: 'echelle', style: { width: fmt.l + 'px', height: fmt.h + 'px', transform: `scale(${k})`, '--inv': 1 / k } },
+                    miseEnAvant && miseEnAvant.i === i && miseEnAvant.blocs.map((n) => { const bx = boiteDe(i, n); return bx && h('div', { key: 'mea' + n + '-' + miseEnAvant.n, className: 'mise-en-avant', 'aria-hidden': 'true', style: { left: bx.x + 'px', top: bx.y + 'px', width: bx.l + 'px', height: bx.h + 'px' } }); }),
                     (marges || (guides && guides.i === i)) && h('div', { className: 'repere-marges', style: { left: M.MARGES.gauche + 'px', top: M.MARGES.haute + 'px', width: fmt.l - M.MARGES.gauche - M.MARGES.droite + 'px', height: fmt.h - M.MARGES.haute - M.MARGES.basse + 'px' } }),
                     survol && survol.i === i && !(selection.i === i && selection.n.includes(survol.n)) && !(enEdition && edition.n === survol.n) && (() => { const b = boiteDe(i, survol.n); return b && h('div', { className: 'survol-bloc', style: { left: b.x - 8 + 'px', top: b.y - 8 + 'px', width: b.l + 16 + 'px', height: b.h + 16 + 'px' } }); })(),
                     imageChoisie && imageChoisie.i === i && (() => {
@@ -1337,7 +1340,7 @@
         barre && blocCourant && !menu && h(BarreFlottante, {
           position: barre, st, deplie, setDeplie: (v) => { setDeplie(v); ecrirePref('postsop-barre-depliee', v ? 'oui' : 'non'); },
           presets, fond, natures: natures(), sous: sousBarre, setSous: setSousBarre,
-          actions: { basculer, formater, aligner, basculerFilet, filetLignes, effacer, natureDe },
+          actions: { basculer, formater, aligner, basculerFilet, filetLignes, effacer, natureDe, ajouterImage },
           menuCouleur, menuTaille, menuFilet, couleurFilet: couleurFiletVue, menuFond, menuAssistant: () => menuAssistant(true), Robot: outilsIA.Robot,
         }));
     }
@@ -1457,12 +1460,16 @@
 
     function Nuancier({ valeur, choisir }) {
       const { charte } = useContext(Contexte);
-      return h('div', { className: 'nuancier-menu' }, Object.entries(M.fondsDe(charte.palette)).map(([cle, f]) => h('button', {
+      const tous = M.fondsDe(charte.palette); const page = M.fondsDePage(charte.palette);
+      const choix = { ...page, ...(tous[valeur] && !page[valeur] ? { [valeur]: tous[valeur] } : {}) }; // le vert soutenu n'est pas un fond de page
+      return h('div', { className: 'nuancier-menu' }, Object.entries(choix).map(([cle, f]) => h('button', {
         key: cle, type: 'button', className: cls('nuance-menu', valeur === cle && 'actif'), title: f.nom, 'aria-label': f.nom, 'aria-pressed': valeur === cle, style: { background: f.fond }, onMouseDown: garder, onClick: () => choisir(cle),
       })));
     }
 
     function PanneauVerifier({ article, alertes, nbValidees, majA, choisirPolice, contexteRendu, voir }) {
+      const [confirmer, setConfirmer] = useState(false);
+      const toutValider = () => { majA(OP.validerAlertes(alertes.map((a) => a.cle)), null, `${alertes.length} alerte${alertes.length > 1 ? 's validées' : ' validée'} : elles reviendront si leur page change.`); setConfirmer(false); };
       const libelles = {
         reduire: (s) => `Réduire le texte à ${Math.round(s.echelle * 100)} %`,
         scinder: (s) => (s.reste > 1 ? `Envoyer les ${s.reste} derniers paragraphes sur une nouvelle page` : 'Envoyer le dernier paragraphe sur une nouvelle page'),
@@ -1480,9 +1487,17 @@
           h('span', null, (a.slide !== null ? `Page ${a.slide + 1} · ` : '') + a.message),
           a.type === 'deborde' && h('span', { className: 'solutions' }, M.solutionsDebordement(article, a.slide, choisirPolice, contexteRendu).map((sol, kk) => h('button', { key: kk, type: 'button', className: cls('bouton', kk === 0 ? 'principal' : 'secondaire', 'petit'), onMouseDown: garder, onClick: () => appliquer(a, sol) }, libelles[sol.type](sol)))),
           h('span', { className: 'actions-ligne' },
-            a.slide !== null && h('button', { type: 'button', className: 'bouton secondaire petit', onMouseDown: garder, onClick: () => voir(a.slide) }, 'Voir la page ' + (a.slide + 1)),
+            // « Voir l'élément » : la page s'affiche et le bloc concerné est mis en avant un instant.
+            a.slide !== null && h('button', { type: 'button', className: 'bouton secondaire petit', onMouseDown: garder, onClick: () => voir(a.slide, a.blocs || null) }, a.blocs && a.blocs.length ? 'Voir l’élément' : 'Voir la page ' + (a.slide + 1)),
             h('button', { type: 'button', className: 'bouton secondaire petit', onMouseDown: garder, onClick: () => majA(OP.validerAlerte(a.cle), null, 'Alerte validée : elle reviendra si la page change.') }, 'C’est voulu')))))
           : h('p', { className: 'ok petit' }, 'Tout est en ordre : marges, densité, lisibilité, limite du réseau et intégrité du texte.'),
+        alertes.length > 1 && (confirmer
+          ? h('div', { className: 'confirmer-tout', role: 'alertdialog', 'aria-label': 'Valider toutes les alertes' },
+            h('span', null, `Valider les ${alertes.length} alertes d’un coup ? Elles reviendront si leur page change.`),
+            h('span', { className: 'actions-ligne' },
+              h('button', { type: 'button', className: 'bouton principal petit', onMouseDown: garder, onClick: toutValider }, 'Tout valider'),
+              h('button', { type: 'button', className: 'bouton secondaire petit', onMouseDown: garder, onClick: () => setConfirmer(false) }, 'Annuler')))
+          : h('button', { type: 'button', className: 'lien tout-est-voulu', onMouseDown: garder, onClick: () => setConfirmer(true) }, 'Tout est voulu')),
         nbValidees > 0 && h('p', { className: 'doux petit' }, `${nbValidees} alerte(s) validée(s). `, h('button', { type: 'button', className: 'lien', onMouseDown: garder, onClick: () => majA(OP.reafficherAlertes(), null, 'Alertes réaffichées.') }, 'Les réafficher')));
     }
 
@@ -1491,6 +1506,7 @@
       const refFilet = useRef(null);
       const refRobotBarre = useRef(null);
       const refFond = useRef(null);
+      const refAjout = useRef(null);
       const ref = useRef(null);
       const refStyle = useRef(null);
       const refCouleur = useRef(null);
@@ -1515,6 +1531,9 @@
           bouton(h('i', { className: 'serif' }, 'I'), () => actions.basculer('italique'), { titre: 'Italique (⌘I)', actif: st.italique }),
           bouton(h('u', null, 'U'), () => actions.basculer('souligne'), { titre: 'Souligné (⌘U)', actif: st.souligne }),
           bouton(h('svg', { className: cls('icone', deplie && 'retournee'), width: 18, height: 18, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d: 'M6 9l6 6 6-6', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' })), () => setDeplie(!deplie), { titre: deplie ? 'Moins d’outils' : 'Plus d’outils', classe: 'deplier' }),
+          // Ajout rapide : le logo ou les fleurs, au centre de la page en cours.
+          h('button', { ref: refAjout, type: 'button', className: cls('outil', 'outil-ajout', sous === 'ajout' && 'actif'), title: 'Ajouter le logo ou les fleurs', 'aria-label': 'Ajouter le logo ou les fleurs', 'aria-haspopup': 'true', 'aria-expanded': sous === 'ajout', onMouseDown: garder, onClick: () => setSous(sous === 'ajout' ? null : 'ajout') },
+            h('svg', { className: 'icone', width: 18, height: 18, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d: 'M12 5v14M5 12h14', fill: 'none', stroke: 'currentColor', strokeWidth: 2.2, strokeLinecap: 'round' }))),
           h('button', { ref: refRobotBarre, type: 'button', className: cls('outil', 'outil-robot', sous === 'ia' && 'actif'), title: 'CCB · Creative Collaborative Boost', 'aria-label': 'CCB · Creative Collaborative Boost', 'aria-haspopup': 'true', 'aria-expanded': sous === 'ia', onMouseDown: garder, onClick: () => setSous(sous === 'ia' ? null : 'ia') }, h(Robot, { taille: 30 }))),
         deplie && h('div', { className: 'rang second' },
           presets.map(([nom, px]) => bouton(String(px), () => actions.formater({ taille: px }), { titre: `${nom} · ${px} px`, actif: st.taille === px, classe: 'puce-taille' })),
@@ -1533,6 +1552,10 @@
         sous === 'couleur' && h(Popover, { ancre: refCouleur, fermer: () => setSous(null), etiquette: 'Couleur', contenu: menuCouleur }),
         sous === 'filet' && h(Popover, { ancre: refFilet, fermer: () => setSous(null), etiquette: 'Couleur du filet', contenu: menuFilet }),
         sous === 'fond' && h(Popover, { ancre: refFond, fermer: () => setSous(null), etiquette: 'Fond du paragraphe', contenu: menuFond }),
+        sous === 'ajout' && h(Popover, { ancre: refAjout, fermer: () => setSous(null), etiquette: 'Ajouter', contenu: () => [
+          { type: 'titre', libelle: 'Ajouter sur cette page' },
+          { type: 'action', libelle: 'Logo', action: () => { setSous(null); actions.ajouterImage('logo'); } },
+          { type: 'action', libelle: 'Fleurs', action: () => { setSous(null); actions.ajouterImage('fleurs'); } }] }),
         sous === 'ia' && h(Popover, { ancre: refRobotBarre, fermer: () => setSous(null), etiquette: 'CCB · Creative Collaborative Boost', contenu: menuAssistant }));
     }
 

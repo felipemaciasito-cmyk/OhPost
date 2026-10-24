@@ -45,6 +45,10 @@
   // 81 à gauche et à droite, 110 en haut et en bas. Seuls le numéro de page, le petit logo de chaque page
   // et la flèche « glisser » (centrée dans la marge droite) vont dans la marge.
   const MARGES = { gauche: 81, droite: 81, haute: 110, basse: 110 };
+  // Fonds de texte (cartes, surligneurs, fonds de paragraphe) et bandeaux : toujours en opacité réduite (décision du 24 octobre 2026).
+  const OPACITE_FONDS = 0.85;
+  // Le vert le plus soutenu de la charte ne sert jamais de fond plein de page : seulement en bandeau ou en fond de texte.
+  const FONDS_INTERDITS_EN_PAGE = ['vert'];
   const SIGNATURE = { l: 220, h: 90, ecart: 40 };
   const LOGO_PARTOUT = { l: 170, h: 64, bas: 70 };
   const RATIO_LOGO = 100 / 260; // hauteur / largeur du logo
@@ -285,7 +289,7 @@
           let x = placer(ligne.largeur);
           if (s.surligne && ligne.morceaux.length) {
             const hb = t * 1.18;
-            locaux.push({ type: 'rect', x: x - 10, y: y + (hlL - hb) / 2, l: ligne.largeur + 20, h: hb, couleur: s.surligne, rayon: s.surligneRayon || 0 });
+            locaux.push({ type: 'rect', x: x - 10, y: y + (hlL - hb) / 2, l: ligne.largeur + 20, h: hb, couleur: s.surligne, rayon: s.surligneRayon || 0, opacite: OPACITE_FONDS });
           }
           for (const m of ligne.morceaux) {
             locaux.push({ type: 'ligne', texte: m.texte, x, y: y + baseL, police: m.police, taille: m.taille, couleur: m.couleur || s.couleur });
@@ -315,7 +319,7 @@
           const x = placer(l);
           if (s.surligne) {
             const hb = s.taille * 1.18;
-            locaux.push({ type: 'rect', x: x - 10, y: y + (hl - hb) / 2, l: l + 20, h: hb, couleur: s.surligne, rayon: s.surligneRayon || 0 });
+            locaux.push({ type: 'rect', x: x - 10, y: y + (hl - hb) / 2, l: l + 20, h: hb, couleur: s.surligne, rayon: s.surligneRayon || 0, opacite: OPACITE_FONDS });
           }
           locaux.push({ type: 'ligne', texte, x, y: y + base, police, taille: s.taille, couleur: s.couleur });
           y += hl;
@@ -323,7 +327,7 @@
       }
       if (s.carte) {
         y += marge;
-        locaux.unshift({ type: 'rect', x: zone.x, y: debut, l: zone.largeur, h: y - debut, couleur: s.carte.fond, rayon: s.carteRayon !== undefined ? s.carteRayon : 28 });
+        locaux.unshift({ type: 'rect', x: zone.x, y: debut, l: zone.largeur, h: y - debut, couleur: s.carte.fond, rayon: s.carteRayon !== undefined ? s.carteRayon : 28, opacite: OPACITE_FONDS });
       }
       // Filet latéral : celui de la charte (citations), ou celui que tu ajoutes ou retires toi-même.
       let filet = s.filetPerso === undefined ? s.filet : s.filetPerso ? s.filet || s.couleurFilet : null;
@@ -471,7 +475,7 @@
         const bandeH = Math.round(H * 0.278);
         const t = empiler(titre ? [{ ...riche(titre), texte: titre.texte, role: 'bold', taille: C(104), interligne: 1.08, couleur: fond.texte }] : [], zone, choisirPolice);
         elements.push(...pileHaut(t, haut + 40, bandeHaut - 30));
-        elements.push({ type: 'rect', x: 0, y: bandeHaut, l: L, h: bandeH, couleur: fond.bande.fond });
+        elements.push({ type: 'rect', x: 0, y: bandeHaut, l: L, h: bandeH, couleur: fond.bande.fond, opacite: OPACITE_FONDS });
         const zoneBande = { ...zone, largeur: L - MARGES.gauche - MARGES.droite };
         const c = ajuster((taille) => suite.map((b) => ({ ...riche(b), texte: b.texte, role: 'bold', taille, interligne: 1.08, couleur: fond.bande.texte })), zoneBande, bandeH - 60, choisirPolice, C(92), C(56));
         elements.push(...pileCentree(c, bandeHaut + 30, bandeHaut + bandeH - 30));
@@ -510,7 +514,7 @@
         const yTitre = coupe - 56 - t.hauteur;
         if (yTitre < haut - 0.5) deborde = true;
         tropLarge = tropLarge || t.tropLarge;
-        elements.push({ type: 'rect', x: 0, y: coupe, l: L, h: H - coupe, couleur: fond.bande.fond });
+        elements.push({ type: 'rect', x: 0, y: coupe, l: L, h: H - coupe, couleur: fond.bande.fond, opacite: OPACITE_FONDS });
         elements.push(...decaler(t.elements, yTitre));
         const c = ajuster((taille) => suite.map((b) => ({ ...riche(b), texte: b.texte, role: 'bold', taille, interligne: 1.08, couleur: fond.bande.texte })), zoneLarge, bas - coupe - 56, choisirPolice, C(96), C(56));
         elements.push(...pileHaut(c, coupe + 56, bas));
@@ -682,8 +686,11 @@
       if (e.type === 'bloc') continue;
       if (options.masquer !== undefined && e.bloc === options.masquer && e.type !== 'rect') continue; // en écriture : le texte est caché, son fond reste
       if (e.type === 'rect') {
+        ctx.save();
+        if (e.opacite) ctx.globalAlpha = e.opacite;
         ctx.fillStyle = e.couleur;
         if (e.rayon) { rectArrondi(ctx, e.x, e.y, e.l, e.h, e.rayon); ctx.fill(); } else ctx.fillRect(e.x, e.y, e.l, e.h);
+        ctx.restore();
       } else if (e.type === 'ligne') {
         ctx.save();
         if (e.opacite) ctx.globalAlpha = e.opacite;
@@ -785,14 +792,17 @@
       if (compo.libre) {
         const zones = compo.elements.filter((e) => e.type === 'bloc');
         const { l: Ls, h: Hs } = compo.fmt;
-        if (compo.deborde) alertes.push({ type: 'hors-slide', niveau: 'bloquant', slide: i, cible: 'design', message: 'Un bloc sort de la page : une partie de son texte serait coupée à l’export.' });
-        else if (zones.some((z) => z.x < MARGES.gauche - 1 || z.x + z.l > Ls - MARGES.droite + 1 || z.y < MARGES.haute - 1 || z.y + z.h > Hs - MARGES.basse + 1)) alertes.push({ type: 'hors-marges', niveau: 'avertissement', slide: i, cible: 'design', message: 'Un bloc sort des marges de la charte.' });
-        let superposes = false;
-        for (let a = 0; a < zones.length && !superposes; a++) for (let c = a + 1; c < zones.length; c++) {
+        const dehors = (z) => z.x < -1 || z.x + z.l > Ls + 1 || z.y < -1 || z.y + z.h > Hs + 1;
+        const horsMarges = (z) => z.x < MARGES.gauche - 1 || z.x + z.l > Ls - MARGES.droite + 1 || z.y < MARGES.haute - 1 || z.y + z.h > Hs - MARGES.basse + 1;
+        const blocsDe = (test) => [...new Set(zones.filter(test).map((z) => z.bloc))];
+        if (compo.deborde) alertes.push({ type: 'hors-slide', niveau: 'bloquant', slide: i, cible: 'design', blocs: blocsDe(dehors), message: 'Un bloc sort de la page : une partie de son texte serait coupée à l’export.' });
+        else if (zones.some(horsMarges)) alertes.push({ type: 'hors-marges', niveau: 'avertissement', slide: i, cible: 'design', blocs: blocsDe(horsMarges), message: 'Un bloc sort des marges de la charte.' });
+        const enCause = new Set();
+        for (let a = 0; a < zones.length; a++) for (let c = a + 1; c < zones.length; c++) {
           const p = zones[a]; const q = zones[c];
-          if (p.x < q.x + q.l && q.x < p.x + p.l && p.y < q.y + q.h && q.y < p.y + p.h) { superposes = true; break; }
+          if (p.bloc !== q.bloc && p.x < q.x + q.l && q.x < p.x + p.l && p.y < q.y + q.h && q.y < p.y + p.h) { enCause.add(p.bloc); enCause.add(q.bloc); }
         }
-        if (superposes) alertes.push({ type: 'superposes', niveau: 'avertissement', slide: i, cible: 'design', message: 'Des blocs se superposent.' });
+        if (enCause.size) alertes.push({ type: 'superposes', niveau: 'avertissement', slide: i, cible: 'design', blocs: [...enCause], message: 'Des blocs se superposent.' });
       }
       if (compo.deborde && !compo.libre) alertes.push({ type: 'deborde', niveau: 'bloquant', slide: i, cible: 'design', message: 'Le texte dépasse les marges. Raccourcis-le, déplace un paragraphe ou essaie un autre gabarit.' });
       const mots = article.slides[i].blocs.reduce((n, b) => n + compterMots(b.texte), 0);
@@ -844,9 +854,10 @@
   // différents de ceux des articles précédents, toujours dans la charte.
   function proposerPresentation(article, autres, rythme, aleatoire = Math.random, convient = () => true) {
     const recents = autres.slice(0, 3);
-    const fonds = Object.keys(FONDS).filter((f) => f !== article.fond && !recents.some((a) => a.fond === f));
+    const fondsPage = Object.keys(FONDS).filter((f) => !FONDS_INTERDITS_EN_PAGE.includes(f));
+    const fonds = fondsPage.filter((f) => f !== article.fond && !recents.some((a) => a.fond === f));
     const choisir = (liste, repli) => (liste.length ? liste[Math.floor(aleatoire() * liste.length)] : repli);
-    const fond = choisir(fonds, Object.keys(FONDS).find((f) => f !== article.fond));
+    const fond = choisir(fonds, fondsPage.find((f) => f !== article.fond));
     const couvertures = ['V1', 'V2', 'V3', 'V4', 'V5'].filter((g) => g !== (article.slides[0] && article.slides[0].gabarit) && !recents.some((a) => a.slides[0] && a.slides[0].gabarit === g));
     const melanger = (liste) => liste.map((g) => [aleatoire(), g]).sort((a, b) => a[0] - b[0]).map((x) => x[1]);
     // Pour chaque slide, des gabarits par ordre de préférence ; on garde le premier qui tient dans les marges.
@@ -994,7 +1005,8 @@
     return solutions;
   }
 
-  const api = { imagesDe, RATIO_LOGO, reperesDeplacement,
+  const fondsDePage = (palette) => Object.fromEntries(Object.entries(fondsDe(palette)).filter(([cle]) => !FONDS_INTERDITS_EN_PAGE.includes(cle)));
+  const api = { fondsDePage, OPACITE_FONDS, FONDS_INTERDITS_EN_PAGE, imagesDe, RATIO_LOGO, reperesDeplacement,
     PALETTE, FONDS, CHARTE_DEFAUT, construireFonds, fondsDe, naturesUtiles, natureAffichee, FORMATS, MARGES, NATURES, GABARITS, LIMITES_SLIDES,
     policeExacte, policeSysteme, fondFonce, cleLogo, couperLignes, composer, dessiner, gabaritParDefaut,
     compterMots, passagesManquants, textesAjoutes, controler, solutionsDebordement, figerSlide, revenirAuGabarit, decouperMecaniquement, proposerPresentation,

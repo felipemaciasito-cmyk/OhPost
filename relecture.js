@@ -238,6 +238,20 @@
       'Réponds uniquement avec le texte de la description, prêt à être copié.',
     ].join('\n');
   }
+  // Trois versions d'un coup, pour choisir (Publication › CCB › « Générer 3 propositions »).
+  const JSON_DESCRIPTIONS = { nom: 'descriptions', description: 'Trois versions du texte du post.', schema: { type: 'object', properties: { propositions: { type: 'array', items: { type: 'string' }, description: 'Trois versions complètes, prêtes à copier.' } }, required: ['propositions'] } };
+  function consigneDescriptions(reseau) {
+    return consigneDescription(reseau).replace('Réponds uniquement avec le texte de la description, prêt à être copié.',
+      'Écris trois versions vraiment différentes (accroche, angle, longueur), chacune complète et prête à être copiée. Réponds uniquement avec un objet JSON, sans aucun texte autour : {"propositions": ["…", "…", "…"]}');
+  }
+  function lireDescriptions(brut) {
+    const o = premierObjet(brut, (x) => Array.isArray(x.propositions));
+    const liste = o ? o.propositions : [];
+    return liste.map((t) => nettoyerDescription(String(t || ''))).filter(Boolean).slice(0, 3);
+  }
+  // Précision ajoutée à chaque demande de la discussion sur le texte du post.
+  const precisionPost = (reseau) => `Le texte entre <article> et </article> est le texte du post ${RESEAUX[reseau] ? RESEAUX[reseau].nom : ''} qui accompagne le carrousel, pas l’article lui-même. Garde ses règles : pas d’émoji, rien d’inventé.`;
+
   // Nettoie la réponse (guillemets ou balises éventuels) ; la typographie française est appliquée ensuite.
   function nettoyerDescription(brut) {
     let t = String(brut || '').trim().replace(/^```[a-z]*\s*|```$/gi, '').trim();
@@ -383,7 +397,7 @@
   const JSON_DISCUSSION = { nom: 'repondre', description: 'Ta réponse à la personne, avec tes éventuelles propositions et des pistes pour continuer.', schema: { type: 'object', properties: { reponse: texteS, propositions: { type: 'array', items: { type: 'object', properties: { titre: texteS, avant: texteS, apres: texteS, pourquoi: texteS, vigilance: texteS }, required: ['titre', 'avant', 'apres'] } }, pistes: { type: 'array', items: texteS } }, required: ['reponse', 'propositions'] } };
   const JSON_FORMULATIONS = { nom: 'formulations', description: 'De nouvelles formulations du passage.', schema: { type: 'object', properties: { formulations: { type: 'array', items: texteS } }, required: ['formulations'] } };
 
-  const api = { blocProfil, REGLE_PROFIL, MAX_PROFIL, JSON_RELECTURE, JSON_DISCUSSION, JSON_FORMULATIONS, extraireObjets, premierObjet, formulationsDe, SYSTEME_FORMULATIONS, messageFormulations, lireFormulations, MAX_FORMULATIONS, SYSTEME_DISCUSSION, messageDiscussion, lireDiscussion, placerPassage, MAX_HISTORIQUE, ACTIONS, MAX_PASSAGE, consigneSuggestion, consigneSuggestionTexte, lireSuggestion, RESEAUX, consigneDescription, nettoyerDescription, SYSTEME, consigne, lireReponse, simplifier, trouver, localiser, appliquer, apercu, recaler, TYPES, MAX_PROPOSITIONS };
+  const api = { JSON_DESCRIPTIONS, consigneDescriptions, lireDescriptions, precisionPost, blocProfil, REGLE_PROFIL, MAX_PROFIL, JSON_RELECTURE, JSON_DISCUSSION, JSON_FORMULATIONS, extraireObjets, premierObjet, formulationsDe, SYSTEME_FORMULATIONS, messageFormulations, lireFormulations, MAX_FORMULATIONS, SYSTEME_DISCUSSION, messageDiscussion, lireDiscussion, placerPassage, MAX_HISTORIQUE, ACTIONS, MAX_PASSAGE, consigneSuggestion, consigneSuggestionTexte, lireSuggestion, RESEAUX, consigneDescription, nettoyerDescription, SYSTEME, consigne, lireReponse, simplifier, trouver, localiser, appliquer, apercu, recaler, TYPES, MAX_PROPOSITIONS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else racine.PostsOPRelecture = api;
 })(typeof window !== 'undefined' ? window : globalThis);

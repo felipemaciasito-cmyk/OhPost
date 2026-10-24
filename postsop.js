@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-24.1'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-24.3'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -114,8 +114,8 @@
   const AIDES = {
     bibliotheque: { titre: 'Tes articles', textes: ['Trois sections : En cours, Publiés (validés par toi) et Corbeille, d’où tu peux restaurer un article.', 'Le menu « … » d’une carte permet de dupliquer, d’utiliser un article comme modèle pour un nouveau texte, de le marquer comme publié ou de le mettre à la corbeille.', 'Trie et affiche tes articles comme tu veux, en grille ou en liste. « Annuler » et ⌘Z (Ctrl+Z) reviennent en arrière à tout moment.', 'Calendrier : place tes articles sur une date, puis « Programmer un rappel » ajoute une alerte au calendrier de ton appareil. La publication automatique arrivera plus tard.'] },
     configuration: { titre: 'La configuration', textes: ['Charte : tes couleurs et tes tailles de texte. Tout changement s’applique à tous tes carrousels.', 'Ressources : tes polices, ton logo et tes fleurs, importés une fois et retrouvés sur tous tes appareils.', 'Réglages : le comportement de l’outil. Synchronisation : la liaison avec ton dépôt GitHub privé.', 'IA : le fournisseur d’intelligence artificielle et sa clé. Comme la clé GitHub, elle reste sur l’appareil : à saisir une fois sur chacun.'] },
-    texte: { titre: 'Étape 1 · Texte', textes: ['Ton texte est la référence du carrousel : chaque modification ici met les pages à jour, sans toucher à leur mise en page. Et un paragraphe modifié dans Mise en page modifie aussi ce texte.', 'Relis ton texte avant de passer à la mise en page : CCB composera ses propositions sur le texte corrigé.', 'Pour remplacer tout le texte : sélectionne tout, colle le nouveau, puis ouvre « Mise en page… » à l’étape 2 pour que CCB recompose les pages.', 'Avec une IA active (Configuration, onglet IA), « Relire avec CCB » propose des corrections sous forme de cartes : accepte, modifie ou refuse chacune ; rien n’est appliqué sans toi. Sans IA, la vérification LanguageTool surligne les fautes ; pour chacune, choisis la bonne correction ou ignore-la.', 'La typographie française se corrige toute seule quand tu tapes ou colles du texte, ici comme sur les pages : un message montre chaque correction, avec « Annuler ».', 'Discussion : sélectionne un passage, puis « CCB » (le petit robot). Donne tes consignes en langage naturel et demande plusieurs propositions ; « Appliquer » remplace le passage, « Annuler » le rétablit.'] },
-    composition: { titre: 'Étape 2 · Mise en page', textes: ['La première fois que tu arrives ici, la fenêtre de mise en page s’ouvre : propositions de CCB, tes favoris, ou le découpage sans IA. Le bouton « Mise en page… », à droite des menus, la rouvre quand tu veux : autres propositions, favoris, fond, logo et fleurs. Le réseau et les dimensions se changent dans le menu Carrousel.', 'Tes pages, les unes sous les autres, exactement comme elles seront exportées. Clique dans un paragraphe pour l’écrire à sa place ; sélectionne des mots pour les mettre en forme avec la petite barre qui apparaît.', 'Entrée crée un nouveau paragraphe, ⇧Entrée un retour à la ligne, ⌘↩ (Ctrl+↩) un saut de page. ⌫ au début d’un paragraphe le réunit au précédent ; au début d’une page, avec la page précédente.', 'Les menus en haut regroupent tout le reste : gabarits, fond, logo, et Vérifier pour les points à regarder. Ton texte reste la référence : chaque modification ici le met à jour.'] },
+    texte: { titre: 'Étape 1 · Texte', textes: ['Ton texte est la référence du carrousel : chaque modification ici met les pages à jour, sans toucher à leur mise en page. Et un paragraphe modifié dans Mise en page modifie aussi ce texte.', 'Relis ton texte avant de passer à la mise en page : CCB composera ses propositions sur le texte corrigé.', 'Pour remplacer tout le texte : sélectionne tout, colle le nouveau, puis ouvre « Apparence générale » à l’étape 2 pour que CCB recompose les pages.', 'Avec une IA active (Configuration, onglet IA), « Relire avec CCB » propose des corrections sous forme de cartes : accepte, modifie ou refuse chacune ; rien n’est appliqué sans toi. Sans IA, la vérification LanguageTool surligne les fautes ; pour chacune, choisis la bonne correction ou ignore-la.', 'La typographie française se corrige toute seule quand tu tapes ou colles du texte, ici comme sur les pages : un message montre chaque correction, avec « Annuler ».', 'Discussion : sélectionne un passage, puis « CCB » (le petit robot). Donne tes consignes en langage naturel et demande plusieurs propositions ; « Appliquer » remplace le passage, « Annuler » le rétablit.'] },
+    composition: { titre: 'Étape 2 · Mise en page', textes: ['La première fois que tu arrives ici, la fenêtre de mise en page s’ouvre : propositions de CCB, tes favoris, ou le découpage sans IA. Le bouton « Apparence générale », à droite des menus, la rouvre quand tu veux : autres propositions, favoris, fond, logo et fleurs. Le réseau et les dimensions se changent dans le menu Carrousel.', 'Tes pages, les unes sous les autres, exactement comme elles seront exportées. Clique dans un paragraphe pour l’écrire à sa place ; sélectionne des mots pour les mettre en forme avec la petite barre qui apparaît.', 'Entrée crée un nouveau paragraphe, ⇧Entrée un retour à la ligne, ⌘↩ (Ctrl+↩) un saut de page. ⌫ au début d’un paragraphe le réunit au précédent ; au début d’une page, avec la page précédente.', 'Les menus en haut regroupent tout le reste : gabarits, fond, logo, et Vérifier pour les points à regarder. Ton texte reste la référence : chaque modification ici le met à jour.'] },
     publication: { titre: 'Étape 3 · Publication', textes: ['Tout pour publier, dans l’ordre : le texte du post, le fichier, la date de publication, puis « Marquer comme publié ».', 'Le texte du post : écris-le ou demande une proposition à CCB, puis « Copier » pour le coller sur le réseau.', 'Le fichier : un PDF pour LinkedIn, des images PNG pour Instagram. S’il reste des alertes, l’outil te les rappelle avant : à toi de décider.', 'La date : programme-la (elle apparaît dans le calendrier de la bibliothèque) ou choisis « Ne pas programmer ».'] },
   };
 
@@ -217,6 +217,14 @@
       case 'statut': {
         const articles = etat.articles.map((a) => (a.id === action.id ? { ...a, statut: action.statut, publie: action.statut === 'Publié' ? maintenant() : null } : a));
         return { ...avecHistorique(etat, articles), message: { texte: action.statut === 'Publié' ? 'Article marqué comme publié : il est rangé dans la section Publiés.' : 'Article remis en cours.', annulable: true } };
+      }
+      case 'depuisModele': {
+        // La mise en page du modèle est reprise ; l'article s'ouvre à l'étape Texte, avec un champ vierge pour le nouveau texte.
+        const modele = etat.articles.find((a) => a.id === action.id);
+        if (!modele) return etat;
+        const article = { id: nouvelId(), titre: `D’après « ${modele.titre} »`, statut: 'Brouillon', reseau: modele.reseau, format: modele.format, fond: modele.fond, logo: modele.logo || 'auto', modifie: maintenant(), texte: [], slides: [], descriptions: DESCRIPTIONS_VIDES, attenteTexte: modele.id, misEnPage: true };
+        const e = avecHistorique(etat, [article, ...etat.articles]);
+        return { ...e, projet: { ...e.projet, ordre: [article.id, ...(e.projet.ordre || [])] }, ecran: 'atelier', articleId: article.id, etape: 'texte', slide: 0, feuille: null };
       }
       case 'creer': {
         const e = avecHistorique(etat, [action.article, ...etat.articles]);
@@ -348,6 +356,7 @@
     champ: (cle, valeur) => (a) => ({ ...a, [cle]: valeur }),
     echelle: (i, echelle) => majSlide(i, (s) => ({ ...s, echelle })),
     validerAlerte: (cle) => (a) => ({ ...a, alertesValidees: [...new Set([...(a.alertesValidees || []), cle])] }),
+    validerAlertes: (cles) => (a) => ({ ...a, alertesValidees: [...new Set([...(a.alertesValidees || []), ...cles])] }),
     reafficherAlertes: () => (a) => ({ ...a, alertesValidees: [] }),
     texte: (paragraphes) => (a) => ({ ...a, texte: paragraphes }),
     source: (valeur) => (a) => L.appliquerEditionSource(a, valeur),
@@ -579,7 +588,9 @@
 
   function SelecteurFond({ valeur, onChange }) {
     const { charte } = useContext(Contexte);
-    const fonds = M.fondsDe(charte.palette);
+    // Le vert soutenu n'est pas un fond de page ; un article ancien qui l'utilise le garde visible pour pouvoir en changer.
+    const tous = M.fondsDe(charte.palette);
+    const fonds = { ...M.fondsDePage(charte.palette), ...(tous[valeur] && !M.fondsDePage(charte.palette)[valeur] ? { [valeur]: tous[valeur] } : {}) };
     return h('div', { className: 'fonds', role: 'group', 'aria-label': 'Fond' },
       Object.entries(fonds).map(([cle, f]) => h('button', { key: cle, type: 'button', className: cls('fond-choix', valeur === cle && 'actif'), 'aria-pressed': valeur === cle, title: f.nom, onClick: () => onChange(cle) },
         h('span', { className: 'fond-echantillon', style: { background: f.fond } }), h('span', { className: 'fond-nom' }, f.nom))));
@@ -620,7 +631,7 @@
       ? [['restaurer', 'Restaurer', { type: 'restaurer', id: article.id }], ['poubelle', 'Supprimer définitivement', { type: 'feuille', feuille: { supprimer: article.id } }, 'danger']]
       : [
         ['modele', 'Dupliquer', { type: 'dupliquer', id: article.id }],
-        ['plus', 'Utiliser comme modèle', { type: 'feuille', feuille: { nouvel: true, modele: article.id } }],
+        ['plus', 'Utiliser comme modèle', { type: 'depuisModele', id: article.id }],
         article.statut === 'Publié' ? ['restaurer', 'Remettre en cours', { type: 'statut', id: article.id, statut: 'Exporté' }] : ['coche', 'Marquer comme publié', { type: 'statut', id: article.id, statut: 'Publié' }],
         ['poubelle', 'Mettre à la corbeille', { type: 'corbeille', id: article.id }, 'danger'],
       ];
@@ -1041,7 +1052,7 @@
     const [noteFavori, setNoteFavori] = useState('');
     const [hasard, setHasard] = useState(null);         // « Une autre au hasard » : { cle, fond, slides }
     const configIA = IA.active();
-    const fonds = M.fondsDe(charte.palette);
+    const fonds = M.fondsDePage(charte.palette);
     const cleTexte = JSON.stringify([paragraphes, reseau, format]);
     const maxPages = PROP ? PROP.maxPagesPour(paragraphes) : 7;
     const indications = discussion.filter((m) => m.de === 'moi').map((m) => m.texte);
@@ -1261,7 +1272,7 @@
     // Un seul écran : les mises en page, puis le fond, le logo et les fleurs. Le texte se remplace à l'étape Texte
     // de l'article ; le réseau et les dimensions se changent dans le menu Carrousel.
     const pied = h('span', { className: 'pied-droite' }, h(Bouton, { variante: 'principal', disabled: !paragraphes.length, onClick: terminer }, 'Appliquer'));
-    return h(Feuille, { titre: premiere ? 'Choisis ta mise en page' : 'Mise en page', classe: 'assistant large', onAnnuler: () => dispatch({ type: 'feuille', feuille: null }), pied },
+    return h(Feuille, { titre: premiere ? 'Choisis ta mise en page' : 'Apparence générale', classe: 'assistant large', onAnnuler: () => dispatch({ type: 'feuille', feuille: null }), pied },
       etapeMiseEnPage,
       h('div', { className: 'mep-finitions' },
         h('h3', { className: 'gill' }, 'Fond, logo et fleurs'),
@@ -1290,7 +1301,7 @@
       h(Message, { etat, dispatch }),
       etat.feuille && etat.feuille.reglages === article.id && h(FeuilleNouvelArticle, { etat, dispatch }),
       etat.feuille === 'calendrier' && h(FenetreCalendrier, { etat, dispatch }),
-      h('main', { className: cls('contenu atelier', etat.etape === 'composition' && 'large', (!vues[etat.etape] || etat.etape === 'texte') && 'texte-fixe') }, h(vues[etat.etape] || EtapeTexte, { etat, dispatch, article, majA })),
+      h('main', { className: cls('contenu atelier', etat.etape === 'composition' && 'large', (!vues[etat.etape] || etat.etape === 'texte') && 'texte-fixe') }, h(article.attenteTexte ? TexteEnAttente : (vues[etat.etape] || EtapeTexte), { etat, dispatch, article, majA })),
       h('footer', { className: 'pied-etapes' },
         h(Bouton, { disabled: index === 0, onClick: () => dispatch({ type: 'etape', etape: ETAPES[index - 1].id }) }, 'Étape précédente'),
         index < ETAPES.length - 1
@@ -1483,9 +1494,12 @@
   }
   const nouvelIdConversation = () => 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
-  function useDiscussion(article, texteComplet, majA, choisirZone, profil) {
-    const [d, setD] = useState(() => DISCUSSIONS.get(article.id) || (() => {
-      const conversations = lireConversations(article.id);
+  // options (texte du post) : cle de rangement des conversations, ecrire(texte) pour appliquer, precision ajoutée à chaque demande.
+  function useDiscussion(article, texteComplet, majA, choisirZone, profil, options = {}) {
+    const cleDisc = options.cle || article.id;
+    const ecrire = options.ecrire || ((t) => majA(OP.source(t), null));
+    const [d, setD] = useState(() => DISCUSSIONS.get(cleDisc) || (() => {
+      const conversations = lireConversations(cleDisc);
       const derniere = conversations[0];
       return { conversations, courante: derniere ? derniere.id : nouvelIdConversation(), messages: derniere ? derniere.messages : [], passageConv: derniere ? derniere.passage || '' : '', vue: 'conversation', ouvert: false, etat: 'repos', detail: '' };
     })());
@@ -1499,7 +1513,7 @@
         conversations = [{ id: y.courante, cree: ancienne ? ancienne.cree : Date.now(), maj: Date.now(), passage: y.passageConv || '', titre: (y.messages.find((m) => m.de === 'moi') || {}).texte || '', messages: y.messages }].concat(conversations);
       }
       y = { ...y, conversations };
-      dernier.current = y; DISCUSSIONS.set(article.id, y); ecrireConversations(article.id, conversations); setD(y);
+      dernier.current = y; DISCUSSIONS.set(cleDisc, y); ecrireConversations(cleDisc, conversations); setD(y);
     };
     async function envoyer(demande, passage) {
       const config = IA.active();
@@ -1509,7 +1523,7 @@
       const historique = avant.messages;
       maj({ ...avant, passageConv: historique.length ? avant.passageConv : (passage || ''), messages: historique.concat([{ de: 'moi', texte }]), etat: 'encours', detail: '' });
       try {
-        const brut = await IA.demander(config, { systeme: R.SYSTEME_DISCUSSION, texte: R.messageDiscussion(texteComplet, passage || '', historique, texte, { profil, titre: article.titre, reseau: article.reseau === 'linkedin' ? 'LinkedIn' : 'Instagram' }), maxJetons: 4000, delai: 120000 , json: R.JSON_DISCUSSION });
+        const brut = await IA.demander(config, { systeme: R.SYSTEME_DISCUSSION, texte: R.messageDiscussion(texteComplet, passage || '', historique, options.precision ? options.precision + '\n\n' + texte : texte, { profil, titre: article.titre, reseau: article.reseau === 'linkedin' ? 'LinkedIn' : 'Instagram' }), maxJetons: 4000, delai: 120000 , json: R.JSON_DISCUSSION });
         const r = R.lireDiscussion(brut);
         const x = dernier.current;
         maj({ ...x, etat: 'repos', messages: x.messages.concat([{ de: 'ia', texte: r.reponse, pistes: r.pistes || [], passage: passage || '', propositions: r.propositions.map((q) => ({ ...q, apercu: T.appliquer(q.apres, T.corrections(q.apres)), statut: 'attente' })) }]) });
@@ -1536,7 +1550,7 @@
       const pos = R.placerPassage(source, p.avant || m.passage, zone ? { debut: zone[0], fin: zone[1] } : null);
       if (!pos) { maj({ ...dernier.current, etat: 'erreur', detail: 'Passage introuvable dans ton texte : il a peut-être changé. Choisis-le de nouveau et redemande.' }); return; }
       const a = R.appliquer(source, pos[0], pos[1], p.apres);
-      majA(OP.source(a.texte), null);
+      ecrire(a.texte);
       if (choisirZone) choisirZone(pos[0], pos[0] + a.longueur); // le passage choisi suit le nouveau texte
       majProposition(mi, pi, (q, j) => (j === pi ? { ...q, statut: 'appliquee', insere: a.insere, avantReel: source.slice(pos[0], pos[1]) } : { ...q, statut: 'attente' }));
     }
@@ -1544,7 +1558,7 @@
       const p = dernier.current.messages[mi].propositions[pi];
       const pos = R.placerPassage(texteComplet, p.insere, null);
       if (!pos) { maj({ ...dernier.current, etat: 'erreur', detail: 'Impossible d’annuler : le passage a été modifié depuis.' }); return; }
-      majA(OP.source(texteComplet.slice(0, pos[0]) + p.avantReel + texteComplet.slice(pos[1])), null);
+      ecrire(texteComplet.slice(0, pos[0]) + p.avantReel + texteComplet.slice(pos[1]));
       if (choisirZone) choisirZone(pos[0], pos[0] + p.avantReel.length);
       majProposition(mi, pi, (q, j) => (j === pi ? { ...q, statut: 'attente' } : q));
     }
@@ -1695,6 +1709,28 @@
           rel.props.length ? `${pluriel(rel.props.length, 'proposition')}, dont ${attente} en attente.` : `${nomIA} n’a rien relevé dans ton article.`),
         rel.etat === 'fait' && rel.ecartees > 0 && h('p', { className: 'doux petit' }, `${pluriel(rel.ecartees, 'proposition')} ${rel.ecartees > 1 ? 'écartées' : 'écartée'} : leur passage est introuvable tel quel dans ton texte.`)),
       rel.props.map((p) => h(CarteProposition, { key: p.id, p, rel })));
+  }
+
+  // Nouvel article d'après un modèle : un champ vierge pour le texte ; « Créer les pages » applique la mise en page du modèle.
+  function TexteEnAttente({ etat, dispatch, article, majA }) {
+    const { choisirPolice, charte, reglages } = useContext(Contexte);
+    const modele = etat.articles.find((a) => a.id === article.attenteTexte);
+    const [texte, setTexte] = useState('');
+    const paragraphes = texte.split(/\n\s*\n|\n/).map((p) => p.trim()).filter(Boolean);
+    useEffect(() => { const z = document.getElementById('texte-modele'); if (z) z.focus(); }, []);
+    const creerPages = () => {
+      let sl = M.decouperMecaniquement(paragraphes, article.format, article.fond, choisirPolice, { charte, reglages });
+      if (modele) sl = appliquerModele(sl, modele);
+      const premier = paragraphes[0];
+      majA((a) => { const { attenteTexte, ...reste } = a; return L.lierArticle({ ...reste, titre: premier.length > 48 ? premier.slice(0, 48) + '…' : premier, texte: paragraphes, slides: sl }); }, null, `Pages créées avec la mise en page de « ${modele ? modele.titre : 'ton modèle'} ».`);
+      if (etat.etape !== 'texte') dispatch({ type: 'etape', etape: 'texte' });
+    };
+    return h('div', { className: 'colonne-unique' },
+      h(Carte, { titre: 'Nouveau texte', sousTitre: modele ? `Mise en page reprise de « ${modele.titre} » : fond, dimensions, réseau, gabarits et logo.` : 'Mise en page reprise du modèle.' },
+        etat.etape !== 'texte' && h('p', { className: 'note' }, 'Colle d’abord le texte de ton article : les pages seront créées avec la mise en page du modèle.'),
+        h(ZoneTexteTypo, { id: 'texte-modele', className: 'zone-texte', rows: 14, valeur: texte, onValeur: setTexte, placeholder: 'Colle ici le texte de ton nouvel article.', 'aria-label': 'Nouveau texte' }),
+        h('p', { className: 'doux petit' }, paragraphes.length ? `${paragraphes.length} paragraphe(s) · ${M.compterMots(texte)} mots.` : 'La typographie française est corrigée au passage.'),
+        h('div', { className: 'actions-ligne' }, h(Bouton, { variante: 'principal', disabled: !paragraphes.length, onClick: creerPages }, 'Créer les pages'))));
   }
 
   function EtapeTexte({ etat, dispatch, article, majA }) {
@@ -1874,6 +1910,39 @@
     const configIA = IA.active();
     const nomIA = IA.ASSISTANT.nom;
     const [props, setProps] = useState(() => PROPOSITIONS_DESCRIPTION.get(article.id) || {});
+    const profil = (etat && etat.projet && etat.projet.profilEditorial) || '';
+    const reseauCourant = seulement || 'linkedin';
+    const texteCourant = descriptions[reseauCourant].fr || '';
+    const [selDesc, setSelDesc] = useState(null);   // passage choisi dans le texte du post
+    const [bulle, setBulle] = useState(false);      // bulle du robot : trois propositions ou discussion
+    const refBulle = useRef(null);
+    const disc = useDiscussion(article, texteCourant, majA, (debut, fin) => setSelDesc({ debut, fin }), profil, {
+      cle: article.id + ':post:' + reseauCourant, ecrire: (t) => majA(OP.description(reseauCourant, t), null), precision: R.precisionPost(reseauCourant),
+    });
+    useEffect(() => {
+      if (!bulle) return undefined;
+      const fermer = (e) => { if (refBulle.current && !refBulle.current.contains(e.target)) setBulle(false); };
+      const echap = (e) => { if (e.key === 'Escape') setBulle(false); };
+      document.addEventListener('pointerdown', fermer); racine.addEventListener('keydown', echap);
+      return () => { document.removeEventListener('pointerdown', fermer); racine.removeEventListener('keydown', echap); };
+    }, [bulle]);
+    const passageDesc = selDesc && selDesc.fin > selDesc.debut ? texteCourant.slice(selDesc.debut, selDesc.fin) : '';
+    const noterSelection = (e) => { const t = e.target; setSelDesc(t.selectionEnd > t.selectionStart ? { debut: t.selectionStart, fin: t.selectionEnd } : null); };
+    async function proposerTrois(reseau) {
+      const config = IA.active();
+      if (!config) return;
+      setBulle(false);
+      majProp(reseau, { etat: 'encours', trois: true });
+      try {
+        const brut = await IA.demander(config, { systeme: R.consigneDescriptions(reseau), texte: R.consigne(article.texte.join('\n\n'), profil), maxJetons: 3000, delai: 120000, json: R.JSON_DESCRIPTIONS });
+        let textes = R.lireDescriptions(brut);
+        if (!textes.length) { const t = R.nettoyerDescription(typeof brut === 'string' ? brut : ''); if (t && !/^\{/.test(t)) textes = [t]; }
+        if (!textes.length) throw new Error('La réponse de l’IA est vide. Réessaie.');
+        majProp(reseau, { etat: 'fait', textes: textes.map((t) => T.appliquer(t, T.corrections(t))) });
+      } catch (erreur) {
+        majProp(reseau, { etat: 'erreur', detail: erreur.message });
+      }
+    }
     const majProp = (reseau, valeur) => setProps((x) => { const y = { ...x, [reseau]: valeur }; PROPOSITIONS_DESCRIPTION.set(article.id, y); return y; });
     async function proposer(reseau) {
       const config = IA.active();
@@ -1899,14 +1968,33 @@
           info: (reseau === 'instagram' ? 'Seules les premières lignes s’affichent avant « plus » : la première phrase compte le plus.' : 'Il s’affiche au-dessus du document : il donne envie de l’ouvrir.')
             + (configIA && etat && etat.projet && String(etat.projet.profilEditorial || '').trim() ? ` ${nomIA} tient compte de ton profil éditorial (Configuration › IA).` : ''),
           actions: h(Fragment, null,
-            configIA && h(Bouton, { variante: 'petit', disabled: p.etat === 'encours', onClick: () => proposer(reseau) }, p.etat === 'encours' ? 'Rédaction…' : p.etat === 'fait' ? 'Autre proposition' : 'Proposer avec ' + nomIA),
+            configIA && h('span', { ref: refBulle, className: 'ancre-bulle' },
+              h('button', { type: 'button', className: cls('bouton-robot', 'bouton-robot-menu', (bulle || disc.ouvert) && 'actif'), title: nomIA + ' · Creative Collaborative Boost', 'aria-label': nomIA + ' · Creative Collaborative Boost', 'aria-haspopup': 'true', 'aria-expanded': bulle, onClick: () => setBulle(!bulle) }, h(Robot, { taille: 40 })),
+              bulle && h('div', { className: 'bulle-ccb', role: 'menu', 'aria-label': nomIA },
+                h('button', { type: 'button', role: 'menuitem', className: 'item-bulle', disabled: p.etat === 'encours', onClick: () => proposerTrois(reseau) }, h('strong', null, 'Générer 3 propositions'), h('span', { className: 'doux petit' }, 'Trois versions à partir de ton article')),
+                h('button', { type: 'button', role: 'menuitem', className: 'item-bulle', onClick: () => { setBulle(false); disc.ouvrir(); } }, h('strong', null, 'Discuter'), h('span', { className: 'doux petit' }, passageDesc ? 'À propos du passage choisi' : 'Améliorer ton texte avec ' + nomIA)))),
             h(Bouton, { variante: 'petit', disabled: !texte, onClick: () => { if (navigator.clipboard) navigator.clipboard.writeText(texte).catch(() => {}); dispatch({ type: 'message', message: 'Description copiée.' }); } }, 'Copier')),
         },
-        h('textarea', { className: 'zone-texte', rows: 9, value: texte, placeholder: 'Écris ici le texte qui accompagnera ton carrousel.', onChange: (e) => majA(OP.description(reseau, e.target.value), 'description-' + reseau), 'aria-label': 'Description ' + reseau }),
+        h('textarea', { className: 'zone-texte', rows: 9, value: texte, placeholder: 'Écris ici le texte qui accompagnera ton carrousel.', onChange: (e) => { majA(OP.description(reseau, e.target.value), 'description-' + reseau); noterSelection(e); }, onSelect: noterSelection, onKeyUp: noterSelection, onPointerUp: noterSelection, 'aria-label': 'Description ' + reseau }),
+        // Un passage choisi : un bouton pour en discuter avec CCB.
+        configIA && passageDesc && h('div', { className: 'passage-post' },
+          h('button', { type: 'button', className: 'bouton secondaire petit bouton-passage', onPointerDown: (e) => e.preventDefault(), onClick: () => disc.ouvrir() }, h(Robot, { taille: 24 }), 'Discuter de ce passage avec ' + nomIA),
+          h('span', { className: 'doux petit' }, `« ${passageDesc.length > 60 ? passageDesc.slice(0, 60) + '…' : passageDesc} »`)),
         h('div', { className: 'doux petit droite' }, `${texte.length} / ${limite} caractères (limite indicative)`),
-        p.etat === 'encours' && h('p', { className: 'doux petit', role: 'status' }, `${nomIA} écrit une proposition à partir de ton article…`),
+        p.etat === 'encours' && h('p', { className: 'doux petit', role: 'status' }, p.trois ? `${nomIA} écrit trois propositions à partir de ton article…` : `${nomIA} écrit une proposition à partir de ton article…`),
+        p.etat === 'fait' && p.textes && h('div', { className: 'propositions-post' },
+          p.textes.map((t, k) => h('div', { key: k, className: 'proposition-description' },
+            h('div', { className: 'etiquette-mini' }, `Proposition ${k + 1} de ${nomIA}`),
+            h('p', { className: 'texte-propose' }, t),
+            h('div', { className: cls('petit', t.length > limite ? 'erreur' : 'doux') }, `${t.length} caractères${t.length > limite ? ' : au-delà de la limite indicative' : ''}`),
+            h('div', { className: 'actions-ligne' }, h(Bouton, { variante: 'principal', onClick: () => { majA(OP.description(reseau, t), null, texte ? 'Texte du post remplacé par la proposition ' + (k + 1) + '.' : 'Proposition ' + (k + 1) + ' utilisée.'); majProp(reseau, { etat: 'repos' }); } }, texte ? 'Remplacer mon texte' : 'Utiliser celle-ci')))),
+          h(Bouton, { variante: 'lien', onClick: () => majProp(reseau, { etat: 'repos' }) }, 'Ignorer les propositions')),
+        reseau === reseauCourant && configIA && disc.ouvert && h(FenetreDiscussion, {
+          disc, nomIA, passage: passageDesc, onRetirerPassage: () => setSelDesc(null),
+          onChoisirPassage: (t) => { const pos = R.placerPassage(texteCourant, t, null); if (pos) setSelDesc({ debut: pos[0], fin: pos[1] }); else disc.signaler('Ce passage n’est plus dans ton texte tel quel : sélectionne-le de nouveau.'); },
+        }),
         p.etat === 'erreur' && h('p', { className: 'erreur petit', role: 'status' }, p.detail),
-        p.etat === 'fait' && h('div', { className: 'proposition-description' },
+        p.etat === 'fait' && !p.textes && h('div', { className: 'proposition-description' },
           h('div', { className: 'etiquette-mini' }, 'Proposition de ' + nomIA),
           h('p', { className: 'texte-propose' }, p.texte),
           h('div', { className: cls('petit', p.texte.length > limite ? 'erreur' : 'doux') }, `${p.texte.length} caractères${p.texte.length > limite ? ' : au-delà de la limite indicative' : ''}`),
@@ -2009,7 +2097,7 @@
       h('div', { className: 'publication-etapes' },
         h('div', { className: 'publication-reseau' }, h('span', { className: 'doux petit' }, 'Texte du post pour'),
           h(Segmente, { etiquette: 'Réseau du texte', petit: true, valeur: reseau, onChange: setReseau, options: [{ valeur: 'linkedin', libelle: 'LinkedIn' }, { valeur: 'instagram', libelle: 'Instagram' }] })),
-        h(EtapeDescription, { etat, dispatch, article, majA, seulement: reseau, numero: 1 }),
+        h(EtapeDescription, { key: reseau, etat, dispatch, article, majA, seulement: reseau, numero: 1 }),
         h(EtapeExport, { etat, dispatch, article, majA, partie: 'fichiers', numeros: { fichiers: 2 } }),
         h(CarteProgrammation, { dispatch, article, majA, numero: 3 }),
         h(EtapeExport, { etat, dispatch, article, majA, partie: 'publie', numeros: { publie: 4 } })),

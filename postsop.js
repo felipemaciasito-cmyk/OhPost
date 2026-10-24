@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-25.2'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-25.6'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -545,6 +545,14 @@
     'hors-ligne': ['Hors ligne', 'attention'], erreur: ['Erreur de synchronisation', 'erreur'], conflit: ['Conflit résolu', 'attention'],
   };
 
+  // Le nom de l'app, en haut à gauche : un toucher ramène à la page des articles (ou remonte en haut de la liste).
+  function MarqueApp({ etat, dispatch }) {
+    const ici = etat.ecran === 'bibliotheque';
+    return h('button', { type: 'button', className: cls('marque', 'gill', 'bouton-marque', !ici && 'avec-retour'), title: ici ? 'Oh!Post' : 'Retour aux articles', 'aria-label': ici ? 'Oh!Post' : 'Oh!Post · retour aux Articles',
+      onClick: () => { if (ici) racine.scrollTo({ top: 0, behavior: 'smooth' }); else dispatch({ type: 'ecran', ecran: 'bibliotheque' }); } },
+      !ici && h(Icone, { nom: 'retour', taille: 18 }), 'Oh!Post');
+  }
+
   function Barre({ etat, dispatch, gauche, titre }) {
     const [libelle, ton] = LIBELLES_SYNCHRO[etat.synchro.statut] || LIBELLES_SYNCHRO['non-configure'];
     const h0 = etat.historique;
@@ -569,7 +577,7 @@
     if (!aide) return null;
     return h('div', { className: 'panneau-aide', role: 'dialog', 'aria-label': aide.titre },
       h('h3', { className: 'gill' }, aide.titre), aide.textes.map((t, i) => h('p', { key: i }, t)),
-      h('p', { className: 'doux petit' }, 'PostsOP, version ' + VERSION + '.'),
+      h('p', { className: 'doux petit' }, 'Oh!Post, version ' + VERSION + '.'),
       h(Bouton, { onClick: () => dispatch({ type: 'aide', ouverte: false }) }, 'Compris'));
   }
 
@@ -687,7 +695,7 @@
         h(Bouton, { variante: 'icone', etiquette: 'Reculer', disabled: i === liste.length - 1, onClick: () => dispatch({ type: 'deplacerArticle', id: a.id, delta: liste[i + 1] ? etat.articles.indexOf(liste[i + 1]) - etat.articles.indexOf(a) : 0 }) }, h(Icone, { nom: b.vue === 'liste' ? 'bas' : 'droite' }))),
       h(MenuArticle, { article: a, dispatch, section: b.section }));
     return h(Fragment, null,
-      h(Barre, { etat, dispatch, titre: '', gauche: h('span', { className: 'marque gill' }, 'PostsOP') }),
+      h(Barre, { etat, dispatch, titre: '', gauche: h(MarqueApp, { etat, dispatch }) }),
       etat.aide && h(PanneauAide, { cle: 'bibliotheque', dispatch }),
       h(Message, { etat, dispatch }),
       h('main', { className: 'contenu' },
@@ -838,10 +846,10 @@
       const fin = p.date.replace(/-/g, '') + 'T' + String((Number(h) + 1) % 24).padStart(2, '0') + mi + '00';
       const echapper = (t) => String(t).replace(/[\\;,]/g, (c) => '\\' + c).replace(/\n/g, '\\n');
       const reseau = nomReseau(article.reseau);
-      return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//PostsOP//Calendrier//FR', 'BEGIN:VEVENT',
+      return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Oh!Post//Calendrier//FR', 'BEGIN:VEVENT',
         'UID:' + article.id + '-' + debut + '@postsop', 'DTSTAMP:' + new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, ''),
         'DTSTART:' + debut, 'DTEND:' + fin, 'SUMMARY:' + echapper('Publier « ' + article.titre + ' » sur ' + reseau),
-        'DESCRIPTION:' + echapper('Carrousel préparé dans PostsOP.'),
+        'DESCRIPTION:' + echapper('Carrousel préparé dans Oh!Post.'),
         'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + echapper('Publier « ' + article.titre + ' »'), 'TRIGGER:PT0M', 'END:VALARM',
         'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
     },
@@ -1324,7 +1332,7 @@
     const vues = { texte: EtapeTexte, composition: EtapeComposition, publication: EtapePublication };
     const index = ETAPES.findIndex((e) => e.id === etat.etape);
     return h(Fragment, null,
-      h(Barre, { etat, dispatch, titre: article.titre, gauche: h(Bouton, { variante: 'retour', onClick: () => dispatch({ type: 'ecran', ecran: 'bibliotheque' }) }, h(Icone, { nom: 'retour' }), 'Articles') }),
+      h(Barre, { etat, dispatch, titre: article.titre, gauche: h(MarqueApp, { etat, dispatch }) }),
       h('nav', { className: 'etapes', 'aria-label': 'Étapes' },
         ETAPES.map((e, i) => h('button', {
           key: e.id, type: 'button', className: cls('etape', e.id === etat.etape && 'active', i < index && 'faite'), 'aria-current': e.id === etat.etape ? 'step' : undefined, onClick: () => dispatch({ type: 'etape', etape: e.id }),
@@ -1613,10 +1621,27 @@
      la transcription est faite par Apple, la voix est celle de l'iPad. */
   const Reconnaissance = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
   const voixDisponible = () => !!Reconnaissance && typeof window !== 'undefined' && 'speechSynthesis' in window;
+  const CLE_VOIX = 'postsop-voix';
+  const REGLAGES_VOIX = { nom: '', vitesse: 1, hauteur: 1, volume: 1 };
+  const lireReglagesVoix = () => { try { return { ...REGLAGES_VOIX, ...(JSON.parse(localStorage.getItem(CLE_VOIX) || '{}') || {}) }; } catch (e) { return { ...REGLAGES_VOIX }; } };
+  const ecrireReglagesVoix = (r) => { try { localStorage.setItem(CLE_VOIX, JSON.stringify(r)); } catch (e) { /* stockage indisponible : réglage pour cette session */ } };
+  const voixDeLAppareil = () => (typeof window !== 'undefined' && window.speechSynthesis ? window.speechSynthesis.getVoices() || [] : []).filter((v) => /^fr(-|_|$)/i.test(v.lang));
   function voixFrancaise() {
-    const voix = (window.speechSynthesis.getVoices() || []).filter((v) => /^fr(-|_|$)/i.test(v.lang));
-    // Les voix « améliorées » ou « premium » de l'iPad d'abord, puis la voix française par défaut.
-    return voix.find((v) => /premium|enhanced|améliorée/i.test(v.name)) || voix.find((v) => /fr-FR/i.test(v.lang) && v.localService) || voix[0] || null;
+    const voix = voixDeLAppareil();
+    // La voix choisie dans Configuration, sinon une voix « améliorée » ou « premium », sinon la voix française par défaut.
+    const choisie = lireReglagesVoix().nom;
+    return (choisie && voix.find((v) => v.name === choisie)) || voix.find((v) => /premium|enhanced|améliorée/i.test(v.name)) || voix.find((v) => /fr-FR/i.test(v.lang) && v.localService) || voix[0] || null;
+  }
+  // Dire un texte avec la voix et les réglages choisis (aussi pour « Écouter un exemple »).
+  function direAvecLaVoix(texte, fin) {
+    const synth = window.speechSynthesis;
+    synth.cancel();
+    const r = lireReglagesVoix();
+    const u = new SpeechSynthesisUtterance(pourLaVoix(texte));
+    const v = voixFrancaise(); if (v) u.voice = v;
+    u.lang = (v && v.lang) || 'fr-FR'; u.rate = r.vitesse; u.pitch = r.hauteur; u.volume = r.volume;
+    if (fin) { u.onend = fin; u.onerror = fin; }
+    synth.speak(u);
   }
   const pourLaVoix = (t) => String(t || '').replace(/[«»"“”]/g, '').replace(/\s+/g, ' ').trim();
   function useConversationVocale({ envoyer, messages, occupe }) {
@@ -1656,14 +1681,8 @@
       } catch (e) { setDetail('Le micro n’a pas pu démarrer : touche-le de nouveau.'); setPhase('erreur'); }
     };
     const parler = (texte) => {
-      const synth = window.speechSynthesis;
-      synth.cancel();
-      const u = new SpeechSynthesisUtterance(pourLaVoix(texte));
-      const v = voixFrancaise(); if (v) u.voice = v;
-      u.lang = (v && v.lang) || 'fr-FR'; u.rate = 1.02;
-      u.onend = () => { if (actifRef.current) ecouter(); else setPhase('repos'); };
-      u.onerror = u.onend;
-      setPhase('parole'); synth.speak(u);
+      setPhase('parole');
+      direAvecLaVoix(texte, () => { if (actifRef.current) ecouter(); else setPhase('repos'); });
     };
     // Une nouvelle réponse de CCB arrive pendant la conversation : il la dit à voix haute.
     useEffect(() => {
@@ -2340,7 +2359,7 @@
   function Configuration({ etat, dispatch, actions }) {
     const onglets = { charte: OngletCharte, ressources: OngletRessources, reglages: OngletReglages, synchro: OngletSynchro, ia: OngletIA };
     return h(Fragment, null,
-      h(Barre, { etat, dispatch, titre: 'Configuration', gauche: h(Bouton, { variante: 'retour', onClick: () => dispatch({ type: 'ecran', ecran: 'bibliotheque' }) }, h(Icone, { nom: 'retour' }), 'Articles') }),
+      h(Barre, { etat, dispatch, titre: 'Configuration', gauche: h(MarqueApp, { etat, dispatch }) }),
       h('nav', { className: 'onglets' }, h(Segmente, { etiquette: 'Onglets', valeur: etat.onglet, onChange: (o) => dispatch({ type: 'onglet', onglet: o }), options: [{ valeur: 'charte', libelle: 'Charte' }, { valeur: 'ressources', libelle: 'Ressources' }, { valeur: 'reglages', libelle: 'Réglages' }, { valeur: 'synchro', libelle: 'Synchronisation' }, { valeur: 'ia', libelle: 'IA' }] })),
       etat.aide && h(PanneauAide, { cle: 'configuration', dispatch }),
       h(Message, { etat, dispatch }),
@@ -2463,7 +2482,7 @@
         h('ol', { className: 'guide' },
           h('li', null, 'Sur github.com, touche « + » en haut, puis « New repository ». Nom : ', h('strong', null, 'postsop-donnees'), '. Choisis ', h('strong', null, 'Private'), ', puis « Create repository ».'),
           h('li', null, 'Ouvre ton profil (ta photo, en haut à droite), puis Settings, puis, tout en bas, Developer settings.'),
-          h('li', null, 'Personal access tokens, puis Fine-grained tokens, puis « Generate new token ». Nom : PostsOP. Choisis la durée la plus longue proposée.'),
+          h('li', null, 'Personal access tokens, puis Fine-grained tokens, puis « Generate new token ». Nom : Oh!Post. Choisis la durée la plus longue proposée.'),
           h('li', null, 'Dans « Repository access », choisis « Only select repositories », puis postsop-donnees.'),
           h('li', null, 'Dans « Permissions », trouve « Contents » et choisis « Read and write ».'),
           h('li', null, 'Touche « Generate token », copie la clé (elle ne s’affiche qu’une fois) et colle-la ci-dessus.')),
@@ -2476,12 +2495,12 @@
       ['Sur ', h('strong', null, 'platform.claude.com'), ', crée un compte au nom de l’entreprise.'],
       ['Dans le tableau de bord, touche « Ajouter des fonds ». Laisse le rechargement automatique désactivé : la dépense ne pourra jamais dépasser les crédits achetés.'],
       ['Ouvre « Clés API », touche « Créer une clé », puis « Continuer avec une clé API ».'],
-      ['Nom : ', h('strong', null, 'PostsOP'), '. Expiration : 90 jours, ou la durée proposée la plus proche. Laisse l’espace de travail par défaut.'],
+      ['Nom : ', h('strong', null, 'Oh!Post'), '. Expiration : 90 jours, ou la durée proposée la plus proche. Laisse l’espace de travail par défaut.'],
       ['Touche le bouton de création, copie la clé (elle ne s’affiche qu’une fois) et colle-la ci-dessus.'],
     ],
     mistral: [
       ['Sur ', h('strong', null, 'console.mistral.ai'), ', crée un compte au nom de l’entreprise et choisis une offre payante : avec l’offre gratuite, les textes envoyés peuvent servir à entraîner leurs modèles.'],
-      ['Ouvre la page des clés d’API et crée une clé nommée ', h('strong', null, 'PostsOP'), '.'],
+      ['Ouvre la page des clés d’API et crée une clé nommée ', h('strong', null, 'Oh!Post'), '.'],
       ['Copie la clé (elle ne s’affiche en général qu’une fois) et colle-la ci-dessus.'],
     ],
   };
@@ -2499,6 +2518,41 @@
     if (IA.absent) return h('p', { className: 'erreur' }, 'Le fichier ia.js manque sur GitHub : renvoie-le pour retrouver les réglages de l’IA.');
     return h(OngletIAComplet, props);
   }
+  // Configuration › IA : la voix de CCB (celles de l'appareil), sa vitesse, sa hauteur, son volume ; un exemple à écouter.
+  function CarteVoix() {
+    const nomIA = IA.ASSISTANT.nom;
+    const [r, setR] = useState(lireReglagesVoix);
+    const [liste, setListe] = useState(voixDeLAppareil);
+    useEffect(() => {
+      if (typeof window === 'undefined' || !window.speechSynthesis) return undefined;
+      // Les voix arrivent parfois un instant après l'ouverture de la page.
+      const maj = () => setListe(voixDeLAppareil());
+      window.speechSynthesis.addEventListener ? window.speechSynthesis.addEventListener('voiceschanged', maj) : (window.speechSynthesis.onvoiceschanged = maj);
+      const t = setTimeout(maj, 600);
+      return () => { clearTimeout(t); if (window.speechSynthesis.removeEventListener) window.speechSynthesis.removeEventListener('voiceschanged', maj); };
+    }, []);
+    const changer = (champ, valeur) => { const n = { ...r, [champ]: valeur }; setR(n); ecrireReglagesVoix(n); };
+    const parDefaut = voixFrancaise();
+    const qualite = (v) => (/premium/i.test(v.name) ? ' · premium' : /enhanced|améliorée/i.test(v.name) ? ' · améliorée' : '');
+    const exemple = `Bonjour, je suis ${nomIA}. Je t’aide à relire ton article et à mettre en valeur ce qui compte.`;
+    if (typeof window === 'undefined' || !window.speechSynthesis) return h(Carte, { titre: 'Voix de ' + nomIA }, h('p', { className: 'doux' }, 'Ce navigateur ne sait pas lire à voix haute. Sur iPad, utilise Safari.'));
+    return h(Carte, { titre: 'Voix de ' + nomIA, sousTitre: 'Pour la conversation à voix haute. Réglée pour cet appareil : chaque iPad a ses propres voix.' },
+      h(Ligne, { etiquette: 'Voix', aide: liste.length ? `${liste.length} voix française${liste.length > 1 ? 's' : ''} sur cet appareil.` : 'Aucune voix française trouvée pour l’instant.' },
+        h('select', { className: 'champ-texte', value: r.nom, 'aria-label': 'Voix de ' + nomIA, onChange: (e) => changer('nom', e.target.value) },
+          h('option', { value: '' }, 'Automatique' + (parDefaut ? ' (' + parDefaut.name + ')' : '')),
+          liste.map((v) => h('option', { key: v.name + v.lang, value: v.name }, `${v.name} · ${v.lang}${qualite(v)}`)))),
+      h(Ligne, { etiquette: 'Vitesse', aide: r.vitesse < 0.95 ? 'Plus lente' : r.vitesse > 1.05 ? 'Plus rapide' : 'Normale' },
+        h('input', { type: 'range', min: 0.7, max: 1.4, step: 0.05, value: r.vitesse, 'aria-label': 'Vitesse de la voix', onChange: (e) => changer('vitesse', Number(e.target.value)) })),
+      h(Ligne, { etiquette: 'Hauteur', aide: r.hauteur < 0.95 ? 'Plus grave' : r.hauteur > 1.05 ? 'Plus aiguë' : 'Naturelle' },
+        h('input', { type: 'range', min: 0.7, max: 1.4, step: 0.05, value: r.hauteur, 'aria-label': 'Hauteur de la voix', onChange: (e) => changer('hauteur', Number(e.target.value)) })),
+      h(Ligne, { etiquette: 'Volume', aide: Math.round(r.volume * 100) + ' %' },
+        h('input', { type: 'range', min: 0.2, max: 1, step: 0.05, value: r.volume, 'aria-label': 'Volume de la voix', onChange: (e) => changer('volume', Number(e.target.value)) })),
+      h('div', { className: 'actions-ligne' },
+        h(Bouton, { variante: 'principal', onClick: () => direAvecLaVoix(exemple) }, 'Écouter un exemple'),
+        h(Bouton, { variante: 'lien', onClick: () => { setR({ ...REGLAGES_VOIX }); ecrireReglagesVoix({ ...REGLAGES_VOIX }); } }, 'Revenir aux réglages d’origine')),
+      h('p', { className: 'doux petit' }, 'Pour des voix plus naturelles, télécharge une voix française « améliorée » ou « premium » dans les réglages de l’iPad (Accessibilité › Contenu énoncé › Voix, selon la version) ; elle apparaîtra ici.'));
+  }
+
   function OngletIAComplet({ etat, dispatch }) {
     const [config, setConfig] = useState(() => IA.lire());
     const [fournisseur, setFournisseur] = useState(config.fournisseur);
@@ -2542,11 +2596,12 @@
     return h(Fragment, null,
       h('p', { className: 'note' }, 'L’IA proposera, tu décideras : rien ne sera appliqué sans ta validation. Ces réglages restent sur cet appareil, comme ta clé GitHub.'),
       etat && h(ProfilEditorial, { etat, dispatch }),
+      h(CarteVoix),
       h(Carte, { titre: 'État' },
         h('p', null, actif
           ? h(Fragment, null, h(Pastille, { ton: 'ok' }, `${IA.FOURNISSEURS[actif.fournisseur].nom} actif`))
           : h(Fragment, null, h(Pastille, { ton: 'attention' }, 'Aucune IA active'), ' ', h('span', { className: 'doux petit' }, 'L’app fonctionne normalement sans IA.')))),
-      h(Carte, { titre: 'Fournisseur d’IA', info: 'Les coûts sont prélevés sur le compte que tu ouvres chez le fournisseur, jamais par PostsOP. Tes textes ne lui sont envoyés que lorsque tu demandes une proposition.' },
+      h(Carte, { titre: 'Fournisseur d’IA', info: 'Les coûts sont prélevés sur le compte que tu ouvres chez le fournisseur, jamais par Oh!Post. Tes textes ne lui sont envoyés que lorsque tu demandes une proposition.' },
         h(Ligne, { etiquette: 'Fournisseur', aide: fournisseur === 'claude' ? 'Par défaut. Société américaine Anthropic.' : 'Société française ; données hébergées en Europe.' },
           h(Segmente, { etiquette: 'Fournisseur', valeur: fournisseur, onChange: choisir, options: [{ valeur: 'claude', libelle: 'Anthropic' }, { valeur: 'mistral', libelle: 'Mistral' }] })),
         h(Ligne, { etiquette: 'Clé d’API', aide: aideCle },

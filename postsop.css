@@ -642,7 +642,8 @@ canvas.slide.editable { cursor: text; }
   outline: 6px solid rgba(201, 212, 32, 0.5); outline-offset: 14px; border-radius: 2px; -webkit-user-select: text; user-select: text; cursor: text;
   font-kerning: normal; text-rendering: optimizeLegibility;
 }
-.editeur-bloc::selection, .editeur-bloc *::selection { background: rgba(201, 212, 32, 0.45); }
+/* Sélection toujours lisible : aplat et texte calculés selon le fond réel du bloc (voir couleursSelection) */
+.editeur-bloc::selection, .editeur-bloc *::selection { background: var(--sel-fond, rgba(201, 212, 32, 0.45)); color: var(--sel-texte, inherit); }
 @media (max-width: 760px) {
   .reperes { width: 40px; }
   .reperes .gab, .reperes .mots, .reperes .reduit { display: none; }
@@ -1066,3 +1067,34 @@ canvas.slide.editable { cursor: text; }
 .zone-attente { height: max(150px, calc(100vh - 470px)); height: max(150px, calc(100dvh - 470px)); resize: none; }
 /* Bulle du robot de Mise en page : deux choix, comme dans Publication */
 .bulle-choix { display: flex; flex-direction: column; gap: 2px; width: 280px; }
+
+/* Apparence générale : « Aperçu du post » et « Proposer 3 autres » l'un au-dessus de l'autre, sous l'aperçu */
+.mep-actions-apercu { display: flex; flex-direction: column; align-items: stretch; gap: 8px; width: min(280px, 100%); margin-top: 4px; }
+
+/* ---------- Conversation à voix haute avec CCB ---------- */
+.bouton-micro { width: 44px; height: 44px; flex: none; border: 0; border-radius: 22px; background: var(--surface-2); color: var(--texte); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; position: relative; transition: background-color 0.2s ease; }
+.bouton-micro:hover { background: var(--surface-3, var(--surface-2)); }
+.bouton-micro.actif { background: var(--action); color: var(--action-texte); }
+.bouton-micro.actif.ecoute::after { content: ''; position: absolute; inset: -4px; border-radius: 26px; border: 2px solid var(--touche); animation: microEcoute 1.4s ease-out infinite; }
+@keyframes microEcoute { 0% { opacity: 0.9; transform: scale(0.94); } 100% { opacity: 0; transform: scale(1.18); } }
+@media (prefers-reduced-motion: reduce) { .bouton-micro.actif.ecoute::after { animation: none; } }
+.etat-voix { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 14px; color: var(--doux); }
+.etat-voix .partiel { color: var(--texte); font-style: italic; }
+.pastille-voix { width: 10px; height: 10px; border-radius: 5px; background: var(--doux); flex: none; }
+.pastille-voix.ecoute { background: #D23B3B; }
+.pastille-voix.attente { background: var(--action); }
+.pastille-voix.parole { background: var(--touche); }
+/* Apparence générale : l'étoile (garder la proposition) et sa petite flèche (ouvrir mes favoris) */
+.etoile-favoris { display: inline-flex; align-items: center; border-radius: 13px; background: var(--surface-2); padding: 2px; }
+.etoile-favoris button { border: 0; background: transparent; color: var(--texte); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 11px; }
+.etoile-favoris .etoile { width: 42px; height: 40px; }
+.etoile-favoris .etoile.pleine { color: #B8A800; }
+.theme-sombre .etoile-favoris .etoile.pleine { color: var(--touche); }
+.etoile-favoris .etoile:disabled { opacity: 0.4; cursor: default; }
+.etoile-favoris .fleche-favoris { width: 26px; height: 40px; border-left: 1px solid var(--trait); border-radius: 0 11px 11px 0; }
+.etoile-favoris button:hover:not(:disabled), .etoile-favoris .fleche-favoris.actif { background: var(--surface); }
+/* Le nom de l'app dans l'en-tête : un bouton discret qui ramène aux articles */
+.bouton-marque { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 8px; margin-left: -8px; border: 0; border-radius: 12px; background: transparent; color: var(--texte); cursor: pointer; font-family: inherit; }
+.bouton-marque:hover { background: var(--surface-2); }
+.bouton-marque.avec-retour { font-size: 20px; }
+.bouton-marque:focus-visible { outline: 2px solid var(--touche); outline-offset: 2px; }

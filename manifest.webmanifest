@@ -1,6 +1,6 @@
 {
-  "name": "PostsOP",
-  "short_name": "PostsOP",
+  "name": "Oh!Post",
+  "short_name": "Oh!Post",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -8,7 +8,7 @@
   "theme_color": "#F6F4EF",
   "lang": "fr",
   "icons": [
-    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+    { "src": "icon-180.png?v=robot", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon-512.png?v=robot", "sizes": "512x512", "type": "image/png", "purpose": "any" }
   ]
 }

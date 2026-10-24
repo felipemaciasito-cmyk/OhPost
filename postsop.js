@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-25.6'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-25.7'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -1128,7 +1128,7 @@
         if (!gardes.length) throw new Error(`aucune proposition ne tenait en ${maxPages} pages sans page qui déborde. Raccourcis le texte, ou garde le découpage simple.`);
         setGen({ cle, etat: 'repos', plans: gardes, detail: ecartes ? `${ecartes} proposition${ecartes > 1 ? 's écartées' : ' écartée'} par la vérification : plus de ${maxPages} pages, page qui déborde ou texte incomplet.` : '' });
         setChoix(0); setFond(gardes[0].fond); setPageVue(0);
-        return true;
+        return { n: gardes.length, ecartes };
       } catch (erreur) {
         setGen({ cle, etat: 'erreur', plans: deja, detail: erreur instanceof IA.ErreurIA ? erreur.message : 'CCB n’a pas pu proposer de mise en page : ' + erreur.message });
         return false;
@@ -1181,8 +1181,12 @@
             dire(lu.reponse || `« ${nouveau.nom} » : voici la mise en page modifiée.`);
           } else dire(`Je n’ai pas réussi à suivre ta demande en ${maxPages} pages sans page qui déborde : la proposition affichée ne change pas. Reformule, ou demande autre chose.`);
         } else {
-          const ok = await generer(false, fil0.filter((m) => m.de === 'moi').map((m) => m.texte));
-          dire(ok ? 'Voici trois propositions qui tiennent compte de tes indications.' : 'Je n’ai pas pu composer de propositions : regarde le message au-dessus de l’aperçu.');
+          const res = await generer(false, fil0.filter((m) => m.de === 'moi').map((m) => m.texte));
+          // Dire combien de propositions sont vraiment affichées (certaines peuvent être écartées par la vérification).
+          const nombres = ['', 'une proposition', 'deux propositions', 'trois propositions'];
+          dire(!res ? 'Je n’ai pas pu composer de propositions : regarde le message au-dessus de l’aperçu.'
+            : res.n >= PROP.MAX_PROPOSITIONS ? 'Voici trois propositions qui tiennent compte de tes indications.'
+            : `Voici ${nombres[res.n] || res.n + ' propositions'} qui tiennent compte de tes indications : ${res.ecartes ? 'les autres débordaient de leurs pages ou dépassaient ' + maxPages + ' pages, je les ai écartées' : 'je n’ai pas trouvé mieux'}. Demande « Proposer 3 autres » pour en voir d’autres.`);
         }
       } catch (erreur) {
         dire(erreur instanceof IA.ErreurIA ? erreur.message : 'Je n’ai pas pu répondre : ' + erreur.message);
@@ -1191,9 +1195,15 @@
 
     // Les propositions de CCB peuvent rejoindre tes carrousels favoris (les mêmes que dans Composition).
     const favorisCarrousels = etat.projet.favorisCarrousels || [];
-    const recette = plan && JSON.stringify(PROP.recetteDe(plan));
-    const dejaFavori = plan && favorisCarrousels.find((f) => JSON.stringify(f.recette) === recette);
+    // Ce qui est affiché peut devenir un favori : une proposition de CCB, la mise en page actuelle ou le découpage sans IA.
+    const planFavori = plan || (PROP && slides.length ? {
+      nom: choixEffectif === 'actuelle' && edite ? `Mise en page de « ${edite.titre.length > 40 ? edite.titre.slice(0, 40) + '…' : edite.titre} »` : auHasard ? 'Sans IA, au hasard' : 'Découpage simple',
+      fond, slides: slides.map((sl, i) => ({ gabarit: sl.gabarit || M.gabaritParDefaut(sl, i), styles: (sl.blocs || []).map((b) => b.style || null), paragraphes: (sl.blocs || []).map((_, k) => k) })),
+    } : null);
+    const recette = planFavori && JSON.stringify(PROP.recetteDe(planFavori));
+    const dejaFavori = planFavori && favorisCarrousels.find((f) => JSON.stringify(f.recette) === recette);
     const basculerFavori = () => {
+      const plan = planFavori;
       if (!plan) return;
       if (dejaFavori) dispatch({ type: 'projet', maj: (pr) => ({ ...pr, favorisCarrousels: (pr.favorisCarrousels || []).filter((f) => f.id !== dejaFavori.id) }) });
       else dispatch({ type: 'projet', maj: (pr) => ({ ...pr, favorisCarrousels: [{ id: 'car-' + Date.now().toString(36), nom: plan.nom, origine: edite ? edite.titre : (paragraphes[0] || '').slice(0, 48), recette: PROP.recetteDe(plan) }].concat(pr.favorisCarrousels || []) }) });
@@ -1269,8 +1279,8 @@
         h(Segmente, { etiquette: 'Mises en page proposées', valeur: String(choixEffectif), onChange: choisir, options }),
         // L'étoile garde la proposition affichée dans tes favoris ; la petite flèche ouvre la liste des favoris.
         h('span', { className: 'etoile-favoris', role: 'group', 'aria-label': 'Favoris' },
-          h('button', { type: 'button', className: cls('etoile', dejaFavori && 'pleine'), 'aria-pressed': !!dejaFavori, disabled: !plan, onClick: basculerFavori,
-            title: !plan ? 'Choisis une proposition de CCB pour la garder' : dejaFavori ? 'Retirer de mes favoris' : 'Garder dans mes favoris', 'aria-label': !plan ? 'Garder dans mes favoris (choisis d’abord une proposition)' : dejaFavori ? 'Retirer de mes favoris' : 'Garder dans mes favoris' },
+          h('button', { type: 'button', className: cls('etoile', dejaFavori && 'pleine'), 'aria-pressed': !!dejaFavori, disabled: !planFavori, onClick: basculerFavori,
+            title: !planFavori ? 'Aucune mise en page à garder' : dejaFavori ? 'Retirer de mes favoris' : 'Garder cette mise en page dans mes favoris', 'aria-label': !planFavori ? 'Garder dans mes favoris (aucune mise en page affichée)' : dejaFavori ? 'Retirer de mes favoris' : 'Garder dans mes favoris' },
             h('svg', { width: 22, height: 22, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d: 'M12 3.2l2.6 5.5 6 .7-4.4 4.1 1.2 5.9L12 16.5l-5.4 2.9 1.2-5.9L3.4 9.4l6-.7z', fill: dejaFavori ? 'currentColor' : 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinejoin: 'round' }))),
           h('button', { type: 'button', className: cls('fleche-favoris', favorisOuverts && 'actif'), 'aria-expanded': favorisOuverts, 'aria-label': 'Mes favoris', title: 'Mes favoris', onClick: () => setFavorisOuverts(!favorisOuverts) },
             h('svg', { width: 12, height: 12, viewBox: '0 0 12 12', 'aria-hidden': 'true' }, h('path', { d: 'M2.5 4.5 6 8l3.5-3.5', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' })))),

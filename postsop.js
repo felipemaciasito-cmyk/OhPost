@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-26.1'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-26.2'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -1073,6 +1073,9 @@
     const [reduit, setReduit] = useState(false);
     const touchesAjout = useRef(false);
     const surface = useRef(null);
+    // Le fond ne ferme la fenêtre que si l'appui ET le relâchement ont eu lieu sur lui : un appui dans la boîte de
+    // conversation suivi d'un relâchement à côté (le clavier de l'iPad décale la boîte) ne doit rien fermer.
+    const appuiSurLeFond = useRef(false);
     const n = slides.length;
     const nomIA = IA.ASSISTANT.nom;
     const configIA = IA.active();
@@ -1175,7 +1178,12 @@
     const rect = (z, cle, classe) => h('div', { key: cle, className: classe, style: { left: z.x0 * 100 + '%', top: z.y0 * 100 + '%', width: (z.x1 - z.x0) * 100 + '%', height: (z.y1 - z.y0) * 100 + '%' } });
     const apercuTrace = trace ? { x0: Math.min(trace.x0, trace.x1), y0: Math.min(trace.y0, trace.y1), x1: Math.max(trace.x0, trace.x1), y1: Math.max(trace.y0, trace.y1) } : null;
     const nbPar = choisis.length;
-    return auPremierPlan(h('div', { className: 'grande-fenetre', role: 'dialog', 'aria-modal': 'true', 'aria-label': `Page ${page + 1} sur ${n}, en grand`, onClick: (e) => { if (e.target === e.currentTarget) onFermer(); } },
+    const surLeFond = (e) => e.target === e.currentTarget;
+    // La boîte de l'agent ne laisse rien remonter vers les écrans de derrière (la fenêtre est un portail React).
+    const isoler = { onPointerDown: (e) => e.stopPropagation(), onMouseDown: (e) => e.stopPropagation(), onTouchStart: (e) => e.stopPropagation(), onClick: (e) => e.stopPropagation(), onKeyDown: (e) => { if (e.key !== 'Escape') e.stopPropagation(); } };
+    return auPremierPlan(h('div', { className: 'grande-fenetre', role: 'dialog', 'aria-modal': 'true', 'aria-label': `Page ${page + 1} sur ${n}, en grand`,
+      onPointerDown: (e) => { appuiSurLeFond.current = surLeFond(e); },
+      onClick: (e) => { const ok = surLeFond(e) && appuiSurLeFond.current && !(document.activeElement && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)); appuiSurLeFond.current = false; if (ok) onFermer(); } },
       h('button', { type: 'button', className: 'gf-fermer', 'aria-label': 'Fermer', onClick: onFermer }, '×'),
       h('div', { className: 'gf-page', style: { width: largeur + 'px' } },
         h(SlideCanvas, { slide, formatId: format, fondId: fond, largeur, index: page, total: n, etiquette: `Page ${page + 1}`, logo }),
@@ -1192,7 +1200,7 @@
       n > 1 && h('span', { className: 'gf-compteur' }, `${page + 1} / ${n}`),
       // Au doigt : le « + » fait que le prochain rectangle s'ajoute à la sélection au lieu de la remplacer.
       h('button', { type: 'button', className: cls('gf-ajout', ajout && 'actif'), 'aria-pressed': ajout, 'aria-label': 'Ajouter une zone à la sélection', title: 'Ajouter une zone à la sélection (au clavier : Maj ou Tab)', onClick: () => setAjout(!ajout) }, '+'),
-      zones.length > 0 && h('div', { className: cls('gf-agent', reduit && 'reduit'), role: 'region', 'aria-label': `${nomIA}, agent ciblé` },
+      zones.length > 0 && h('div', { className: cls('gf-agent', reduit && 'reduit'), role: 'region', 'aria-label': `${nomIA}, agent ciblé`, ...isoler },
         h('div', { className: 'gf-agent-tete' },
           h('span', { className: 'gf-agent-titre' }, h(Robot, { taille: 26 }), h('strong', null, nomIA), h('span', { className: 'doux petit' }, `Page ${page + 1} · ${zones.length} zone${zones.length > 1 ? 's' : ''} · ${nbPar} paragraphe${nbPar > 1 ? 's' : ''}`)),
           h('span', { className: 'gf-agent-actions' },

@@ -276,6 +276,42 @@
   }
   // Où se trouve la personne quand elle parle à CCB : chaque endroit a son objectif, transmis avec chaque demande.
   const CONTEXTE_TEXTE = 'Étape Texte : la personne relit et améliore son article avant qu’il soit mis en pages en carrousel. Aide-la sur le fond, la clarté, la structure, le rythme et le style ; la mise en page viendra ensuite. Garde la voix de l’article.';
+  // ---- L'agent ciblé : retoucher seulement les paragraphes d'une zone tracée sur une page, dans la grande fenêtre ----
+  const STYLES_CIBLE = ['corps', 'emphase', 'citation', 'titre', 'contrepoint'];
+  const JSON_CIBLE = { nom: 'retouche', description: 'La réponse et les retouches des paragraphes de la zone.', schema: { type: 'object', properties: {
+    reponse: { type: 'string', description: 'Une à deux phrases, en tutoyant : ce que tu as fait, ou ce que tu ne peux pas faire.' },
+    modifications: { type: 'array', items: { type: 'object', properties: { bloc: { type: 'integer', description: 'Numéro du paragraphe de la zone.' }, texte: { type: 'string', description: 'Le nouveau texte complet du paragraphe.' }, style: { type: 'string', enum: STYLES_CIBLE, description: 'Seulement si le style change.' } }, required: ['bloc', 'texte'] } } }, required: ['reponse', 'modifications'] } };
+  const SYSTEME_CIBLE = [
+    'Tu es CCB, l’assistant d’Oh!Post. Ici tu es l’agent ciblé : tu retouches UNIQUEMENT les paragraphes que la personne a sélectionnés en traçant une zone sur une page de carrousel.',
+    'Règles :',
+    '- Tu ne modifies que les paragraphes listés entre <zone> et </zone>. Les autres paragraphes de la page (entre <page> et </page>) servent à comprendre le contexte : tu n’y touches jamais.',
+    '- Le sens est respecté : tu n’inventes aucun fait, chiffre, nom ni citation, et tu ne transformes pas une nuance en affirmation.',
+    '- Une page se lit d’un coup d’œil : phrases courtes, rien de plus long que l’original sauf demande contraire, une idée par paragraphe.',
+    '- Tu peux changer le style d’un paragraphe (corps, emphase, citation, titre, contrepoint) seulement si la personne le demande ou si c’est évidemment ce qu’elle veut.',
+    '- Tu ne peux pas changer : couleurs, fond, position, taille, gabarit, logo, fleurs. Si on te le demande, dis en une phrase que ça se règle dans les menus Page et Carrousel, et ne renvoie aucune modification.',
+    '- Typographie française : guillemets « », espaces insécables avant ; : ? !, apostrophe ’.',
+    'Réponds uniquement avec un objet JSON : {"reponse": "…", "modifications": [{"bloc": 0, "texte": "…", "style": "optionnel"}]}. Pas de modification si la demande n’en appelle aucune.',
+    REGLE_PROFIL,
+  ].join('\n');
+  function messageCible({ page, total, role, gabarit, reseau, zone, contexte, historique, demande, profil }) {
+    const ligne = (b) => `[${b.n}] (${b.style}) ${b.texte}`;
+    return [
+      blocProfil(profil) + `Page ${page} sur ${total}${role ? ` (${role})` : ''}${gabarit ? `, gabarit « ${gabarit} »` : ''}${reseau ? `, carrousel pour ${reseau}` : ''}.`,
+      '<page>', contexte.length ? contexte.map(ligne).join('\n') : '(aucun autre paragraphe)', '</page>',
+      '<zone>', zone.map(ligne).join('\n'), '</zone>', '',
+      ...historique.map((m) => (m.de === 'moi' ? 'Personne : ' : 'Toi : ') + m.texte),
+      'Demande de la personne : ' + demande,
+    ].join('\n');
+  }
+  // Ne garde que les retouches valides : un paragraphe de la zone, un texte non vide, un style connu.
+  function lireCible(brut, autorises) {
+    const o = premierObjet(brut, (x) => typeof x.reponse === 'string' || Array.isArray(x.modifications)) || {};
+    const vues = new Set();
+    const modifications = (Array.isArray(o.modifications) ? o.modifications : []).filter((m) => m && Number.isInteger(m.bloc) && autorises.includes(m.bloc) && typeof m.texte === 'string' && m.texte.trim() && !vues.has(m.bloc) && vues.add(m.bloc))
+      .map((m) => ({ bloc: m.bloc, texte: m.texte.trim(), ...(STYLES_CIBLE.includes(m.style) ? { style: m.style } : {}) }));
+    return { reponse: String(o.reponse || '').trim(), modifications };
+  }
+
   // Précision ajoutée à chaque demande de la discussion sur le texte du post.
   const precisionPost = (reseau, slides) => `Le texte entre <article> et </article> est le texte du post ${RESEAUX[reseau] ? RESEAUX[reseau].nom : ''} qui accompagne le carrousel, pas l’article lui-même. Garde ses règles : pas d’émoji, rien d’inventé. Il donne envie d’ouvrir le carrousel sans répéter sa couverture mot pour mot. ${resumeCarrousel(slides)}`.trim();
 
@@ -425,7 +461,7 @@
   const JSON_DISCUSSION = { nom: 'repondre', description: 'Ta réponse à la personne, avec tes éventuelles propositions et des pistes pour continuer.', schema: { type: 'object', properties: { reponse: texteS, propositions: { type: 'array', items: { type: 'object', properties: { titre: texteS, avant: texteS, apres: texteS, pourquoi: texteS, vigilance: texteS }, required: ['titre', 'avant', 'apres'] } }, pistes: { type: 'array', items: texteS } }, required: ['reponse', 'propositions'] } };
   const JSON_FORMULATIONS = { nom: 'formulations', description: 'De nouvelles formulations du passage.', schema: { type: 'object', properties: { formulations: { type: 'array', items: texteS } }, required: ['formulations'] } };
 
-  const api = { CONTEXTE_TEXTE, resumeCarrousel, JSON_TITRES, consigneTitres, lireTitres, SYSTEME_TITRE_DISCUSSION, messageTitre, JSON_DESCRIPTIONS, consigneDescriptions, lireDescriptions, precisionPost, blocProfil, REGLE_PROFIL, MAX_PROFIL, JSON_RELECTURE, JSON_DISCUSSION, JSON_FORMULATIONS, extraireObjets, premierObjet, formulationsDe, SYSTEME_FORMULATIONS, messageFormulations, lireFormulations, MAX_FORMULATIONS, SYSTEME_DISCUSSION, messageDiscussion, lireDiscussion, placerPassage, MAX_HISTORIQUE, ACTIONS, MAX_PASSAGE, consigneSuggestion, consigneSuggestionTexte, lireSuggestion, RESEAUX, consigneDescription, nettoyerDescription, SYSTEME, consigne, lireReponse, simplifier, trouver, localiser, appliquer, apercu, recaler, TYPES, MAX_PROPOSITIONS };
+  const api = { JSON_CIBLE, SYSTEME_CIBLE, messageCible, lireCible, STYLES_CIBLE, CONTEXTE_TEXTE, resumeCarrousel, JSON_TITRES, consigneTitres, lireTitres, SYSTEME_TITRE_DISCUSSION, messageTitre, JSON_DESCRIPTIONS, consigneDescriptions, lireDescriptions, precisionPost, blocProfil, REGLE_PROFIL, MAX_PROFIL, JSON_RELECTURE, JSON_DISCUSSION, JSON_FORMULATIONS, extraireObjets, premierObjet, formulationsDe, SYSTEME_FORMULATIONS, messageFormulations, lireFormulations, MAX_FORMULATIONS, SYSTEME_DISCUSSION, messageDiscussion, lireDiscussion, placerPassage, MAX_HISTORIQUE, ACTIONS, MAX_PASSAGE, consigneSuggestion, consigneSuggestionTexte, lireSuggestion, RESEAUX, consigneDescription, nettoyerDescription, SYSTEME, consigne, lireReponse, simplifier, trouver, localiser, appliquer, apercu, recaler, TYPES, MAX_PROPOSITIONS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else racine.PostsOPRelecture = api;
 })(typeof window !== 'undefined' ? window : globalThis);

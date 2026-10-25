@@ -1110,8 +1110,25 @@ canvas.slide.editable { cursor: text; }
 .gf-fleche.gauche { left: 14px; } .gf-fleche.droite { right: 14px; }
 .gf-compteur { position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + 6px); left: 50%; transform: translateX(-50%); color: rgba(255, 255, 255, 0.8); font-size: 13px; line-height: 20px; }
 /* Les logos des réseaux : à moitié visibles au repos, pleinement au survol ; un seul réagit à la fois */
-.gf-reseau { position: absolute; padding: 0; border: 0; background: transparent; cursor: pointer; line-height: 0; }
+.gf-reseau { position: absolute; z-index: 2; padding: 0; border: 0; background: transparent; cursor: pointer; line-height: 0; }
 .gf-reseau::before { content: ''; position: absolute; inset: -8px; } /* zone à toucher plus large que le logo */
 .gf-reseau img { width: 100%; height: 100%; display: block; opacity: 0.5; transition: opacity 0.25s ease; }
 .gf-reseau:hover img, .gf-reseau:focus-visible img, .gf-reseau:active img { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .grande-fenetre { animation: none; } .gf-reseau img { transition: none; } }
+
+/* ---------- Grande fenêtre : sélection de zones et agent ciblé ---------- */
+.gf-surface { position: absolute; inset: 0; z-index: 1; cursor: crosshair; touch-action: none; user-select: none; -webkit-user-select: none; }
+.gf-reseau { z-index: 2; }
+.gf-zone { position: absolute; border: 1px dashed rgba(201, 212, 32, 0.95); background: rgba(201, 212, 32, 0.12); border-radius: 2px; pointer-events: none; }
+.gf-zone.trace { background: rgba(201, 212, 32, 0.08); }
+.gf-paragraphe { position: absolute; border: 1px solid rgba(201, 212, 32, 0.55); border-radius: 3px; pointer-events: none; }
+.gf-ajout { position: absolute; left: 14px; top: calc(env(safe-area-inset-top, 0px) + 14px); z-index: 3; width: 44px; height: 44px; border: 0; border-radius: 22px; background: rgba(40, 48, 52, 0.72); color: #FFFFFF; font-size: 24px; line-height: 1; cursor: pointer; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.gf-ajout.actif { background: #C9D420; color: #12313A; }
+.gf-agent { position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 22px); transform: translateX(-50%); z-index: 4; width: min(560px, calc(100vw - 28px)); max-height: 46vh; overflow-y: auto; background: var(--surface); color: var(--texte); border-radius: 18px; box-shadow: 0 16px 50px rgba(0, 0, 0, 0.45); padding: 10px 14px 12px; display: flex; flex-direction: column; gap: 8px; line-height: 1.4; }
+.gf-agent.reduit { padding-bottom: 10px; }
+.gf-agent-tete { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.gf-agent-titre { display: inline-flex; align-items: center; gap: 8px; }
+.gf-agent-actions { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.btn-mini { min-height: 34px; padding: 0 10px; border: 1px solid var(--trait); border-radius: 9px; background: var(--surface-2); color: var(--texte); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.gf-extraits { margin: 0; color: var(--doux); }
+.gf-messages { max-height: 22vh; overflow-y: auto; }

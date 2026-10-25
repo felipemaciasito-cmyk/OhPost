@@ -1114,6 +1114,4 @@ canvas.slide.editable { cursor: text; }
 .gf-reseau::before { content: ''; position: absolute; inset: -8px; } /* zone à toucher plus large que le logo */
 .gf-reseau img { width: 100%; height: 100%; display: block; opacity: 0.5; transition: opacity 0.25s ease; }
 .gf-reseau:hover img, .gf-reseau:focus-visible img, .gf-reseau:active img { opacity: 1; }
-.gf-aide { position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); white-space: nowrap; padding: 3px 8px; border-radius: 7px; background: rgba(0, 0, 0, 0.78); color: #FFFFFF; font-size: 12px; line-height: 18px; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
-.gf-reseau:hover .gf-aide, .gf-reseau:focus-visible .gf-aide { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .grande-fenetre { animation: none; } .gf-reseau img { transition: none; } }

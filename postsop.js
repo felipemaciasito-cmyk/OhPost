@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-25.8'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-25.9'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -1083,7 +1083,7 @@
         h(SlideCanvas, { slide: slides[page], formatId: format, fondId: fond, largeur, index: page, total: n, etiquette: `Page ${page + 1}` }),
         ICONES_RESEAUX.map((ic) => h('button', { key: ic.id, type: 'button', className: 'gf-reseau', 'aria-label': `Aperçu du post ${ic.nom}`,
           style: { left: ic.x * largeur + 'px', top: HAUT_ICONE * largeur + 'px', width: TAILLE_ICONE * largeur + 'px', height: TAILLE_ICONE * largeur + 'px' }, onClick: () => setFil(ic.id) },
-          h('img', { src: ic.fichier, alt: '' }), h('span', { className: 'gf-aide', 'aria-hidden': 'true' }, 'Aperçu ' + ic.nom)))),
+          h('img', { src: ic.fichier, alt: '' })))),
       n > 1 && page > 0 && h('button', { type: 'button', className: 'gf-fleche gauche', 'aria-label': 'Page précédente', onClick: () => aller(page - 1) }, h(Icone, { nom: 'gauche', taille: 22 })),
       n > 1 && page < n - 1 && h('button', { type: 'button', className: 'gf-fleche droite', 'aria-label': 'Page suivante', onClick: () => aller(page + 1) }, h(Icone, { nom: 'droite', taille: 22 })),
       n > 1 && h('span', { className: 'gf-compteur' }, `${page + 1} / ${n}`),

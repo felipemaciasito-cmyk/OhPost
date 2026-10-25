@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-25.9'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-26.1'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -116,7 +116,7 @@
     bibliotheque: { titre: 'Tes articles', textes: ['Trois sections : En cours, Publiés (validés par toi) et Corbeille, d’où tu peux restaurer un article.', 'Le menu « … » d’une carte permet de dupliquer, d’utiliser un article comme modèle pour un nouveau texte, de le marquer comme publié ou de le mettre à la corbeille.', 'Trie et affiche tes articles comme tu veux, en grille ou en liste. « Annuler » et ⌘Z (Ctrl+Z) reviennent en arrière à tout moment.', 'Calendrier : place tes articles sur une date, puis « Programmer un rappel » ajoute une alerte au calendrier de ton appareil. La publication automatique arrivera plus tard.'] },
     configuration: { titre: 'La configuration', textes: ['Charte : tes couleurs et tes tailles de texte. Tout changement s’applique à tous tes carrousels.', 'Ressources : tes polices, ton logo et tes fleurs, importés une fois et retrouvés sur tous tes appareils.', 'Réglages : le comportement de l’outil. Synchronisation : la liaison avec ton dépôt GitHub privé.', 'IA : le fournisseur d’intelligence artificielle et sa clé. Comme la clé GitHub, elle reste sur l’appareil : à saisir une fois sur chacun.'] },
     texte: { titre: 'Étape 1 · Texte', textes: ['Ton texte est la référence du carrousel : chaque modification ici met les pages à jour, sans toucher à leur mise en page. Et un paragraphe modifié dans Mise en page modifie aussi ce texte.', 'Relis ton texte avant de passer à la mise en page : CCB composera ses propositions sur le texte corrigé.', 'Pour remplacer tout le texte : sélectionne tout, colle le nouveau, puis ouvre « Apparence générale » à l’étape 2 pour que CCB recompose les pages.', 'Avec une IA active (Configuration, onglet IA), « Relire avec CCB » propose des corrections sous forme de cartes : accepte, modifie ou refuse chacune ; rien n’est appliqué sans toi. Sans IA, la vérification LanguageTool surligne les fautes ; pour chacune, choisis la bonne correction ou ignore-la.', 'La typographie française se corrige toute seule quand tu tapes ou colles du texte, ici comme sur les pages : un message montre chaque correction, avec « Annuler ».', 'Discussion : sélectionne un passage, puis « CCB » (le petit robot). Donne tes consignes en langage naturel et demande plusieurs propositions ; « Appliquer » remplace le passage, « Annuler » le rétablit.'] },
-    composition: { titre: 'Étape 2 · Mise en page', textes: ['La première fois que tu arrives ici, la fenêtre de mise en page s’ouvre : propositions de CCB, tes favoris, ou le découpage sans IA. Le bouton « Apparence générale », à droite des menus, la rouvre quand tu veux : autres propositions, favoris, fond, logo et fleurs. Le réseau et les dimensions se changent dans le menu Carrousel.', 'Tes pages, les unes sous les autres, exactement comme elles seront exportées. Clique dans un paragraphe pour l’écrire à sa place ; sélectionne des mots pour les mettre en forme avec la petite barre qui apparaît.', 'Entrée crée un nouveau paragraphe, ⇧Entrée un retour à la ligne, ⌘↩ (Ctrl+↩) un saut de page. ⌫ au début d’un paragraphe le réunit au précédent ; au début d’une page, avec la page précédente.', 'Les menus en haut regroupent tout le reste : gabarits, fond, logo, et Vérifier pour les points à regarder. Ton texte reste la référence : chaque modification ici le met à jour.'] },
+    composition: { titre: 'Étape 2 · Mise en page', textes: ['La première fois que tu arrives ici, la fenêtre de mise en page s’ouvre : propositions de CCB, tes favoris, ou le découpage sans IA. Le bouton « Apparence générale », à droite des menus, la rouvre quand tu veux : autres propositions, favoris, fond, logo et fleurs. Le réseau et les dimensions se changent dans le menu Carrousel.', 'Pour retoucher une zone précise : dans Apparence générale (ou sur l’aperçu de Publication), touche la page pour l’ouvrir en grand, puis trace un rectangle avec le doigt ou la souris. CCB ne retouche que les paragraphes de la zone. Maj ou Tab ajoute une zone, le « + » fait de même au doigt.', 'Tes pages, les unes sous les autres, exactement comme elles seront exportées. Clique dans un paragraphe pour l’écrire à sa place ; sélectionne des mots pour les mettre en forme avec la petite barre qui apparaît.', 'Entrée crée un nouveau paragraphe, ⇧Entrée un retour à la ligne, ⌘↩ (Ctrl+↩) un saut de page. ⌫ au début d’un paragraphe le réunit au précédent ; au début d’une page, avec la page précédente.', 'Les menus en haut regroupent tout le reste : gabarits, fond, logo, et Vérifier pour les points à regarder. Ton texte reste la référence : chaque modification ici le met à jour.'] },
     publication: { titre: 'Étape 3 · Publication', textes: ['Tout pour publier, dans l’ordre : le texte du post, le fichier, la date de publication, puis « Marquer comme publié ».', 'Le texte du post : écris-le ou demande une proposition à CCB, puis « Copier » pour le coller sur le réseau.', 'Le fichier : un PDF pour LinkedIn, des images PNG pour Instagram. S’il reste des alertes, l’outil te les rappelle avant : à toi de décider.', 'La date : programme-la (elle apparaît dans le calendrier de la bibliothèque) ou choisis « Ne pas programmer ».'] },
   };
 
@@ -1058,35 +1058,158 @@
     { id: 'instagram', nom: 'Instagram', fichier: 'logo-instagram.png', x: 0.890 },
   ];
   const TAILLE_ICONE = 0.048; const HAUT_ICONE = 0.054; const MARGE_FENETRE = 28;
-  function GrandeFenetre({ slides, format, fond, depart, texte, textes, onFermer, onPage }) {
+  function GrandeFenetre({ slides, format, fond, depart, texte, textes, onFermer, onPage, logo, profil, onModifier }) {
+    const { choisirPolice, charte, reglages } = useContext(Contexte);
     const [page, setPage] = useState(Math.min(depart || 0, Math.max(0, slides.length - 1)));
     const [fil, setFil] = useState(null); // réseau de l'aperçu du post ouvert
     const [dim, setDim] = useState(() => ({ l: racine.innerWidth || 1180, h: racine.innerHeight || 820 }));
+    // Sélection de zones (rectangles en fractions de la page) : Maj, Tab, ⌘ ou le bouton « + » ajoutent une zone.
+    const [zones, setZones] = useState([]);
+    const [trace, setTrace] = useState(null);
+    const [ajout, setAjout] = useState(false);
+    const [fils, setFils] = useState({});       // conversation de l'agent ciblé, par page
+    const [enCours, setEnCours] = useState(false);
+    const [annulations, setAnnulations] = useState([]); // retouches faites, pour « Annuler »
+    const [reduit, setReduit] = useState(false);
+    const touchesAjout = useRef(false);
+    const surface = useRef(null);
     const n = slides.length;
-    const aller = (p) => { const q = Math.max(0, Math.min(n - 1, p)); setPage(q); if (onPage) onPage(q); };
+    const nomIA = IA.ASSISTANT.nom;
+    const configIA = IA.active();
+    const aller = (p) => { const q = Math.max(0, Math.min(n - 1, p)); if (q !== page) { setZones([]); setTrace(null); } setPage(q); if (onPage) onPage(q); };
     useEffect(() => {
-      const touche = (e) => { if (fil) return; if (e.key === 'Escape') onFermer(); else if (e.key === 'ArrowRight') aller(page + 1); else if (e.key === 'ArrowLeft') aller(page - 1); };
+      const touche = (e) => {
+        if (e.key === 'Tab') { e.preventDefault(); touchesAjout.current = true; return; }
+        if (fil) return;
+        if (e.key === 'Escape') { if (zones.length) { setZones([]); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } else onFermer(); return; }
+        if (e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return; // on écrit : les flèches restent au champ
+        if (e.key === 'ArrowRight') aller(page + 1); else if (e.key === 'ArrowLeft') aller(page - 1);
+      };
+      const relache = (e) => { if (e.key === 'Tab') touchesAjout.current = false; };
       const taille = () => setDim({ l: racine.innerWidth, h: racine.innerHeight });
-      racine.addEventListener('keydown', touche); racine.addEventListener('resize', taille);
-      return () => { racine.removeEventListener('keydown', touche); racine.removeEventListener('resize', taille); };
-    }, [page, fil, n]);
+      racine.addEventListener('keydown', touche); racine.addEventListener('keyup', relache); racine.addEventListener('resize', taille);
+      return () => { racine.removeEventListener('keydown', touche); racine.removeEventListener('keyup', relache); racine.removeEventListener('resize', taille); };
+    }, [page, fil, n, zones.length]);
     const f = M.FORMATS[format]; const ratio = f.l / f.h;
     let hp = dim.h - 2 * MARGE_FENETRE; let lp = hp * ratio;
     if (lp > dim.l - 2 * MARGE_FENETRE) { lp = dim.l - 2 * MARGE_FENETRE; hp = lp / ratio; }
     const largeur = Math.floor(lp);
+    const slide = slides[page];
+    // Les paragraphes de la page et leur boîte (en points de la page), pour savoir lesquels une zone touche.
+    const boites = useMemo(() => {
+      const c = M.composer(slide, format, fond, choisirPolice, { charte, reglages, index: page, total: n, logo });
+      const b = {};
+      c.elements.filter((e) => e.type === 'bloc').forEach((e) => { const o = b[e.bloc]; b[e.bloc] = o ? { x0: Math.min(o.x0, e.x), y0: Math.min(o.y0, e.y), x1: Math.max(o.x1, e.x + e.l), y1: Math.max(o.y1, e.y + e.h) } : { x0: e.x, y0: e.y, x1: e.x + e.l, y1: e.y + e.h }; });
+      return b;
+    }, [slide, format, fond, page, n]);
+    const touches = (z, b) => {
+      const zx0 = z.x0 * f.l, zx1 = z.x1 * f.l, zy0 = z.y0 * f.h, zy1 = z.y1 * f.h;
+      const w = Math.min(zx1, b.x1) - Math.max(zx0, b.x0), hh = Math.min(zy1, b.y1) - Math.max(zy0, b.y0);
+      if (w <= 0 || hh <= 0) return false;
+      return w * hh >= 0.1 * Math.min((b.x1 - b.x0) * (b.y1 - b.y0), (zx1 - zx0) * (zy1 - zy0));
+    };
+    const choisis = Object.keys(boites).map(Number).filter((k) => zones.some((z) => touches(z, boites[k])));
+    const pos = (e) => { const r = surface.current.getBoundingClientRect(); return { x: Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)), y: Math.max(0, Math.min(1, (e.clientY - r.top) / r.height)) }; };
+    const debut = (e) => {
+      if (e.button != null && e.button > 0) return;
+      e.preventDefault(); surface.current.setPointerCapture(e.pointerId);
+      const p = pos(e);
+      setTrace({ x0: p.x, y0: p.y, x1: p.x, y1: p.y, ajout: e.shiftKey || e.metaKey || e.ctrlKey || touchesAjout.current || ajout });
+    };
+    const deplace = (e) => { if (!trace) return; const p = pos(e); setTrace({ ...trace, x1: p.x, y1: p.y }); };
+    const fin = () => {
+      if (!trace) return;
+      const z = { x0: Math.min(trace.x0, trace.x1), y0: Math.min(trace.y0, trace.y1), x1: Math.max(trace.x0, trace.x1), y1: Math.max(trace.y0, trace.y1) };
+      const petit = Math.max((z.x1 - z.x0) * largeur, (z.y1 - z.y0) * largeur / ratio) < 8;
+      let nouvelle = z;
+      if (petit) {
+        // Un simple toucher : le paragraphe sous le doigt ; sur le vide, on efface (sauf si on ajoute).
+        const cx = trace.x0 * f.l, cy = trace.y0 * f.h;
+        const k = Object.keys(boites).map(Number).find((q) => cx >= boites[q].x0 && cx <= boites[q].x1 && cy >= boites[q].y0 && cy <= boites[q].y1);
+        nouvelle = k == null ? null : { x0: boites[k].x0 / f.l, x1: boites[k].x1 / f.l, y0: boites[k].y0 / f.h, y1: boites[k].y1 / f.h };
+      }
+      setZones((anciennes) => (nouvelle ? (trace.ajout ? [...anciennes, nouvelle] : [nouvelle]) : (trace.ajout ? anciennes : [])));
+      setTrace(null);
+    };
+    const messages = fils[page] || [];
+    const dire = (de, texte) => setFils((x) => ({ ...x, [page]: [...(x[page] || []), { de, texte }] }));
+    async function envoyer(demande) {
+      const q = String(demande || '').trim();
+      if (!q || enCours || !configIA) return;
+      const hist = messages;
+      dire('moi', q);
+      if (!choisis.length) { dire('ccb', 'Je ne vois aucun paragraphe dans cette zone : trace un rectangle qui touche du texte, ou touche directement un paragraphe.'); return; }
+      setEnCours(true);
+      try {
+        const zone = choisis.map((k) => ({ n: k, style: slide.blocs[k].style, texte: slide.blocs[k].texte }));
+        const contexte = slide.blocs.map((b, k) => ({ n: k, style: b.style, texte: b.texte })).filter((b) => !choisis.includes(b.n));
+        const g = M.gabaritParDefaut(slide, page);
+        const brut = await IA.demander(configIA, { systeme: R.SYSTEME_CIBLE, texte: R.messageCible({ page: page + 1, total: n, role: slide.role, gabarit: M.GABARITS[g] ? M.GABARITS[g].nom : '', reseau: '', zone, contexte, historique: hist, demande: q, profil }), maxJetons: 2500, delai: 90000, json: R.JSON_CIBLE });
+        const lu = R.lireCible(brut, choisis);
+        const changements = lu.modifications.map((m) => ({ i: page, n: m.bloc, texte: T.appliquer(m.texte, T.corrections(m.texte)), style: m.style, lien: slide.blocs[m.bloc].lien, avant: { texte: slide.blocs[m.bloc].texte, style: slide.blocs[m.bloc].style } }));
+        let reponse = lu.reponse || (changements.length ? 'C’est fait.' : 'Je n’ai rien changé.');
+        if (changements.length) {
+          const essai = { ...slide, blocs: slide.blocs.map((b, k) => { const c = changements.find((x) => x.n === k); return c ? { ...b, texte: c.texte, ...(c.style ? { style: c.style } : {}) } : b; }) };
+          const deborde = M.composer(essai, format, fond, choisirPolice, { charte, reglages, index: page, total: n, logo }).deborde;
+          onModifier(changements, `Page ${page + 1} retouchée par ${nomIA} (${changements.length} paragraphe${changements.length > 1 ? 's' : ''}).`);
+          setAnnulations((a) => [...a, changements]);
+          if (deborde) reponse += ' Attention : le texte déborde un peu de la page. Demande-moi de le raccourcir.';
+        }
+        dire('ccb', reponse);
+      } catch (erreur) {
+        dire('ccb', erreur instanceof IA.ErreurIA ? erreur.message : 'Je n’ai pas pu répondre : ' + erreur.message);
+      } finally { setEnCours(false); }
+    }
+    const annuler = () => {
+      const dernier = annulations[annulations.length - 1];
+      if (!dernier) return;
+      onModifier(dernier.map((c) => ({ i: c.i, n: c.n, texte: c.avant.texte, style: c.avant.style, lien: c.lien })), `Retouche de la page ${dernier[0].i + 1} annulée.`);
+      setAnnulations((a) => a.slice(0, -1)); dire('ccb', 'J’ai annulé la dernière retouche.');
+    };
+    const voix = useConversationVocale({ envoyer: (t) => envoyer(t), messages, occupe: enCours });
+    const [saisie, setSaisie] = useState('');
+    const envoyerSaisie = () => { const q = saisie; setSaisie(''); envoyer(q); };
     // Au-dessus de tout (en-tête compris) : la fenêtre est placée à la racine de l'app.
     const RD = racine.ReactDOM;
     const auPremierPlan = (noeud) => (RD && RD.createPortal && typeof document !== 'undefined' ? RD.createPortal(noeud, document.querySelector('.app') || document.body) : noeud);
+    const rect = (z, cle, classe) => h('div', { key: cle, className: classe, style: { left: z.x0 * 100 + '%', top: z.y0 * 100 + '%', width: (z.x1 - z.x0) * 100 + '%', height: (z.y1 - z.y0) * 100 + '%' } });
+    const apercuTrace = trace ? { x0: Math.min(trace.x0, trace.x1), y0: Math.min(trace.y0, trace.y1), x1: Math.max(trace.x0, trace.x1), y1: Math.max(trace.y0, trace.y1) } : null;
+    const nbPar = choisis.length;
     return auPremierPlan(h('div', { className: 'grande-fenetre', role: 'dialog', 'aria-modal': 'true', 'aria-label': `Page ${page + 1} sur ${n}, en grand`, onClick: (e) => { if (e.target === e.currentTarget) onFermer(); } },
       h('button', { type: 'button', className: 'gf-fermer', 'aria-label': 'Fermer', onClick: onFermer }, '×'),
       h('div', { className: 'gf-page', style: { width: largeur + 'px' } },
-        h(SlideCanvas, { slide: slides[page], formatId: format, fondId: fond, largeur, index: page, total: n, etiquette: `Page ${page + 1}` }),
+        h(SlideCanvas, { slide, formatId: format, fondId: fond, largeur, index: page, total: n, etiquette: `Page ${page + 1}`, logo }),
+        // La surface de sélection : un rectangle tracé à la souris ou au doigt.
+        h('div', { ref: surface, className: 'gf-surface', 'aria-hidden': 'true', onPointerDown: debut, onPointerMove: deplace, onPointerUp: fin, onPointerCancel: () => setTrace(null) },
+          choisis.map((k) => rect({ x0: boites[k].x0 / f.l, x1: boites[k].x1 / f.l, y0: boites[k].y0 / f.h, y1: boites[k].y1 / f.h }, 'p' + k, 'gf-paragraphe')),
+          zones.map((z, k) => rect(z, 'z' + k, 'gf-zone')),
+          apercuTrace && rect(apercuTrace, 'trace', 'gf-zone trace')),
         ICONES_RESEAUX.map((ic) => h('button', { key: ic.id, type: 'button', className: 'gf-reseau', 'aria-label': `Aperçu du post ${ic.nom}`,
           style: { left: ic.x * largeur + 'px', top: HAUT_ICONE * largeur + 'px', width: TAILLE_ICONE * largeur + 'px', height: TAILLE_ICONE * largeur + 'px' }, onClick: () => setFil(ic.id) },
           h('img', { src: ic.fichier, alt: '' })))),
       n > 1 && page > 0 && h('button', { type: 'button', className: 'gf-fleche gauche', 'aria-label': 'Page précédente', onClick: () => aller(page - 1) }, h(Icone, { nom: 'gauche', taille: 22 })),
       n > 1 && page < n - 1 && h('button', { type: 'button', className: 'gf-fleche droite', 'aria-label': 'Page suivante', onClick: () => aller(page + 1) }, h(Icone, { nom: 'droite', taille: 22 })),
       n > 1 && h('span', { className: 'gf-compteur' }, `${page + 1} / ${n}`),
+      // Au doigt : le « + » fait que le prochain rectangle s'ajoute à la sélection au lieu de la remplacer.
+      h('button', { type: 'button', className: cls('gf-ajout', ajout && 'actif'), 'aria-pressed': ajout, 'aria-label': 'Ajouter une zone à la sélection', title: 'Ajouter une zone à la sélection (au clavier : Maj ou Tab)', onClick: () => setAjout(!ajout) }, '+'),
+      zones.length > 0 && h('div', { className: cls('gf-agent', reduit && 'reduit'), role: 'region', 'aria-label': `${nomIA}, agent ciblé` },
+        h('div', { className: 'gf-agent-tete' },
+          h('span', { className: 'gf-agent-titre' }, h(Robot, { taille: 26 }), h('strong', null, nomIA), h('span', { className: 'doux petit' }, `Page ${page + 1} · ${zones.length} zone${zones.length > 1 ? 's' : ''} · ${nbPar} paragraphe${nbPar > 1 ? 's' : ''}`)),
+          h('span', { className: 'gf-agent-actions' },
+            annulations.length > 0 && h('button', { type: 'button', className: 'btn-mini', onClick: annuler }, 'Annuler la retouche'),
+            h('button', { type: 'button', className: 'btn-mini', onClick: () => setReduit(!reduit) }, reduit ? 'Agrandir' : 'Réduire'),
+            h('button', { type: 'button', className: 'btn-mini', onClick: () => { setZones([]); setTrace(null); } }, 'Effacer la zone'))),
+        !reduit && h(Fragment, null,
+          !configIA && h('p', { className: 'doux petit' }, `Pour retoucher avec ${nomIA}, ajoute ta clé dans Configuration, onglet IA.`),
+          nbPar === 0 && h('p', { className: 'doux petit' }, 'Aucun paragraphe dans cette zone : trace un rectangle qui touche du texte.'),
+          nbPar > 0 && h('p', { className: 'gf-extraits petit' }, choisis.map((k) => '« ' + String(slide.blocs[k].texte).replace(/\s+/g, ' ').slice(0, 46) + (String(slide.blocs[k].texte).length > 46 ? '…' : '') + ' »').join('   ')),
+          messages.length > 0 && h('div', { className: 'mep-fil-messages gf-messages' }, messages.map((m, k) => h('div', { key: k, className: cls('mep-message', m.de === 'moi' ? 'moi' : 'ccb') }, m.texte))),
+          enCours && h('p', { className: 'doux petit', role: 'status' }, `${nomIA} retouche la zone…`),
+          h(EtatVoix, { voix, nomIA }),
+          configIA && h('div', { className: 'discussion-saisie' },
+            h('input', { className: 'champ-texte', value: saisie, placeholder: 'Que veux-tu changer dans cette zone ?', 'aria-label': `Ta demande à ${nomIA} pour cette zone`, onChange: (e) => setSaisie(e.target.value), onKeyDown: (e) => { if (e.key === 'Enter') { e.preventDefault(); envoyerSaisie(); } } }),
+            h(BoutonMicro, { voix, nomIA }),
+            h(Bouton, { variante: 'principal', disabled: enCours || !saisie.trim(), onClick: envoyerSaisie }, 'Envoyer')))),
       fil && h(ApercuFil, { slides, format, fond, texte: (textes && textes[fil]) || texte, reseau: fil, onFermer: () => setFil(null) })));
   }
 
@@ -1146,7 +1269,11 @@
     const plan = choix === 'favori' ? favori : typeof choix === 'number' && plans[choix] ? plans[choix] : null;
     const choixEffectif = plan ? choix : (choix === 'actuelle' && actuelleValable ? 'actuelle' : 'simple');
     const auHasard = choixEffectif === 'simple' && hasard && hasard.cle === cleTexte ? hasard : null;
-    const slides = plan ? PROP.construireSlides(plan, paragraphes) : choixEffectif === 'actuelle' ? edite.slides : auHasard ? auHasard.slides : decoupage;
+    const slidesBase = plan ? PROP.construireSlides(plan, paragraphes) : choixEffectif === 'actuelle' ? edite.slides : auHasard ? auHasard.slides : decoupage;
+    // Retouches faites dans la grande fenêtre : elles s'ajoutent à la mise en page affichée (et suivent « Appliquer »).
+    const [retouche, setRetouche] = useState(null);
+    const cleRetouche = JSON.stringify([String(choixEffectif), plan ? plan.nom : '', cleTexte, fond]);
+    const slides = retouche && retouche.cle === cleRetouche ? retouche.slides : slidesBase;
     const reseauNom = nomReseau(reseau);
     const catalogueTexte = () => PROP.catalogue(M.GABARITS, fonds, M.NATURES);
     const debordeDe = (pl) => (sl, i, total) => M.composer(sl, format, pl.fond, choisirPolice, { charte, reglages, index: i, total }).deborde;
@@ -1186,7 +1313,7 @@
       if (!configIA || !PROP || !paragraphes.length) return false;
       const cle = cleTexte;
       const deja = autres ? plans : [];
-      setGen({ cle, etat: 'encours', plans: deja, detail: '' });
+      setGen({ cle, etat: 'encours', plans: deja, detail: '' }); setRetouche(null);
       try {
         const essayer = async (eviter) => {
           const brut = await IA.demander(configIA, { systeme: PROP.SYSTEME, texte: PROP.messageGeneration({ paragraphes, catalogueTexte: catalogueTexte(), format: M.FORMATS[format].nom, reseau: reseauNom, favoris: [], eviter, maxPages, indications: consignes }), maxJetons: 4000, delai: 150000, json: PROP.JSON_PLANS });
@@ -1392,7 +1519,12 @@
           gen.detail && etatGen === 'repos' && h('p', { className: 'doux petit' }, gen.detail),
           choixEffectif === 'simple' && h(Bouton, { variante: 'petit', onClick: autreAuHasard }, 'Une autre au hasard'),
           )),
-      fil && slides.length > 0 && h(GrandeFenetre, { slides, format, fond, depart: vue, texte: paragraphes[0], onPage: setPageVue, onFermer: () => setFil(false) }));
+      fil && slides.length > 0 && h(GrandeFenetre, { slides, format, fond, depart: vue, texte: paragraphes[0], onPage: setPageVue, onFermer: () => setFil(false), profil: (etat.projet && etat.projet.profilEditorial) || '',
+        onModifier: (chg) => {
+          const copie = slides.map((sl) => ({ ...sl, blocs: sl.blocs.map((b) => ({ ...b })) }));
+          chg.forEach((c) => { Object.assign(copie[c.i].blocs[c.n], { texte: c.texte, ...(c.style ? { style: c.style } : {}) }); });
+          setRetouche({ cle: cleRetouche, slides: copie });
+        } }));
 
     // Un seul écran : les mises en page, puis le fond, le logo et les fleurs. Le texte se remplace à l'étape Texte
     // de l'article ; le réseau et les dimensions se changent dans le menu Carrousel.
@@ -2434,7 +2566,12 @@
         article.slides[0] && h('button', { type: 'button', className: 'page-cliquable', 'aria-label': 'Ouvrir le carrousel en grand', title: 'Ouvrir en grand', onClick: () => setFil(true) },
           h(SlideCanvas, { slide: article.slides[0], formatId: article.format, fondId: article.fond, largeur: 236, index: 0, total, logo, etiquette: 'Page 1' })),
         h('div', { className: 'publication-vignettes' }, article.slides.slice(1).map((s, k) => h(SlideCanvas, { key: k, slide: s, formatId: article.format, fondId: article.fond, largeur: 44, index: k + 1, total, logo }))),
-        fil && h(GrandeFenetre, { slides: article.slides, format: article.format, fond: article.fond, depart: 0, texte: article.texte[0], textes: { linkedin: ((article.descriptions || {}).linkedin || {}).fr || article.texte[0], instagram: ((article.descriptions || {}).instagram || {}).fr || article.texte[0] }, onFermer: () => setFil(false) })));
+        fil && h(GrandeFenetre, { slides: article.slides, format: article.format, fond: article.fond, depart: 0, logo, profil: (etat.projet && etat.projet.profilEditorial) || '', texte: article.texte[0],
+          onModifier: (chg, annonce) => majA((a) => chg.reduce((x, c) => {
+            let y = c.lien ? OP.blocLie(c.i, c.n, c.texte)(x) : OP.modifierBloc(c.i, c.n, { texte: c.texte })(x);
+            if (c.style) y = OP.modifierBloc(c.i, c.n, { style: c.style })(y);
+            return y;
+          }, a), null, annonce), textes: { linkedin: ((article.descriptions || {}).linkedin || {}).fr || article.texte[0], instagram: ((article.descriptions || {}).instagram || {}).fr || article.texte[0] }, onFermer: () => setFil(false) })));
   }
 
   /* ================================================================== */

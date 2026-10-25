@@ -139,6 +139,7 @@
     const slides = plan.slides.map((s, i) => ({
       role: i === 0 ? 'Couverture' : 'Texte',
       gabarit: s.gabarit,
+      ...(s.echelle ? { echelle: s.echelle } : {}), // réduction posée par la réparation d'une page qui débordait
       blocs: s.paragraphes.map((k, j) => ({ style: s.styles[j] || (i === 0 && j === 0 ? 'titre' : /^«/.test(paragraphes[k].trim()) ? 'citation' : 'corps'), texte: paragraphes[k] })),
     }));
     slides[slides.length - 1].signature = true;

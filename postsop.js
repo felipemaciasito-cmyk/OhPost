@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-25.7'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-25.8'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -1023,7 +1023,7 @@
   }
 
   // Aperçu du post : la couverture telle qu'elle apparaît dans un fil, puis les pages qu'on fait défiler.
-  function ApercuFil({ slides, format, fond, texte, onFermer }) {
+  function ApercuFil({ slides, format, fond, texte, onFermer, reseau }) {
     const [page, setPage] = useState(0);
     const n = slides.length;
     useEffect(() => {
@@ -1036,7 +1036,7 @@
     const extrait = String(texte || '').replace(/\s+/g, ' ').slice(0, 120);
     return h('div', { className: 'voile fil-voile', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Aperçu du post', onClick: (e) => { if (e.target === e.currentTarget) onFermer(); } },
       h('div', { className: 'fil-cadre' },
-        h('div', { className: 'fil-tete' }, h('span', { className: 'doux petit' }, 'Aperçu indicatif : chaque réseau présente le carrousel à sa façon.'), h(Bouton, { variante: 'petit', onClick: onFermer }, 'Fermer')),
+        h('div', { className: 'fil-tete' }, h('span', { className: 'doux petit' }, reseau ? `Aperçu indicatif d’un post ${reseau === 'instagram' ? 'Instagram' : 'LinkedIn'} : le réseau présente le carrousel à sa façon.` : 'Aperçu indicatif : chaque réseau présente le carrousel à sa façon.'), h(Bouton, { variante: 'petit', onClick: onFermer }, 'Fermer')),
         h('div', { className: 'post-fil', style: { width: largeur + 'px' } },
           h('div', { className: 'post-entete' }, h('span', { className: 'post-avatar', 'aria-hidden': 'true' }), h('span', { className: 'post-qui' }, h('strong', null, 'Ton profil'), h('span', null, 'à l’instant'))),
           h('div', { className: 'post-texte' }, extrait, extrait.length >= 120 ? '… ' : ' ', h('span', { className: 'post-plus' }, 'plus')),
@@ -1046,6 +1046,48 @@
             page < n - 1 && h('button', { type: 'button', className: 'post-fleche droite', 'aria-label': 'Page suivante', onClick: () => setPage(page + 1) }, h(Icone, { nom: 'droite', taille: 20 })),
             h('span', { className: 'post-compteur' }, `${page + 1} / ${n}`)),
           h('div', { className: 'post-actions', 'aria-hidden': 'true' }, h('span', null, 'J’aime'), h('span', null, 'Commenter'), h('span', null, 'Partager')))));
+  }
+
+  /* ---------- La grande fenêtre de présentation ----------
+     Toucher la page affichée l'ouvre au premier plan, aussi grande que l'écran le permet (tout l'écran moins 28 points),
+     sans fond opaque : l'écran d'avant reste visible derrière un voile. En haut à droite de la page, les logos LinkedIn
+     et Instagram (fichiers fournis par Romain, affichés tels quels) ouvrent l'aperçu du post ; Révélation : 50 % au repos,
+     100 % au survol, un seul à la fois. Réglages de Romain : 4,8 % de la largeur de la page, à 81,9 % et 89,0 %, 5,4 % du haut. */
+  const ICONES_RESEAUX = [
+    { id: 'linkedin', nom: 'LinkedIn', fichier: 'logo-linkedin.png', x: 0.819 },
+    { id: 'instagram', nom: 'Instagram', fichier: 'logo-instagram.png', x: 0.890 },
+  ];
+  const TAILLE_ICONE = 0.048; const HAUT_ICONE = 0.054; const MARGE_FENETRE = 28;
+  function GrandeFenetre({ slides, format, fond, depart, texte, textes, onFermer, onPage }) {
+    const [page, setPage] = useState(Math.min(depart || 0, Math.max(0, slides.length - 1)));
+    const [fil, setFil] = useState(null); // réseau de l'aperçu du post ouvert
+    const [dim, setDim] = useState(() => ({ l: racine.innerWidth || 1180, h: racine.innerHeight || 820 }));
+    const n = slides.length;
+    const aller = (p) => { const q = Math.max(0, Math.min(n - 1, p)); setPage(q); if (onPage) onPage(q); };
+    useEffect(() => {
+      const touche = (e) => { if (fil) return; if (e.key === 'Escape') onFermer(); else if (e.key === 'ArrowRight') aller(page + 1); else if (e.key === 'ArrowLeft') aller(page - 1); };
+      const taille = () => setDim({ l: racine.innerWidth, h: racine.innerHeight });
+      racine.addEventListener('keydown', touche); racine.addEventListener('resize', taille);
+      return () => { racine.removeEventListener('keydown', touche); racine.removeEventListener('resize', taille); };
+    }, [page, fil, n]);
+    const f = M.FORMATS[format]; const ratio = f.l / f.h;
+    let hp = dim.h - 2 * MARGE_FENETRE; let lp = hp * ratio;
+    if (lp > dim.l - 2 * MARGE_FENETRE) { lp = dim.l - 2 * MARGE_FENETRE; hp = lp / ratio; }
+    const largeur = Math.floor(lp);
+    // Au-dessus de tout (en-tête compris) : la fenêtre est placée à la racine de l'app.
+    const RD = racine.ReactDOM;
+    const auPremierPlan = (noeud) => (RD && RD.createPortal && typeof document !== 'undefined' ? RD.createPortal(noeud, document.querySelector('.app') || document.body) : noeud);
+    return auPremierPlan(h('div', { className: 'grande-fenetre', role: 'dialog', 'aria-modal': 'true', 'aria-label': `Page ${page + 1} sur ${n}, en grand`, onClick: (e) => { if (e.target === e.currentTarget) onFermer(); } },
+      h('button', { type: 'button', className: 'gf-fermer', 'aria-label': 'Fermer', onClick: onFermer }, '×'),
+      h('div', { className: 'gf-page', style: { width: largeur + 'px' } },
+        h(SlideCanvas, { slide: slides[page], formatId: format, fondId: fond, largeur, index: page, total: n, etiquette: `Page ${page + 1}` }),
+        ICONES_RESEAUX.map((ic) => h('button', { key: ic.id, type: 'button', className: 'gf-reseau', 'aria-label': `Aperçu du post ${ic.nom}`,
+          style: { left: ic.x * largeur + 'px', top: HAUT_ICONE * largeur + 'px', width: TAILLE_ICONE * largeur + 'px', height: TAILLE_ICONE * largeur + 'px' }, onClick: () => setFil(ic.id) },
+          h('img', { src: ic.fichier, alt: '' }), h('span', { className: 'gf-aide', 'aria-hidden': 'true' }, 'Aperçu ' + ic.nom)))),
+      n > 1 && page > 0 && h('button', { type: 'button', className: 'gf-fleche gauche', 'aria-label': 'Page précédente', onClick: () => aller(page - 1) }, h(Icone, { nom: 'gauche', taille: 22 })),
+      n > 1 && page < n - 1 && h('button', { type: 'button', className: 'gf-fleche droite', 'aria-label': 'Page suivante', onClick: () => aller(page + 1) }, h(Icone, { nom: 'droite', taille: 22 })),
+      n > 1 && h('span', { className: 'gf-compteur' }, `${page + 1} / ${n}`),
+      fil && h(ApercuFil, { slides, format, fond, texte: (textes && textes[fil]) || texte, reseau: fil, onFermer: () => setFil(null) })));
   }
 
   function FeuilleNouvelArticle({ etat, dispatch }) {
@@ -1072,6 +1114,14 @@
     const [pageVue, setPageVue] = useState(0);
     const [fil, setFil] = useState(false);
     const [discOuverte, setDiscOuverte] = useState(false);
+    const [bulleMep, setBulleMep] = useState(false);
+    const refBulleMep = useRef(null);
+    useEffect(() => {
+      if (!bulleMep) return undefined;
+      const fermer = (e) => { if (refBulleMep.current && !refBulleMep.current.contains(e.target)) setBulleMep(false); };
+      document.addEventListener('pointerdown', fermer);
+      return () => document.removeEventListener('pointerdown', fermer);
+    }, [bulleMep]);
     const [discussion, setDiscussion] = useState([]); // { de: 'moi' | 'ccb', texte }
     const [saisie, setSaisie] = useState('');
     const [discEnCours, setDiscEnCours] = useState(false);
@@ -1101,6 +1151,36 @@
     const catalogueTexte = () => PROP.catalogue(M.GABARITS, fonds, M.NATURES);
     const debordeDe = (pl) => (sl, i, total) => M.composer(sl, format, pl.fond, choisirPolice, { charte, reglages, index: i, total }).deborde;
     const garder = (pl) => PROP.aere(pl, paragraphes, debordeDe(pl), maxPages);
+    // Une page qui déborde (ou trop chargée) est réparée plutôt que rejetée : texte un peu réduit sur cette page,
+    // sinon la page est coupée en deux tant qu'on reste dans la limite de pages. Seules les propositions impossibles sont écartées.
+    const motsDe = (k) => (paragraphes[k] || '').split(/\s+/).filter(Boolean).length;
+    function reparer(pl) {
+      if (!pl || !pl.slides) return pl;
+      const plan = { ...pl, slides: pl.slides.map((s0) => ({ ...s0, paragraphes: [...s0.paragraphes], styles: [...(s0.styles || [])] })) };
+      let garde = 0;
+      for (let i = 0; i < plan.slides.length && garde < 40; i++, garde++) {
+        const page = () => PROP.construireSlides(plan, paragraphes)[i];
+        const s0 = plan.slides[i];
+        const charge = s0.paragraphes.length > 1 && s0.paragraphes.reduce((t, k) => t + motsDe(k), 0) > PROP.MOTS_MAX_PAGE;
+        if (!charge && !debordeDe(plan)(page(), i, plan.slides.length)) continue;
+        if (!charge) {
+          let ok = false;
+          for (const e of [0.95, 0.9, 0.85, 0.8]) { s0.echelle = e; if (!debordeDe(plan)(page(), i, plan.slides.length)) { ok = true; break; } }
+          if (ok) { plan.repare = true; continue; }
+          delete s0.echelle;
+        }
+        if (s0.paragraphes.length > 1 && plan.slides.length < maxPages) {
+          const m = Math.ceil(s0.paragraphes.length / 2);
+          const fin = s0.gabarit === 'F1';
+          const avant = { ...s0, gabarit: fin ? 'T1' : s0.gabarit, paragraphes: s0.paragraphes.slice(0, m), styles: s0.styles.slice(0, m) };
+          const apres = { ...s0, gabarit: fin ? 'F1' : /^V/.test(s0.gabarit) ? 'T1' : s0.gabarit, paragraphes: s0.paragraphes.slice(m), styles: s0.styles.slice(m) };
+          plan.slides.splice(i, 1, avant, apres);
+          plan.repare = true;
+          i--; // revérifier la première moitié
+        }
+      }
+      return plan;
+    }
 
     async function generer(autres, consignes = indications) {
       if (!configIA || !PROP || !paragraphes.length) return false;
@@ -1111,7 +1191,7 @@
         const essayer = async (eviter) => {
           const brut = await IA.demander(configIA, { systeme: PROP.SYSTEME, texte: PROP.messageGeneration({ paragraphes, catalogueTexte: catalogueTexte(), format: M.FORMATS[format].nom, reseau: reseauNom, favoris: [], eviter, maxPages, indications: consignes }), maxJetons: 4000, delai: 150000, json: PROP.JSON_PLANS });
           const lu = PROP.lireReponse(brut, paragraphes.length, M.GABARITS, fonds, M.NATURES);
-          const gardes = lu.plans.filter(garder);
+          const gardes = lu.plans.map(reparer).filter(garder);
           return { gardes, ecartes: lu.ecartes + lu.plans.length - gardes.length };
         };
         const eviter = deja.map((p) => p.nom);
@@ -1170,17 +1250,7 @@
       setDiscussion(fil0); setSaisie(''); setDiscEnCours(true);
       const dire = (t) => setDiscussion((d) => d.concat([{ de: 'ccb', texte: t }]));
       try {
-        if (plan) {
-          const brut = await IA.demander(configIA, { systeme: PROP.SYSTEME, texte: PROP.messageEvolution({ paragraphes, catalogueTexte: catalogueTexte(), plan, historique: discussion, demande, maxPages }), maxJetons: 3000, delai: 120000, json: PROP.JSON_PLANS });
-          const lu = PROP.lireReponse(brut, paragraphes.length, M.GABARITS, fonds, M.NATURES);
-          const nouveau = lu.plans[0];
-          if (nouveau && garder(nouveau)) {
-            if (choix === 'favori') setFavori(nouveau);
-            else { const liste = plans.slice(); liste[choix] = nouveau; setGen({ ...gen, plans: liste, detail: '' }); }
-            setFond(nouveau.fond); setPageVue(0);
-            dire(lu.reponse || `« ${nouveau.nom} » : voici la mise en page modifiée.`);
-          } else dire(`Je n’ai pas réussi à suivre ta demande en ${maxPages} pages sans page qui déborde : la proposition affichée ne change pas. Reformule, ou demande autre chose.`);
-        } else {
+        {
           const res = await generer(false, fil0.filter((m) => m.de === 'moi').map((m) => m.texte));
           // Dire combien de propositions sont vraiment affichées (certaines peuvent être écartées par la vérification).
           const nombres = ['', 'une proposition', 'deux propositions', 'trois propositions'];
@@ -1265,10 +1335,10 @@
     const pourquoiChoix = choixEffectif === 'favori' ? 'Ton carrousel favori, appliqué à ce texte : même rythme, mêmes gabarits, même fond.' : plan ? plan.pourquoi : choixEffectif === 'actuelle' ? 'Les pages de ton article telles qu’elles sont aujourd’hui, retouches comprises. Rien ne change tant que tu n’appliques pas une autre mise en page.' : auHasard ? 'Des gabarits et un fond tirés au hasard, sans IA, qui tiennent dans les marges.' : 'Les paragraphes les uns après les autres jusqu’à remplir chaque page. « Une autre au hasard » change les gabarits et le fond, toujours sans IA.';
 
     const discussionCCB = discOuverte && h('div', { className: 'mep-discussion', role: 'region', 'aria-label': `Discussion avec ${IA.ASSISTANT.nom}` },
-      h('p', { className: 'doux petit' }, plan ? `${IA.ASSISTANT.nom} modifie « ${plan.nom} » selon tes indications, en ${maxPages} pages au plus.` : `${IA.ASSISTANT.nom} compose trois propositions qui suivent tes indications, en ${maxPages} pages au plus.`),
+      h('p', { className: 'doux petit' }, `Ton envie pour la mise en page : ${IA.ASSISTANT.nom} compose trois nouvelles propositions qui la suivent, en ${maxPages} pages au plus. Pour retoucher une page précise, ouvre-la en grand en la touchant.`),
       discussion.length > 0 && h('div', { className: 'mep-fil-messages' }, discussion.map((m, k) => h('div', { key: k, className: cls('mep-message', m.de === 'moi' ? 'moi' : 'ccb') }, m.texte))),
       discEnCours && h('div', { className: 'mep-attente petit', role: 'status' }, h('span', { className: 'rond-attente', 'aria-hidden': 'true' }), `${IA.ASSISTANT.nom} réfléchit…`),
-      h('label', { className: 'etiquette petit', htmlFor: 'indications-ccb' }, `Tes indications pour ${IA.ASSISTANT.nom}`),
+      h('label', { className: 'etiquette petit', htmlFor: 'indications-ccb' }, 'Une envie ?'),
       h('div', { className: 'mep-saisie' },
         h(EtatVoix, { voix: voixMep, nomIA: IA.ASSISTANT.nom }),
         h('textarea', { id: 'indications-ccb', rows: 3, value: saisie, placeholder: 'Par exemple : plus de citations en grand, un fond vert pâle, une couverture plus percutante…', onChange: (e) => setSaisie(e.target.value), onKeyDown: (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); envoyer(); } } }),
@@ -1284,7 +1354,12 @@
             h('svg', { width: 22, height: 22, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d: 'M12 3.2l2.6 5.5 6 .7-4.4 4.1 1.2 5.9L12 16.5l-5.4 2.9 1.2-5.9L3.4 9.4l6-.7z', fill: dejaFavori ? 'currentColor' : 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinejoin: 'round' }))),
           h('button', { type: 'button', className: cls('fleche-favoris', favorisOuverts && 'actif'), 'aria-expanded': favorisOuverts, 'aria-label': 'Mes favoris', title: 'Mes favoris', onClick: () => setFavorisOuverts(!favorisOuverts) },
             h('svg', { width: 12, height: 12, viewBox: '0 0 12 12', 'aria-hidden': 'true' }, h('path', { d: 'M2.5 4.5 6 8l3.5-3.5', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' })))),
-        configIA && PROP && h('button', { type: 'button', className: cls('bouton-robot', discOuverte && 'actif'), 'aria-label': discOuverte ? `Fermer la discussion avec ${IA.ASSISTANT.nom}` : `Donner des indications à ${IA.ASSISTANT.nom}`, title: discOuverte ? `Fermer la discussion avec ${IA.ASSISTANT.nom}` : `Donner des indications à ${IA.ASSISTANT.nom}`, 'aria-expanded': discOuverte, onClick: () => setDiscOuverte(!discOuverte) }, h(Robot, { taille: 44 }))),
+        // L'agent général : l'apparence de tout le carrousel. Sa bulle : trois propositions tout de suite, ou une envie pour les orienter.
+        configIA && PROP && h('span', { className: 'ancre-bulle', ref: refBulleMep },
+          h('button', { type: 'button', className: cls('bouton-robot', (bulleMep || discOuverte) && 'actif'), 'aria-label': `${IA.ASSISTANT.nom} · apparence générale`, title: `${IA.ASSISTANT.nom} · apparence générale`, 'aria-haspopup': 'true', 'aria-expanded': bulleMep, onClick: () => setBulleMep(!bulleMep) }, h(Robot, { taille: 40 })),
+          bulleMep && h('div', { className: 'bulle-ccb', role: 'menu', 'aria-label': IA.ASSISTANT.nom },
+            h('button', { type: 'button', role: 'menuitem', className: 'item-bulle', disabled: etatGen === 'encours', onClick: () => { setBulleMep(false); generer(plans.length > 0); } }, h('strong', null, 'Générer 3 propositions'), h('span', { className: 'doux petit' }, 'Trois nouvelles mises en page, tout de suite')),
+            h('button', { type: 'button', role: 'menuitem', className: 'item-bulle', onClick: () => { setBulleMep(false); setDiscOuverte(true); } }, h('strong', null, 'Une envie ?'), h('span', { className: 'doux petit' }, 'Dis ce que tu veux : trois propositions la suivront'))))),
       favorisOuverts && h('div', { className: 'mep-favoris', role: 'group', 'aria-label': 'Mes carrousels favoris' },
         h('p', { className: 'doux petit' }, 'Appliqués à ce texte : même rythme, mêmes gabarits, même fond.'),
         favorisCarrousels.length
@@ -1299,14 +1374,14 @@
           slides.length ? h(Fragment, null,
             h('div', { className: 'mep-grande' },
               h('button', { type: 'button', className: 'bouton-rond', 'aria-label': 'Page précédente', disabled: vue === 0, onClick: () => setPageVue(vue - 1) }, h(Icone, { nom: 'gauche', taille: 20 })),
-              h(SlideCanvas, { slide: slides[vue], formatId: format, fondId: fond, largeur: largeurGrande, index: vue, total: slides.length, etiquette: `Page ${vue + 1}` }),
+              h('button', { type: 'button', className: 'page-cliquable', 'aria-label': `Ouvrir la page ${vue + 1} en grand`, title: 'Ouvrir en grand', onClick: () => setFil(true) },
+                h(SlideCanvas, { slide: slides[vue], formatId: format, fondId: fond, largeur: largeurGrande, index: vue, total: slides.length, etiquette: `Page ${vue + 1}` })),
               h('button', { type: 'button', className: 'bouton-rond', 'aria-label': 'Page suivante', disabled: vue >= slides.length - 1, onClick: () => setPageVue(vue + 1) }, h(Icone, { nom: 'droite', taille: 20 }))),
             h('div', { className: 'doux petit centre' }, `Page ${vue + 1} sur ${slides.length}`),
             h('div', { className: 'mep-bande' }, slides.map((sl, i) => h('button', { key: i, type: 'button', className: cls('mep-vignette', i === vue && 'actif'), 'aria-label': `Voir la page ${i + 1}`, 'aria-pressed': i === vue, onClick: () => setPageVue(i) },
               h(SlideCanvas, { slide: sl, formatId: format, fondId: fond, largeur: 52, index: i, total: slides.length })))),
             // Sous l'aperçu, l'un au-dessus de l'autre : voir le post, puis demander d'autres propositions.
             h('div', { className: 'mep-actions-apercu' },
-              h(Bouton, { onClick: () => setFil(true), disabled: !slides.length }, 'Aperçu du post'),
               configIA && PROP && h(Bouton, { disabled: etatGen === 'encours', onClick: () => generer(plans.length > 0) }, plans.length ? 'Proposer 3 autres' : 'Proposer 3 mises en page'))) : null),
         h('div', { className: 'mep-infos' },
           h('h3', { className: 'gill' }, nomChoix),
@@ -1317,7 +1392,7 @@
           gen.detail && etatGen === 'repos' && h('p', { className: 'doux petit' }, gen.detail),
           choixEffectif === 'simple' && h(Bouton, { variante: 'petit', onClick: autreAuHasard }, 'Une autre au hasard'),
           )),
-      fil && slides.length > 0 && h(ApercuFil, { slides, format, fond, texte: paragraphes[0], onFermer: () => setFil(false) }));
+      fil && slides.length > 0 && h(GrandeFenetre, { slides, format, fond, depart: vue, texte: paragraphes[0], onPage: setPageVue, onFermer: () => setFil(false) }));
 
     // Un seul écran : les mises en page, puis le fond, le logo et les fleurs. Le texte se remplace à l'étape Texte
     // de l'article ; le réseau et les dimensions se changent dans le menu Carrousel.
@@ -2356,10 +2431,10 @@
         h(CarteProgrammation, { dispatch, article, majA, numero: 3 }),
         h(EtapeExport, { etat, dispatch, article, majA, partie: 'publie', numeros: { publie: 4 } })),
       h('aside', { className: 'publication-apercu', 'aria-label': 'Aperçu du carrousel' },
-        article.slides[0] && h(SlideCanvas, { slide: article.slides[0], formatId: article.format, fondId: article.fond, largeur: 236, index: 0, total, logo, etiquette: 'Page 1' }),
+        article.slides[0] && h('button', { type: 'button', className: 'page-cliquable', 'aria-label': 'Ouvrir le carrousel en grand', title: 'Ouvrir en grand', onClick: () => setFil(true) },
+          h(SlideCanvas, { slide: article.slides[0], formatId: article.format, fondId: article.fond, largeur: 236, index: 0, total, logo, etiquette: 'Page 1' })),
         h('div', { className: 'publication-vignettes' }, article.slides.slice(1).map((s, k) => h(SlideCanvas, { key: k, slide: s, formatId: article.format, fondId: article.fond, largeur: 44, index: k + 1, total, logo }))),
-        h(Bouton, { onClick: () => setFil(true) }, 'Aperçu du post'),
-        fil && h(ApercuFil, { slides: article.slides, format: article.format, fond: article.fond, texte: ((article.descriptions || {})[reseau] || {}).fr || article.texte[0], onFermer: () => setFil(false) })));
+        fil && h(GrandeFenetre, { slides: article.slides, format: article.format, fond: article.fond, depart: 0, texte: article.texte[0], textes: { linkedin: ((article.descriptions || {}).linkedin || {}).fr || article.texte[0], instagram: ((article.descriptions || {}).instagram || {}).fr || article.texte[0] }, onFermer: () => setFil(false) })));
   }
 
   /* ================================================================== */

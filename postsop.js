@@ -1966,7 +1966,7 @@
     return { actif, phase, partiel, detail, basculer, lecture, basculerLecture, lectureDisponible: lectureDisponible() };
   }
   function BoutonMicro({ voix, nomIA }) {
-    const libelle = voix.actif ? 'Arrêter la dictée' : 'Dicter ta demande à ' + nomIA;
+    const libelle = voix.actif ? 'Arrêter la dictée' : 'Dicter au micro';
     return h('button', { type: 'button', className: cls('bouton-micro', voix.actif && 'actif', voix.phase), 'aria-pressed': voix.actif, 'aria-label': libelle, title: libelle, onClick: voix.basculer },
       h('svg', { width: 20, height: 20, viewBox: '0 0 24 24', 'aria-hidden': 'true' },
         h('rect', { x: 9, y: 3, width: 6, height: 11, rx: 3, fill: 'currentColor' }),

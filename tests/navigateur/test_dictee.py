@@ -28,7 +28,7 @@ SIMU = """
 """
 def dicter(pg, zone, phrase):
     pg.evaluate('(p) => { window.__phrase = p; }', phrase)
-    zone.get_by_role('button', name='Dicter ta demande à CCB').click(); pg.wait_for_timeout(700)
+    zone.get_by_role('button', name='Dicter au micro').click(); pg.wait_for_timeout(700)
 with sync_playwright() as p:
     b = p.chromium.launch(); pg = b.new_page(viewport={'width': 1180, 'height': 820})
     pg.add_init_script(SIMU)
@@ -51,7 +51,7 @@ with sync_playwright() as p:
     verifie('« Une envie ? » : rien n’est envoyé', len(envois) == 0, len(envois))
     verifie('« Une envie ? » : l’état de la dictée est affiché', 'Je t’écoute' in fa.inner_text())
     fa.get_by_role('button', name='Arrêter la dictée').click(); pg.wait_for_timeout(200)
-    verifie('« Une envie ? » : toucher le micro arrête la dictée', fa.get_by_role('button', name='Dicter ta demande à CCB').count() == 1 and 'Je t’écoute' not in fa.inner_text())
+    verifie('« Une envie ? » : toucher le micro arrête la dictée', fa.get_by_role('button', name='Dicter au micro').count() == 1 and 'Je t’écoute' not in fa.inner_text())
     fa.get_by_role('button', name='Envoyer').click(); pg.wait_for_timeout(1200)
     verifie('« Une envie ? » : l’envie part quand tu envoies', len(envois) >= 1 and 'Un fond bleu, plus de citations en grand' in json.dumps(envois[-1], ensure_ascii=False), len(envois))
     fa.locator('.feuille-tete').get_by_role('button', name='Annuler').click(); pg.wait_for_timeout(300)

@@ -1,0 +1,16 @@
+const P = require('../../propositions.js');
+let ok = 0, ko = 0; const t = (n, c) => { if (c) ok++; else { ko++; console.log('ÉCHEC', n); } };
+const par = ['Titre', 'mot '.repeat(50).trim(), 'mot '.repeat(40).trim(), 'court', 'mot '.repeat(90).trim()];
+const plan = (slides) => ({ nom: 'x', fond: 'bleu', slides: slides.map(([g, p]) => ({ gabarit: g, paragraphes: p, styles: p.map(() => null) })) });
+t('page aérée gardée', P.aere(plan([['V1', [0]], ['T1', [1]], ['T1', [2, 3]], ['T4', [4]]]), par, () => false));
+t('plusieurs paragraphes au-delà de 80 mots : écartée', !P.aere(plan([['V1', [0]], ['T1', [1, 2]], ['T1', [3]], ['T1', [4]]]), par, () => false));
+t('un long paragraphe seul sur sa page reste permis', P.aere(plan([['V1', [0]], ['T1', [1]], ['T1', [2, 3]], ['T1', [4]]]), par, () => false));
+t('page qui déborde : écartée', !P.aere(plan([['V1', [0]], ['T1', [1]], ['T1', [2, 3]], ['T1', [4]]]), par, (sl, i) => i === 3));
+t('fonction des réseaux définie', /LinkedIn/.test(P.FONCTION_RESEAU.LinkedIn) && /défilement/.test(P.FONCTION_RESEAU.Instagram));
+t('message : réseau et propositions à éviter', /Sur Instagram/.test(P.messageGeneration({ paragraphes: ['a'], catalogueTexte: '', format: '1:1', reseau: 'Instagram', eviter: ['Récit'] })) && /déjà vues : Récit/.test(P.messageGeneration({ paragraphes: ['a'], catalogueTexte: '', format: '1:1', reseau: 'Instagram', eviter: ['Récit'] })));
+t('consigne : esthétique et lecture', /Esthétique avant tout/.test(P.SYSTEME) && /Lecture agréable/.test(P.SYSTEME));
+t('6 pages, 7 si le texte est long', P.maxPagesPour(['mot '.repeat(300)]) === 6 && P.maxPagesPour(['mot '.repeat(400)]) === 7);
+t('plus de pages que permis : écartée', !P.aere(plan([['V1', [0]], ['T1', [1]], ['T1', [2, 3]], ['T4', [4]]]), par, () => false, 3) && P.aere(plan([['V1', [0]], ['T1', [1]], ['T1', [2, 3]], ['T4', [4]]]), par, () => false, 4));
+t('limite de pages et indications dans le message', /6 au plus/.test(P.messageGeneration({ paragraphes: ['a'], catalogueTexte: '', format: '4:5', reseau: 'LinkedIn', maxPages: 6, indications: ['plus de vert'] })) && /plus de vert/.test(P.messageGeneration({ paragraphes: ['a'], catalogueTexte: '', format: '4:5', reseau: 'LinkedIn', maxPages: 6, indications: ['plus de vert'] })));
+t('évolution : limite de pages', /7 au plus/.test(P.messageEvolution({ paragraphes: ['a'], catalogueTexte: '', plan: { nom: 'x', fond: 'bleu', slides: [] }, historique: [], demande: 'd', maxPages: 7 })));
+console.log(ok + ' réussis, ' + ko + ' échecs'); process.exit(ko ? 1 : 0);

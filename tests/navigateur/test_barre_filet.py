@@ -1,0 +1,38 @@
+from playwright.sync_api import sync_playwright
+import serveur; _srv = serveur.demarrer()
+res = []
+def verifie(nom, cond, detail=''):
+    res.append((nom, bool(cond))); print(('OK   ' if cond else 'ÉCHEC'), nom, detail if not cond else '')
+with sync_playwright() as p:
+    b = p.chromium.launch(); pg = b.new_page(viewport={'width': 1180, 'height': 820})
+    erreurs = []; pg.on('pageerror', lambda e: erreurs.append(str(e)))
+    pg.goto('http://localhost:8765/'); pg.wait_for_timeout(900)
+    pg.evaluate("localStorage.setItem('postsop-barre-depliee', 'oui')")
+    pg.reload(); pg.wait_for_timeout(900)
+    pg.get_by_text('Le silence au travail').first.click(); pg.wait_for_timeout(300)
+    pg.locator('nav.etapes .etape').nth(1).click(); pg.wait_for_timeout(700)
+    toile = lambda: pg.locator('canvas[aria-label="Page 1"]').evaluate('(c) => c.toDataURL()')
+    avant = toile()
+    pg.mouse.click(600, 590); pg.wait_for_timeout(250); pg.mouse.click(600, 590); pg.wait_for_timeout(300)
+    sel = '(el) => { const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); const n = w.nextNode(); const r = document.createRange(); r.setStart(n, 0); r.setEnd(n, Math.min(9, n.length)); const s = getSelection(); s.removeAllRanges(); s.addRange(r); document.dispatchEvent(new Event("selectionchange")); }'
+    pg.locator('.editeur-bloc').evaluate(sel); pg.wait_for_timeout(300)
+    if pg.get_by_role('button', name='Plus d’outils').count(): pg.get_by_role('button', name='Plus d’outils').click(); pg.wait_for_timeout(200)
+    bouton = pg.get_by_role('button', name='Filet latéral sur les lignes choisies')
+    verifie('bouton filet dans la barre', bouton.count() == 1)
+    bouton.click(); pg.wait_for_timeout(300)
+    msg = lambda: pg.locator('.message').inner_text() if pg.locator('.message').count() else ''
+    verifie('le bouton ajoute le filet aux lignes choisies', 'Filet ajouté à côté des lignes choisies' in msg(), msg())
+    pg.locator('.editeur-bloc').evaluate(sel); pg.wait_for_timeout(200)
+    bouton.click(); pg.wait_for_timeout(300)
+    verifie('un second appui le retire de ces lignes', 'Filet retiré de ces lignes' in msg(), msg())
+    pg.locator('.editeur-bloc').evaluate(sel); pg.wait_for_timeout(200)
+    pg.get_by_role('button', name='Couleur du filet').click(); pg.wait_for_timeout(200)
+    menu = pg.locator('[role=menu][aria-label="Couleur du filet"]')
+    verifie('couleurs du filet directement dans la barre', menu.count() == 1 and 'Couleur libre' in menu.inner_text() and 'Charte · vert pâle' in menu.inner_text(), menu.inner_text()[:200] if menu.count() else '')
+    menu.get_by_role('menuitem', name='Charte · vert pâle', exact=True).click(); pg.wait_for_timeout(300)
+    verifie('la couleur choisie pose le filet sur ces lignes', 'Filet ajouté' in msg(), msg())
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(400)
+    verifie('la page montre le filet', toile() != avant)
+    print('erreurs JS :', erreurs); verifie('aucune erreur JavaScript', not erreurs)
+    b.close()
+print(sum(1 for _, o in res if o), '/', len(res), 'vérifications réussies')

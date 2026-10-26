@@ -1,0 +1,33 @@
+const M = require('../../moteur.js');
+let ok = 0, ko = 0; const eq = (n, a, b) => { const A = JSON.stringify(a), B = JSON.stringify(b); if (A === B) ok++; else { ko++; console.log('ÉCHEC', n, '\n  obtenu :', A, '\n  attendu:', B); } };
+const police = { mesurer: (t, taille) => t.length * taille * 0.5, asc: 0.8, desc: 0.2, dessiner: () => {} };
+const choisirPolice = () => police;
+const texte = 'Première ligne de texte assez longue pour passer à la ligne suivante. Deuxième phrase qui continue encore. Troisième phrase pour finir le paragraphe ici.';
+const k = texte.indexOf('Deuxième');
+const slide = (marques, extra = {}) => ({ role: 'Texte', gabarit: 'T1', blocs: [{ style: 'corps', texte, marques, ...extra }] });
+const filets = (r) => (r.elements || r.dessin || []).filter((e) => e.type === 'rect' && e.l === 5);
+const compose = (s) => M.composer(s, 'carre', 'blanc', choisirPolice, {});
+const sans = compose(slide([]));
+eq('aucun filet par défaut', filets(sans).length, 0);
+const avec = compose(slide([{ debut: k, fin: k + 30, filet: '#C9D420' }]));
+const f = filets(avec);
+eq('un filet, à la couleur choisie', [f.length, f[0] && f[0].couleur], [1, '#C9D420']);
+const tout = compose(slide([], { filet: true }));
+const ft = filets(tout);
+eq('filet du paragraphe entier plus haut que celui des lignes choisies', ft.length === 1 && f.length === 1 && ft[0].h > f[0].h, true);
+const role = compose(slide([{ debut: 0, fin: 10, filet: 'accent' }]));
+eq('couleur de rôle résolue (mise en valeur)', filets(role)[0].couleur, M.fondsDe(M.CHARTE_DEFAUT.palette).blanc.accent);
+const perso = compose(slide([], { filet: true, filetCouleur: '#FF0000' }));
+eq('filet du paragraphe en couleur libre', filets(perso)[0].couleur, '#FF0000');
+const deux = compose(slide([{ debut: 0, fin: 10, filet: '#111111' }, { debut: k, fin: k + 10, filet: '#222222' }]));
+eq('deux plages, deux couleurs', filets(deux).map((e) => e.couleur).sort(), ['#111111', '#222222']);
+console.log(`${ok} réussis, ${ko} échecs`);
+{
+  const couv = (blocs) => M.composer({ role: 'Couverture', gabarit: 'V1', blocs }, 'carre', 'bleu', choisirPolice, {});
+  const couleurs = (r) => [...new Set(r.elements.filter((e) => e.type === 'ligne').map((e) => e.couleur))];
+  const fond = M.fondsDe(M.CHARTE_DEFAUT.palette).bleu;
+  eq('couverture par défaut : titre puis contrepoint', couleurs(couv([{ style: 'titre', texte: 'Titre' }, { style: 'contrepoint', texte: 'Suite' }])), [fond.texte, fond.accent]);
+  eq('premier paragraphe en contrepoint : couleur de mise en valeur', couleurs(couv([{ style: 'contrepoint', texte: 'Titre' }, { style: 'contrepoint', texte: 'Suite' }])), [fond.accent]);
+  eq('deuxième paragraphe en titre : couleur du texte', couleurs(couv([{ style: 'titre', texte: 'Titre' }, { style: 'titre', texte: 'Suite' }])), [fond.texte]);
+  console.log(`couverture : ${ok} réussis au total, ${ko} échecs`);
+}

@@ -1,0 +1,44 @@
+from playwright.sync_api import sync_playwright
+import serveur; _srv = serveur.demarrer()
+res = []
+def verifie(nom, cond, detail=''):
+    res.append((nom, bool(cond))); print(('OK   ' if cond else 'ÉCHEC'), nom, detail if not cond else '')
+with sync_playwright() as p:
+    b = p.chromium.launch(); pg = b.new_page(viewport={'width': 1180, 'height': 820})
+    erreurs = []; pg.on('pageerror', lambda e: erreurs.append(str(e)))
+    pg.goto('http://localhost:8765/'); pg.wait_for_timeout(600)
+    pg.evaluate("localStorage.setItem('postsop-barre-depliee', 'oui')"); pg.reload(); pg.wait_for_timeout(900)
+    pg.get_by_text('Le silence au travail').first.click(); pg.wait_for_timeout(300)
+    pg.locator('nav.etapes .etape').nth(1).click(); pg.wait_for_timeout(700)
+    toile = lambda: pg.locator('canvas[aria-label="Page 1"]').evaluate('(c) => c.toDataURL()')
+    depart = toile()
+    pg.mouse.click(600, 590); pg.wait_for_timeout(300)  # choisir le bloc
+    pg.get_by_role('button', name='Format', exact=True).click(); pg.wait_for_timeout(150)
+    pg.get_by_role('menuitem', name='Fond du paragraphe').click(); pg.wait_for_timeout(200)
+    menu = pg.locator('[role=menu]').last.inner_text()
+    verifie('menu : couleurs, forme, angles, aucun, gabarit', all(x in menu for x in ('Couleur libre', 'Rectangle autour du paragraphe', 'Suit les lignes du texte', 'Arrondis', 'Droits', 'Aucun fond', 'Revenir au fond du gabarit')), menu[:300])
+    pg.get_by_role('menuitem', name='Charte · bleu pâle', exact=True).click(); pg.wait_for_timeout(500)
+    r1 = toile()
+    verifie('fond rectangle appliqué', r1 != depart)
+    def menu_fond():
+        pg.get_by_role('button', name='Format', exact=True).click(); pg.wait_for_timeout(300)
+        pg.get_by_role('menuitem', name='Fond du paragraphe').click(); pg.wait_for_timeout(300)
+    menu_fond()
+    pg.locator('[role^=menuitem]', has_text='Suit les lignes du texte').click(); pg.wait_for_timeout(500)
+    r2 = toile(); verifie('suit les lignes : dessin différent', r2 != r1)
+    menu_fond(); pg.locator('[role^=menuitem]', has_text='Droits').click(); pg.wait_for_timeout(500)
+    verifie('angles droits : dessin différent', toile() != r2)
+    menu_fond(); pg.get_by_role('menuitem', name='Revenir au fond du gabarit').click(); pg.wait_for_timeout(500)
+    verifie('revenir au gabarit : slide d’origine', toile() == depart)
+    # Barre flottante : le bouton Fond
+    pg.mouse.click(600, 590); pg.wait_for_timeout(300); pg.mouse.click(600, 590); pg.wait_for_timeout(400)
+    pg.locator('.editeur-bloc').evaluate('(el) => { const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); const n = w.nextNode(); const r = document.createRange(); r.setStart(n, 0); r.setEnd(n, Math.min(9, n.length)); const s = getSelection(); s.removeAllRanges(); s.addRange(r); document.dispatchEvent(new Event("selectionchange")); }'); pg.wait_for_timeout(300)
+    verifie('bouton « Fond du paragraphe » dans la barre', pg.get_by_role('button', name='Fond du paragraphe').count() == 1)
+    pg.get_by_role('button', name='Fond du paragraphe').click(); pg.wait_for_timeout(200)
+    verifie('il ouvre les mêmes réglages', pg.locator('[role=menu][aria-label="Fond du paragraphe"]').count() == 1)
+    pg.locator('[role=menu][aria-label="Fond du paragraphe"]').get_by_role('menuitem', name='Couleur du texte', exact=True).click(); pg.wait_for_timeout(300)
+    msg = pg.locator('.message').inner_text() if pg.locator('.message').count() else ''
+    verifie('fond de la couleur du texte : le texte change tout seul pour rester lisible', 'pour rester lisible' in msg, msg)
+    print('erreurs JS :', erreurs); verifie('aucune erreur JavaScript', not erreurs)
+    b.close()
+print(sum(1 for _, o in res if o), '/', len(res), 'vérifications réussies')

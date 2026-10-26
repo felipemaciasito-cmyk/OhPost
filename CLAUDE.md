@@ -54,7 +54,7 @@ L'app affiche un bandeau « Mise à jour incomplète » si un module en cache es
 
 Prérequis : Node.js, Python 3, Playwright et Chromium (`pip install playwright`, puis `python3 -m playwright install chromium`).
 
-- `python3 tests/lancer.py` : tout (18 fichiers unitaires, 48 séries dans le navigateur).
+- `python3 tests/lancer.py` : tout (18 fichiers unitaires, 49 séries dans le navigateur).
 - `python3 tests/lancer.py unitaires` ou `python3 tests/lancer.py navigateur`.
 - `python3 tests/lancer.py test_cible.py` : une série.
 
@@ -87,7 +87,7 @@ Les tests navigateur servent la racine du dépôt sur `localhost:8765` (`tests/n
 4. **Apparence générale** : propositions de CCB, Actuelle, favoris (étoile + petite flèche), Sans IA, fond, logo et fleurs. L'agent général : « Générer 3 propositions » ou « Une envie ? ».
 5. **Grande fenêtre** : toucher la page affichée (Apparence générale) ou l'aperçu (Publication) l'ouvre en grand. Logos LinkedIn puis Instagram en haut à droite (4,8 % de la largeur de la page, à 81,9 % et 89,0 %, 5,4 % du haut), à 50 % de visibilité, 100 % au survol, sans bulle d'aide ; chacun ouvre l'aperçu du post de son réseau. Tracer un rectangle sélectionne une zone (Tab, Maj ou le bouton « + » ajoutent une zone) et ouvre **l'agent ciblé**, qui ne retouche que les paragraphes de la zone.
 6. **Étape Publication** : réseau (LinkedIn, Instagram ou les deux), texte du post (CCB : trois propositions ou discussion), fichier, date (programmer ou non), publié.
-7. **Voix** : micro dans toutes les conversations avec CCB (conversation continue, mains libres), voix de l'iPad réglable dans Configuration › IA.
+7. **Voix** : dans toutes les conversations avec CCB, le micro sert de dictée : ce que Romain dit s'écrit dans le champ, il le corrige et l'envoie lui-même (rien ne part tout seul). Un bouton haut-parleur, à côté du micro, choisit si CCB lit ses réponses à voix haute (coupé par défaut, choix gardé sur l'appareil dans `postsop-voix-lecture`). Voix de l'iPad réglable dans Configuration › IA.
 
 ## Les logos des réseaux
 

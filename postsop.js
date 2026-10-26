@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-26.3'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-26.4'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -115,7 +115,7 @@
   const AIDES = {
     bibliotheque: { titre: 'Tes articles', textes: ['Trois sections : En cours, Publiés (validés par toi) et Corbeille, d’où tu peux restaurer un article.', 'Le menu « … » d’une carte permet de dupliquer, d’utiliser un article comme modèle pour un nouveau texte, de le marquer comme publié ou de le mettre à la corbeille.', 'Trie et affiche tes articles comme tu veux, en grille ou en liste. « Annuler » et ⌘Z (Ctrl+Z) reviennent en arrière à tout moment.', 'Calendrier : place tes articles sur une date, puis « Programmer un rappel » ajoute une alerte au calendrier de ton appareil. La publication automatique arrivera plus tard.'] },
     configuration: { titre: 'La configuration', textes: ['Charte : tes couleurs et tes tailles de texte. Tout changement s’applique à tous tes carrousels.', 'Ressources : tes polices, ton logo et tes fleurs, importés une fois et retrouvés sur tous tes appareils.', 'Réglages : le comportement de l’outil. Synchronisation : la liaison avec ton dépôt GitHub privé.', 'IA : le fournisseur d’intelligence artificielle et sa clé. Comme la clé GitHub, elle reste sur l’appareil : à saisir une fois sur chacun.'] },
-    texte: { titre: 'Étape 1 · Texte', textes: ['Ton texte est la référence du carrousel : chaque modification ici met les pages à jour, sans toucher à leur mise en page. Et un paragraphe modifié dans Mise en page modifie aussi ce texte.', 'Relis ton texte avant de passer à la mise en page : CCB composera ses propositions sur le texte corrigé.', 'Pour remplacer tout le texte : sélectionne tout, colle le nouveau, puis ouvre « Apparence générale » à l’étape 2 pour que CCB recompose les pages.', 'Avec une IA active (Configuration, onglet IA), « Relire avec CCB » propose des corrections sous forme de cartes : accepte, modifie ou refuse chacune ; rien n’est appliqué sans toi. Sans IA, la vérification LanguageTool surligne les fautes ; pour chacune, choisis la bonne correction ou ignore-la.', 'La typographie française se corrige toute seule quand tu tapes ou colles du texte, ici comme sur les pages : un message montre chaque correction, avec « Annuler ».', 'Discussion : sélectionne un passage, puis « CCB » (le petit robot). Donne tes consignes en langage naturel et demande plusieurs propositions ; « Appliquer » remplace le passage, « Annuler » le rétablit.'] },
+    texte: { titre: 'Étape 1 · Texte', textes: ['Ton texte est la référence du carrousel : chaque modification ici met les pages à jour, sans toucher à leur mise en page. Et un paragraphe modifié dans Mise en page modifie aussi ce texte.', 'Relis ton texte avant de passer à la mise en page : CCB composera ses propositions sur le texte corrigé.', 'Pour remplacer tout le texte : sélectionne tout, colle le nouveau, puis ouvre « Apparence générale » à l’étape 2 pour que CCB recompose les pages.', 'Avec une IA active (Configuration, onglet IA), « Relire avec CCB » propose des corrections sous forme de cartes : accepte, modifie ou refuse chacune ; rien n’est appliqué sans toi. Sans IA, la vérification LanguageTool surligne les fautes ; pour chacune, choisis la bonne correction ou ignore-la.', 'La typographie française se corrige toute seule quand tu tapes ou colles du texte, ici comme sur les pages : un message montre chaque correction, avec « Annuler ».', 'Discussion : sélectionne un passage, puis « CCB » (le petit robot). Donne tes consignes en langage naturel et demande plusieurs propositions ; « Appliquer » remplace le passage, « Annuler » le rétablit.', 'Le micro dicte ta demande : elle s’écrit dans le champ, tu la corriges, puis tu l’envoies. Le haut-parleur, à côté, fait lire ses réponses à CCB (touche-le de nouveau pour couper).'] },
     composition: { titre: 'Étape 2 · Mise en page', textes: ['La première fois que tu arrives ici, la fenêtre de mise en page s’ouvre : propositions de CCB, tes favoris, ou le découpage sans IA. Le bouton « Apparence générale », à droite des menus, la rouvre quand tu veux : autres propositions, favoris, fond, logo et fleurs. Le réseau et les dimensions se changent dans le menu Carrousel.', 'Le robot de la barre de menus, c’est CCB pour l’apparence : « Générer 3 propositions » ou « Une envie ? » ouvrent Apparence générale. Pour retravailler des mots, sélectionne-les dans une page : le robot de la petite barre en discute avec toi.', 'Pour retoucher une zone précise : dans Apparence générale (ou sur l’aperçu de Publication), touche la page pour l’ouvrir en grand, puis trace un rectangle avec le doigt ou la souris. CCB ne retouche que les paragraphes de la zone. Maj ou Tab ajoute une zone, le « + » fait de même au doigt.', 'Tes pages, les unes sous les autres, exactement comme elles seront exportées. Clique dans un paragraphe pour l’écrire à sa place ; sélectionne des mots pour les mettre en forme avec la petite barre qui apparaît.', 'Entrée crée un nouveau paragraphe, ⇧Entrée un retour à la ligne, ⌘↩ (Ctrl+↩) un saut de page. ⌫ au début d’un paragraphe le réunit au précédent ; au début d’une page, avec la page précédente.', 'Les menus en haut regroupent tout le reste : gabarits, fond, logo, et Vérifier pour les points à regarder. Ton texte reste la référence : chaque modification ici le met à jour.'] },
     publication: { titre: 'Étape 3 · Publication', textes: ['Tout pour publier, dans l’ordre : le texte du post, le fichier, la date de publication, puis « Marquer comme publié ».', 'Le texte du post : écris-le ou demande une proposition à CCB, puis « Copier » pour le coller sur le réseau.', 'Le fichier : un PDF pour LinkedIn, des images PNG pour Instagram. S’il reste des alertes, l’outil te les rappelle avant : à toi de décider.', 'La date : programme-la (elle apparaît dans le calendrier de la bibliothèque) ou choisis « Ne pas programmer ».'] },
   };
@@ -1169,7 +1169,7 @@
       onModifier(dernier.map((c) => ({ i: c.i, n: c.n, texte: c.avant.texte, style: c.avant.style, lien: c.lien })), `Retouche de la page ${dernier[0].i + 1} annulée.`);
       setAnnulations((a) => a.slice(0, -1)); dire('ccb', 'J’ai annulé la dernière retouche.');
     };
-    const voix = useConversationVocale({ envoyer: (t) => envoyer(t), messages, occupe: enCours });
+    const voix = useConversationVocale({ ecrire: (t) => setSaisie((x) => ajouterDictee(x, t)), messages });
     const [saisie, setSaisie] = useState('');
     const envoyerSaisie = () => { const q = saisie; setSaisie(''); envoyer(q); };
     // Au-dessus de tout (en-tête compris) : la fenêtre est placée à la racine de l'app.
@@ -1217,6 +1217,7 @@
           configIA && h('div', { className: 'discussion-saisie' },
             h('input', { className: 'champ-texte', value: saisie, placeholder: 'Que veux-tu changer dans cette zone ?', 'aria-label': `Ta demande à ${nomIA} pour cette zone`, onChange: (e) => setSaisie(e.target.value), onKeyDown: (e) => { if (e.key === 'Enter') { e.preventDefault(); envoyerSaisie(); } } }),
             h(BoutonMicro, { voix, nomIA }),
+            h(BoutonHautParleur, { voix, nomIA }),
             h(Bouton, { variante: 'principal', disabled: enCours || !saisie.trim(), onClick: envoyerSaisie }, 'Envoyer')))),
       fil && h(ApercuFil, { slides, format, fond, texte: (textes && textes[fil]) || texte, reseau: fil, onFermer: () => setFil(null) })));
   }
@@ -1258,7 +1259,7 @@
     const [discussion, setDiscussion] = useState([]); // { de: 'moi' | 'ccb', texte }
     const [saisie, setSaisie] = useState('');
     const [discEnCours, setDiscEnCours] = useState(false);
-    const voixMep = useConversationVocale({ envoyer: (t) => envoyer(t), messages: discussion, occupe: discEnCours });
+    const voixMep = useConversationVocale({ ecrire: (t) => setSaisie((x) => ajouterDictee(x, t)), messages: discussion });
     const [favori, setFavori] = useState(null);         // carrousel favori appliqué à ce texte
     const [favorisOuverts, setFavorisOuverts] = useState(false);
     const [noteFavori, setNoteFavori] = useState('');
@@ -1479,7 +1480,7 @@
       h('div', { className: 'mep-saisie' },
         h(EtatVoix, { voix: voixMep, nomIA: IA.ASSISTANT.nom }),
         h('textarea', { id: 'indications-ccb', rows: 3, value: saisie, placeholder: 'Par exemple : plus de citations en grand, un fond vert pâle, une couverture plus percutante…', onChange: (e) => setSaisie(e.target.value), onKeyDown: (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); envoyer(); } } }),
-        h('div', { className: 'actions-ligne' }, h(BoutonMicro, { voix: voixMep, nomIA: IA.ASSISTANT.nom }), h(Bouton, { variante: 'principal', disabled: !saisie.trim() || discEnCours || !configIA, onClick: () => envoyer() }, 'Envoyer'))));
+        h('div', { className: 'actions-ligne' }, h(BoutonMicro, { voix: voixMep, nomIA: IA.ASSISTANT.nom }), h(BoutonHautParleur, { voix: voixMep, nomIA: IA.ASSISTANT.nom }), h(Bouton, { variante: 'principal', disabled: !saisie.trim() || discEnCours || !configIA, onClick: () => envoyer() }, 'Envoyer'))));
 
     const etapeMiseEnPage = h('div', { className: 'mise-en-page' },
       h('div', { className: 'mep-choix' },
@@ -1842,13 +1843,20 @@
   }
 
 
-  /* ---------- Conversation à voix haute avec CCB (voix de l'appareil, mains libres) ----------
-     Le micro écoute ; quand tu te tais, ta phrase est envoyée et transcrite dans la discussion ; CCB répond à voix haute,
-     puis le micro se remet à écouter. On arrête en touchant de nouveau le micro. Tout passe par le navigateur (Safari) :
-     la transcription est faite par Apple, la voix est celle de l'iPad. */
+  /* ---------- Dictée et lecture à voix haute dans les conversations avec CCB (voix de l'appareil) ----------
+     Le micro dicte : ce que tu dis s'écrit dans le champ, tu le corriges, puis tu l'envoies toi-même. Il écoute jusqu'à
+     ce que tu le touches de nouveau ou que tu envoies. Le haut-parleur choisit si CCB lit ses réponses (réglage gardé sur
+     l'appareil). Tout passe par le navigateur (Safari) : la transcription est faite par Apple, la voix est celle de l'iPad. */
   const Reconnaissance = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
-  const voixDisponible = () => !!Reconnaissance && typeof window !== 'undefined' && 'speechSynthesis' in window;
+  const dicteeDisponible = () => !!Reconnaissance;
+  const lectureDisponible = () => typeof window !== 'undefined' && 'speechSynthesis' in window;
   const CLE_VOIX = 'postsop-voix';
+  // « CCB lit ses réponses » : une clé à part, pour que « Réglages d'origine » de la voix ne la touche pas.
+  const CLE_LECTURE = 'postsop-voix-lecture';
+  const lireLecture = () => { try { return localStorage.getItem(CLE_LECTURE) === 'oui'; } catch (e) { return false; } };
+  const ecrireLecture = (oui) => { try { localStorage.setItem(CLE_LECTURE, oui ? 'oui' : 'non'); } catch (e) { /* stockage indisponible : réglage pour cette session */ } };
+  // Une phrase dictée s'ajoute à la fin de ce qui est déjà écrit.
+  const ajouterDictee = (avant, phrase) => (String(avant || '').trim() ? String(avant).replace(/\s*$/, ' ') : '') + phrase;
   const REGLAGES_VOIX = { nom: '', vitesse: 1, hauteur: 1, volume: 1 };
   const lireReglagesVoix = () => { try { return { ...REGLAGES_VOIX, ...(JSON.parse(localStorage.getItem(CLE_VOIX) || '{}') || {}) }; } catch (e) { return { ...REGLAGES_VOIX }; } };
   const ecrireReglagesVoix = (r) => { try { localStorage.setItem(CLE_VOIX, JSON.stringify(r)); } catch (e) { /* stockage indisponible : réglage pour cette session */ } };
@@ -1871,16 +1879,25 @@
     synth.speak(u);
   }
   const pourLaVoix = (t) => String(t || '').replace(/[«»"“”]/g, '').replace(/\s+/g, ' ').trim();
-  function useConversationVocale({ envoyer, messages, occupe }) {
+  // ecrire(phrase) : ajoute la phrase dictée au champ de saisie. messages : la conversation (pour lire les réponses de CCB).
+  function useConversationVocale({ ecrire, messages }) {
     const [actif, setActif] = useState(false);
-    const [phase, setPhase] = useState('repos'); // repos, ecoute, attente, parole, erreur
+    const [phase, setPhase] = useState('repos'); // repos, ecoute, parole, erreur
     const [partiel, setPartiel] = useState('');
     const [detail, setDetail] = useState('');
+    const [lecture, setLecture] = useState(lireLecture);
     const reco = useRef(null);
     const actifRef = useRef(false);
-    const dejaDit = useRef(messages.length);
-    // Toujours la dernière version de « envoyer » : l'écoute démarrée plus tôt envoie avec l'état du moment.
-    const envoyerRef = useRef(envoyer); envoyerRef.current = envoyer;
+    const lectureRef = useRef(lecture); lectureRef.current = lecture;
+    const dejaVu = useRef(messages.length);
+    // Toujours la dernière version de « ecrire » : l'écoute démarrée plus tôt écrit dans le champ du moment.
+    const ecrireRef = useRef(ecrire); ecrireRef.current = ecrire;
+    const arreterDictee = () => {
+      actifRef.current = false; setActif(false); setPartiel('');
+      if (reco.current) try { reco.current.abort(); } catch (e) { /* déjà arrêté */ }
+      reco.current = null;
+      setPhase((p) => (p === 'ecoute' ? 'repos' : p));
+    };
     const ecouter = () => {
       if (!actifRef.current || !Reconnaissance) return;
       try {
@@ -1898,58 +1915,79 @@
           setPhase('erreur'); actifRef.current = false; setActif(false);
         };
         r.onend = () => {
-          reco.current = null;
+          if (reco.current === r) reco.current = null;
           const phrase = final.trim();
           setPartiel('');
           if (!actifRef.current) return;
-          if (phrase) { setPhase('attente'); envoyerRef.current(phrase); } else ecouter(); // silence : on réécoute
+          // La phrase s'écrit dans le champ, sans être envoyée ; le micro continue d'écouter la suite.
+          if (phrase) ecrireRef.current(phrase);
+          ecouter();
         };
         reco.current = r; setPhase('ecoute'); r.start();
-      } catch (e) { setDetail('Le micro n’a pas pu démarrer : touche-le de nouveau.'); setPhase('erreur'); }
+      } catch (e) { setDetail('Le micro n’a pas pu démarrer : touche-le de nouveau.'); setPhase('erreur'); actifRef.current = false; setActif(false); }
     };
+    // Débloque la voix de l'iPad pendant un toucher (Safari n'autorise le son qu'après un geste).
+    const debloquerVoix = () => { try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; window.speechSynthesis.speak(u); } catch (e) { /* sans effet */ } };
     const parler = (texte) => {
       setPhase('parole');
-      direAvecLaVoix(texte, () => { if (actifRef.current) ecouter(); else setPhase('repos'); });
+      direAvecLaVoix(texte, () => setPhase((p) => (p === 'parole' ? 'repos' : p)));
     };
-    // Une nouvelle réponse de CCB arrive pendant la conversation : il la dit à voix haute.
+    // Une nouvelle réponse de CCB : il la lit si le haut-parleur est activé. Un nouveau message de toi : la dictée s'arrête.
     useEffect(() => {
       const n = messages.length;
-      if (n > dejaDit.current) {
+      if (n > dejaVu.current) {
         const dernier = messages[n - 1];
-        dejaDit.current = n;
-        if (actifRef.current && dernier && dernier.de !== 'moi' && dernier.texte) parler(dernier.texte);
-      }
+        dejaVu.current = n;
+        if (dernier && dernier.de === 'moi' && actifRef.current) arreterDictee();
+        if (lectureRef.current && lectureDisponible() && dernier && dernier.de !== 'moi' && dernier.texte) parler(dernier.texte);
+      } else dejaVu.current = n;
     }, [messages.length]);
-    // La demande n'a pas eu de réponse (erreur) : on se remet à écouter.
-    useEffect(() => { if (actifRef.current && phase === 'attente' && !occupe) { const t = setTimeout(() => { if (actifRef.current && dejaDit.current === messages.length) ecouter(); }, 400); return () => clearTimeout(t); } return undefined; }, [occupe]);
+    // Haut-parleur activé : la voix doit être débloquée par un toucher avant la première réponse.
+    useEffect(() => {
+      if (!lecture || !lectureDisponible()) return undefined;
+      const une = () => { debloquerVoix(); document.removeEventListener('pointerdown', une, true); };
+      document.addEventListener('pointerdown', une, true);
+      return () => document.removeEventListener('pointerdown', une, true);
+    }, [lecture]);
     useEffect(() => () => { actifRef.current = false; if (reco.current) try { reco.current.abort(); } catch (e) { /* déjà arrêté */ } if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel(); }, []);
     const basculer = () => {
-      if (actifRef.current) {
-        actifRef.current = false; setActif(false); setPhase('repos'); setPartiel('');
-        if (reco.current) try { reco.current.abort(); } catch (e) { /* déjà arrêté */ }
-        window.speechSynthesis.cancel();
-        return;
-      }
-      if (!voixDisponible()) { setDetail('La conversation à voix haute n’est pas disponible dans ce navigateur. Sur iPad, utilise Safari ; la touche micro du clavier reste possible.'); setPhase('erreur'); return; }
-      // Débloque la voix de l'iPad pendant ce toucher (Safari n'autorise le son qu'après un geste).
-      try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; window.speechSynthesis.speak(u); } catch (e) { /* sans effet */ }
-      dejaDit.current = messages.length;
+      if (actifRef.current) { arreterDictee(); return; }
+      if (!dicteeDisponible()) { setDetail('La dictée n’est pas disponible dans ce navigateur. Sur iPad, utilise Safari ; la touche micro du clavier reste possible.'); setPhase('erreur'); return; }
+      if (lectureDisponible()) window.speechSynthesis.cancel(); // CCB se tait quand tu parles
       actifRef.current = true; setActif(true); setDetail(''); ecouter();
     };
-    return { actif, phase, partiel, detail, basculer, disponible: voixDisponible() };
+    const basculerLecture = () => {
+      const oui = !lectureRef.current;
+      lectureRef.current = oui; setLecture(oui); ecrireLecture(oui);
+      if (!lectureDisponible()) return;
+      if (oui) debloquerVoix();
+      else { window.speechSynthesis.cancel(); setPhase((p) => (p === 'parole' ? 'repos' : p)); }
+    };
+    return { actif, phase, partiel, detail, basculer, lecture, basculerLecture, lectureDisponible: lectureDisponible() };
   }
   function BoutonMicro({ voix, nomIA }) {
-    const libelle = voix.actif ? 'Arrêter la conversation à voix haute' : 'Parler à ' + nomIA + ' à voix haute';
+    const libelle = voix.actif ? 'Arrêter la dictée' : 'Dicter au micro';
     return h('button', { type: 'button', className: cls('bouton-micro', voix.actif && 'actif', voix.phase), 'aria-pressed': voix.actif, 'aria-label': libelle, title: libelle, onClick: voix.basculer },
       h('svg', { width: 20, height: 20, viewBox: '0 0 24 24', 'aria-hidden': 'true' },
         h('rect', { x: 9, y: 3, width: 6, height: 11, rx: 3, fill: 'currentColor' }),
         h('path', { d: 'M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' })));
   }
+  // Le haut-parleur : CCB lit ses réponses à voix haute, ou non.
+  function BoutonHautParleur({ voix, nomIA }) {
+    if (!voix.lectureDisponible) return null;
+    const libelle = voix.lecture ? nomIA + ' lit ses réponses : touche pour couper' : nomIA + ' ne lit pas ses réponses : touche pour les écouter';
+    return h('button', { type: 'button', className: cls('bouton-micro', 'bouton-haut-parleur', voix.lecture && 'actif'), 'aria-pressed': voix.lecture, 'aria-label': 'Lire les réponses de ' + nomIA + ' à voix haute', title: libelle, onClick: voix.basculerLecture },
+      h('svg', { width: 20, height: 20, viewBox: '0 0 24 24', 'aria-hidden': 'true' },
+        h('path', { d: 'M4 9.5h3.5L12 5.5v13l-4.5-4H4z', fill: 'currentColor', stroke: 'currentColor', strokeWidth: 1.5, strokeLinejoin: 'round' }),
+        voix.lecture
+          ? h('path', { d: 'M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' })
+          : h('path', { d: 'M15.5 9.5l5 5M20.5 9.5l-5 5', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' })));
+  }
   function EtatVoix({ voix, nomIA }) {
     if (voix.phase === 'erreur') return h('p', { className: 'erreur petit', role: 'status' }, voix.detail);
-    if (!voix.actif) return null;
-    const textes = { ecoute: 'Je t’écoute…', attente: nomIA + ' réfléchit…', parole: nomIA + ' te répond…', repos: '' };
-    return h('p', { className: 'etat-voix', role: 'status' }, h('span', { className: cls('pastille-voix', voix.phase), 'aria-hidden': 'true' }), textes[voix.phase] || '', voix.partiel && h('span', { className: 'partiel' }, ' « ' + voix.partiel + ' »'));
+    if (!voix.actif && voix.phase !== 'parole') return null;
+    const textes = { ecoute: 'Je t’écoute : ce que tu dis s’écrit dans le champ, corrige-le puis envoie.', parole: nomIA + ' lit sa réponse…', repos: '' };
+    return h('p', { className: 'etat-voix', role: 'status' }, h('span', { className: cls('pastille-voix', voix.phase), 'aria-hidden': 'true' }), textes[voix.phase] || '', voix.actif && voix.partiel && h('span', { className: 'partiel' }, ' « ' + voix.partiel + ' »'));
   }
 
   function FenetreDiscussion({ disc, nomIA, passage, onRetirerPassage, onChoisirPassage, invitation }) {
@@ -1960,7 +1998,7 @@
     useEffect(() => { if (fil.current) fil.current.scrollTop = fil.current.scrollHeight; }, [disc.messages.length, disc.etat]);
     const encours = disc.etat === 'encours';
     const envoyer = (t) => { if (!encours && t.trim()) { disc.envoyer(t, passage); setSaisie(''); } };
-    const voix = useConversationVocale({ envoyer: (t) => envoyer(t), messages: disc.messages, occupe: disc.etat === 'encours' });
+    const voix = useConversationVocale({ ecrire: (t) => setSaisie((x) => ajouterDictee(x, t)), messages: disc.messages });
     const couper = (t, n) => (t && t.length > n ? t.slice(0, n).replace(/\s\S*$/, '') + '…' : t);
     const extrait = passage && (passageEntier ? passage : couper(passage, 110));
     const autrePassage = disc.passageConv && disc.passageConv.trim() !== (passage || '').trim() && disc.passageConv;
@@ -2025,6 +2063,7 @@
       h('div', { className: 'discussion-saisie' },
         h('input', { className: 'champ-texte', value: saisie, placeholder: 'Ta consigne, en langage naturel', 'aria-label': 'Ta consigne à ' + nomIA, onChange: (e) => setSaisie(e.target.value), onKeyDown: (e) => { if (e.key === 'Enter') { e.preventDefault(); envoyer(saisie); } } }),
         h(BoutonMicro, { voix, nomIA }),
+        h(BoutonHautParleur, { voix, nomIA }),
         h(Bouton, { variante: 'principal', disabled: encours || !saisie.trim(), onClick: () => envoyer(saisie) }, 'Envoyer')),
       );
   }
@@ -2131,7 +2170,7 @@
     const nomIA = IA.ASSISTANT.nom;
     const profil = (etat.projet && etat.projet.profilEditorial) || '';
     const texte = paragraphes.join('\n\n');
-    const voixTitre = useConversationVocale({ envoyer: (t) => envoyer(t), messages: disc.messages, occupe: disc.enCours });
+    const voixTitre = useConversationVocale({ ecrire: (t) => setDisc((d) => ({ ...d, saisie: ajouterDictee(d.saisie, t) })), messages: disc.messages });
     const premier = paragraphes[0] || '';
     useEffect(() => {
       if (!bulle) return undefined;
@@ -2196,7 +2235,7 @@
             disc.enCours && h('p', { className: 'doux petit', role: 'status' }, `${nomIA} réfléchit…`),
             h('div', { className: 'mep-saisie' },
               h('textarea', { rows: 2, value: disc.saisie, placeholder: 'Par exemple : plus court, plus doux, avec le prénom…', 'aria-label': 'Ta demande à ' + nomIA, onChange: (e) => setDisc({ ...disc, saisie: e.target.value }), onKeyDown: (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); envoyer(); } } }),
-              h('div', { className: 'actions-ligne' }, h(BoutonMicro, { voix: voixTitre, nomIA }), h(Bouton, { variante: 'principal', disabled: !disc.saisie.trim() || disc.enCours, onClick: () => envoyer() }, 'Envoyer'))),
+              h('div', { className: 'actions-ligne' }, h(BoutonMicro, { voix: voixTitre, nomIA }), h(BoutonHautParleur, { voix: voixTitre, nomIA }), h(Bouton, { variante: 'principal', disabled: !disc.saisie.trim() || disc.enCours, onClick: () => envoyer() }, 'Envoyer'))),
             h(EtatVoix, { voix: voixTitre, nomIA })))));
   }
 
@@ -2768,7 +2807,7 @@
     const qualite = (v) => (/premium/i.test(v.name) ? ' · premium' : /enhanced|améliorée/i.test(v.name) ? ' · améliorée' : '');
     const exemple = `Bonjour, je suis ${nomIA}. Je t’aide à relire ton article et à mettre en valeur ce qui compte.`;
     if (typeof window === 'undefined' || !window.speechSynthesis) return h(Carte, { titre: 'Voix de ' + nomIA }, h('p', { className: 'doux' }, 'Ce navigateur ne sait pas lire à voix haute. Sur iPad, utilise Safari.'));
-    return h(Carte, { titre: 'Voix de ' + nomIA, sousTitre: 'Pour la conversation à voix haute. Réglée pour cet appareil : chaque iPad a ses propres voix.' },
+    return h(Carte, { titre: 'Voix de ' + nomIA, sousTitre: 'Pour lire les réponses de CCB quand le haut-parleur est activé dans une conversation. Réglée pour cet appareil : chaque iPad a ses propres voix.' },
       h(Ligne, { etiquette: 'Voix', aide: liste.length ? `${liste.length} voix française${liste.length > 1 ? 's' : ''} sur cet appareil.` : 'Aucune voix française trouvée pour l’instant.' },
         h('select', { className: 'champ-texte', value: r.nom, 'aria-label': 'Voix de ' + nomIA, onChange: (e) => changer('nom', e.target.value) },
           h('option', { value: '' }, 'Automatique' + (parDefaut ? ' (' + parDefaut.name + ')' : '')),

@@ -1,0 +1,8 @@
+[
+ {"cle":"recit","nom":"Le récit pas à pas","fond":"blanc","pourquoi":"La phrase d’Hélène en couverture, puis l’histoire en cinq temps, les paroles mises en valeur.",
+  "pages":[{"g":"V1","p":[0],"s":["titre"]},{"g":"T1","p":[1,2,3],"s":["corps","emphase","corps"]},{"g":"T4","p":[4,5,6],"s":["corps","citation","corps"]},{"g":"T3","p":[7,8,9],"s":["emphase","corps","corps"]},{"g":"T4","p":[10,11],"s":["corps","citation"]},{"g":"F1","p":[12,13,14,15,16],"s":["corps","emphase","corps","corps","corps"]}]},
+ {"cle":"contraste","nom":"Avant, après","fond":"bleu","pourquoi":"Une couverture en deux tons qui oppose le problème et la promesse, puis un rythme serré.",
+  "pages":[{"g":"V4","p":[0,1],"s":["titre","contrepoint"]},{"g":"T5","p":[2,3],"s":["emphase","corps"]},{"g":"T1","p":[4,5,6],"s":["corps","citation","corps"]},{"g":"T3","p":[7,8,9],"s":["emphase","corps","corps"]},{"g":"T4","p":[10,11],"s":["corps","citation"]},{"g":"F1","p":[12,13,14,15,16],"s":["corps","emphase","corps","corps","corps"]}]},
+ {"cle":"chocs","nom":"Les phrases-chocs","fond":"vertPale","pourquoi":"Une idée forte par page, mise en avant par le surligneur et l’encadré.",
+  "pages":[{"g":"V5","p":[0],"s":["titre"]},{"g":"T3","p":[1,2,3],"s":["corps","emphase","corps"]},{"g":"T4","p":[4,5,6],"s":["corps","citation","corps"]},{"g":"T5","p":[7,8,9],"s":["emphase","corps","corps"]},{"g":"T4","p":[10,11],"s":["corps","citation"]},{"g":"F1","p":[12,13,14,15,16],"s":["corps","emphase","corps","corps","corps"]}]}
+]

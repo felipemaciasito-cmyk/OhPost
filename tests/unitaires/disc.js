@@ -1,0 +1,12 @@
+const R = require('../../relecture.js');
+let ok = 0, ko = 0; const eq = (n, a, b) => { const A = JSON.stringify(a), B = JSON.stringify(b); if (A === B) ok++; else { ko++; console.log('ÉCHEC', n, '\n  obtenu :', A, '\n  attendu:', B); } };
+const r = R.lireDiscussion('```json\n{"reponse":"Voici 3 versions.","propositions":[{"avant":"a","apres":"b","pourquoi":"p","vigilance":""},{"avant":"a","apres":"c"},{"avant":"a","apres":""}]}\n```');
+eq('lecture', [r.reponse, r.propositions.length, r.propositions[1].pourquoi], ['Voici 3 versions.', 2, '']);
+eq('texte simple accepté', R.lireDiscussion('Ton accroche est forte.').propositions.length, 0);
+const m = R.messageDiscussion('Article.', 'Passage.', [{ de: 'moi', texte: 'Raccourcis' }, { de: 'ia', texte: 'Voici', propositions: [{ apres: 'Court.' }] }], 'Encore plus court');
+eq('message : article, passage, fil, demande', ['<article>', '<passage>\nPassage.', 'Personne : Raccourcis', '[propositions : « Court. »]', 'Nouvelle demande de la personne :\nEncore plus court'].every((x) => m.includes(x)), true);
+const src = 'Le silence laisse rarement un vide. Le silence est partout.';
+eq('placer dans le passage choisi', R.placerPassage(src, 'Le silence', { debut: 36, fin: src.length }), [36, 46]);
+eq('ambigu sans passage', R.placerPassage(src, 'Le silence', null), null);
+eq('unique sans passage', R.placerPassage(src, 'rarement un vide', null), [18, 34]);
+console.log(`${ok} réussis, ${ko} échecs`);

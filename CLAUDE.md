@@ -97,6 +97,5 @@ Les tests navigateur servent la racine du dépôt sur `localhost:8765` (`tests/n
 
 - L'agent ciblé ne sait pas encore déplacer ou redimensionner un bloc, ni toucher aux images (logo, fleurs).
 - Accès direct à la grande fenêtre depuis les pages de l'étape Mise en page : proposé à Romain, pas encore décidé.
-- Conversations avec CCB : maquette proposée (onglets, propositions précédentes feuilletables, conversation gardée jusqu'à « Terminer »), pas encore validée.
 - Avertissement quand des articles ne sont que sur l'appareil (non synchronisés) : proposé, pas fait.
 - Rien n'est testé sur un vrai iPad ni avec de vrais appels à l'IA : demande à Romain de vérifier.

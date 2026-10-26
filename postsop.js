@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-26.4'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-26.5'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -116,7 +116,7 @@
     bibliotheque: { titre: 'Tes articles', textes: ['Trois sections : En cours, Publiés (validés par toi) et Corbeille, d’où tu peux restaurer un article.', 'Le menu « … » d’une carte permet de dupliquer, d’utiliser un article comme modèle pour un nouveau texte, de le marquer comme publié ou de le mettre à la corbeille.', 'Trie et affiche tes articles comme tu veux, en grille ou en liste. « Annuler » et ⌘Z (Ctrl+Z) reviennent en arrière à tout moment.', 'Calendrier : place tes articles sur une date, puis « Programmer un rappel » ajoute une alerte au calendrier de ton appareil. La publication automatique arrivera plus tard.'] },
     configuration: { titre: 'La configuration', textes: ['Charte : tes couleurs et tes tailles de texte. Tout changement s’applique à tous tes carrousels.', 'Ressources : tes polices, ton logo et tes fleurs, importés une fois et retrouvés sur tous tes appareils.', 'Réglages : le comportement de l’outil. Synchronisation : la liaison avec ton dépôt GitHub privé.', 'IA : le fournisseur d’intelligence artificielle et sa clé. Comme la clé GitHub, elle reste sur l’appareil : à saisir une fois sur chacun.'] },
     texte: { titre: 'Étape 1 · Texte', textes: ['Ton texte est la référence du carrousel : chaque modification ici met les pages à jour, sans toucher à leur mise en page. Et un paragraphe modifié dans Mise en page modifie aussi ce texte.', 'Relis ton texte avant de passer à la mise en page : CCB composera ses propositions sur le texte corrigé.', 'Pour remplacer tout le texte : sélectionne tout, colle le nouveau, puis ouvre « Apparence générale » à l’étape 2 pour que CCB recompose les pages.', 'Avec une IA active (Configuration, onglet IA), « Relire avec CCB » propose des corrections sous forme de cartes : accepte, modifie ou refuse chacune ; rien n’est appliqué sans toi. Sans IA, la vérification LanguageTool surligne les fautes ; pour chacune, choisis la bonne correction ou ignore-la.', 'La typographie française se corrige toute seule quand tu tapes ou colles du texte, ici comme sur les pages : un message montre chaque correction, avec « Annuler ».', 'Discussion : sélectionne un passage, puis « CCB » (le petit robot). Donne tes consignes en langage naturel et demande plusieurs propositions ; « Appliquer » remplace le passage, « Annuler » le rétablit.', 'Le micro dicte ta demande : elle s’écrit dans le champ, tu la corriges, puis tu l’envoies. Le haut-parleur, à côté, fait lire ses réponses à CCB (touche-le de nouveau pour couper).'] },
-    composition: { titre: 'Étape 2 · Mise en page', textes: ['La première fois que tu arrives ici, la fenêtre de mise en page s’ouvre : propositions de CCB, tes favoris, ou le découpage sans IA. Le bouton « Apparence générale », à droite des menus, la rouvre quand tu veux : autres propositions, favoris, fond, logo et fleurs. Le réseau et les dimensions se changent dans le menu Carrousel.', 'Le robot de la barre de menus, c’est CCB pour l’apparence : « Générer 3 propositions » ou « Une envie ? » ouvrent Apparence générale. Pour retravailler des mots, sélectionne-les dans une page : le robot de la petite barre en discute avec toi.', 'Pour retoucher une zone précise : dans Apparence générale (ou sur l’aperçu de Publication), touche la page pour l’ouvrir en grand, puis trace un rectangle avec le doigt ou la souris. CCB ne retouche que les paragraphes de la zone. Maj ou Tab ajoute une zone, le « + » fait de même au doigt.', 'Tes pages, les unes sous les autres, exactement comme elles seront exportées. Clique dans un paragraphe pour l’écrire à sa place ; sélectionne des mots pour les mettre en forme avec la petite barre qui apparaît.', 'Entrée crée un nouveau paragraphe, ⇧Entrée un retour à la ligne, ⌘↩ (Ctrl+↩) un saut de page. ⌫ au début d’un paragraphe le réunit au précédent ; au début d’une page, avec la page précédente.', 'Les menus en haut regroupent tout le reste : gabarits, fond, logo, et Vérifier pour les points à regarder. Ton texte reste la référence : chaque modification ici le met à jour.'] },
+    composition: { titre: 'Étape 2 · Mise en page', textes: ['La première fois que tu arrives ici, la fenêtre de mise en page s’ouvre : propositions de CCB, tes favoris, ou le découpage sans IA. Le bouton « Apparence générale », à droite des menus, la rouvre quand tu veux : autres propositions, favoris, fond, logo et fleurs. Le réseau et les dimensions se changent dans le menu Carrousel.', 'Le robot de la barre de menus, c’est CCB pour l’apparence : « Générer 3 propositions » ou « Une envie ? » ouvrent Apparence générale. Chaque envie y garde ses propositions, même des jours après : « Revoir ces propositions » les remet en haut. Pour retravailler des mots, sélectionne-les dans une page : le robot de la petite barre en discute avec toi.', 'Pour retoucher une zone précise : dans Apparence générale (ou sur l’aperçu de Publication), touche la page pour l’ouvrir en grand, puis trace un rectangle avec le doigt ou la souris. CCB ne retouche que les paragraphes de la zone. Maj ou Tab ajoute une zone, le « + » fait de même au doigt.', 'Tes pages, les unes sous les autres, exactement comme elles seront exportées. Clique dans un paragraphe pour l’écrire à sa place ; sélectionne des mots pour les mettre en forme avec la petite barre qui apparaît.', 'Entrée crée un nouveau paragraphe, ⇧Entrée un retour à la ligne, ⌘↩ (Ctrl+↩) un saut de page. ⌫ au début d’un paragraphe le réunit au précédent ; au début d’une page, avec la page précédente.', 'Les menus en haut regroupent tout le reste : gabarits, fond, logo, et Vérifier pour les points à regarder. Ton texte reste la référence : chaque modification ici le met à jour.'] },
     publication: { titre: 'Étape 3 · Publication', textes: ['Tout pour publier, dans l’ordre : le texte du post, le fichier, la date de publication, puis « Marquer comme publié ».', 'Le texte du post : écris-le ou demande une proposition à CCB, puis « Copier » pour le coller sur le réseau.', 'Le fichier : un PDF pour LinkedIn, des images PNG pour Instagram. S’il reste des alertes, l’outil te les rappelle avant : à toi de décider.', 'La date : programme-la (elle apparaît dans le calendrier de la bibliothèque) ou choisis « Ne pas programmer ».'] },
   };
 
@@ -209,6 +209,8 @@
         const e = avecHistorique(etat, articles, action.groupe);
         return action.annonce ? { ...e, message: { texte: action.annonce, annulable: true } } : e;
       }
+      // Historique de « Une envie ? » d'un article : gardé avec l'article (et synchronisé), sans étape d'annulation.
+      case 'envies': return { ...etat, articles: etat.articles.map((a) => (a.id === action.id ? { ...a, envies: action.maj(a.envies || []) } : a)) };
       case 'bibliotheque': return { ...etat, bibliotheque: { ...etat.bibliotheque, [action.champ]: action.valeur }, edition: action.champ === 'tri' ? false : etat.edition };
       case 'corbeille': {
         const articles = etat.articles.map((a) => (a.id === action.id ? { ...a, corbeille: maintenant() } : a));
@@ -1222,6 +1224,9 @@
       fil && h(ApercuFil, { slides, format, fond, texte: (textes && textes[fil]) || texte, reseau: fil, onFermer: () => setFil(null) })));
   }
 
+  const MAX_ENVIES = 20; // envies gardées par article dans « Une envie ? »
+  // Une empreinte courte du texte (et du réseau, du format) : on sait si une envie a été faite sur le texte actuel, sans le recopier.
+  const empreinteTexte = (t) => { let x = 5381; for (let i = 0; i < t.length; i++) x = ((x << 5) + x + t.charCodeAt(i)) | 0; return (x >>> 0).toString(36) + '-' + t.length; };
   function FeuilleNouvelArticle({ etat, dispatch }) {
     const r = etat.projet.reglages;
     const modele = etat.feuille && etat.feuille.modele ? etat.articles.find((a) => a.id === etat.feuille.modele) : null;
@@ -1256,7 +1261,13 @@
       document.addEventListener('pointerdown', fermer);
       return () => document.removeEventListener('pointerdown', fermer);
     }, [bulleMep]);
-    const [discussion, setDiscussion] = useState([]); // { de: 'moi' | 'ccb', texte }
+    // « Une envie ? » : chaque envie garde ses propositions, avec l'article (les 20 dernières). La conversation les reprend ;
+    // les envies d'avant ne s'ajoutent pas aux indications des nouvelles demandes (« ancien »).
+    const [envies, setEnvies] = useState(() => (edite && Array.isArray(edite.envies) ? edite.envies : []));
+    const [discussion, setDiscussion] = useState(() => envies.flatMap((e) => [{ de: 'moi', texte: e.envie, ancien: true }, { de: 'ccb', texte: e.reponse, envie: e.id, ancien: true }])); // { de: 'moi' | 'ccb', texte }
+    const [envieVue, setEnvieVue] = useState(null);     // l'envie dont les propositions sont affichées, et une note
+    const refFilEnvies = useRef(null);
+    useEffect(() => { if (refFilEnvies.current) refFilEnvies.current.scrollTop = refFilEnvies.current.scrollHeight; }, [discussion.length]);
     const [saisie, setSaisie] = useState('');
     const [discEnCours, setDiscEnCours] = useState(false);
     const voixMep = useConversationVocale({ ecrire: (t) => setSaisie((x) => ajouterDictee(x, t)), messages: discussion });
@@ -1268,7 +1279,7 @@
     const fonds = M.fondsDePage(charte.palette);
     const cleTexte = JSON.stringify([paragraphes, reseau, format]);
     const maxPages = PROP ? PROP.maxPagesPour(paragraphes) : 7;
-    const indications = discussion.filter((m) => m.de === 'moi').map((m) => m.texte);
+    const indications = discussion.filter((m) => m.de === 'moi' && !m.ancien).map((m) => m.texte);
     const actuelleValable = !!edite && !premiere && JSON.stringify(paragraphes) === JSON.stringify(edite.texte) && format === edite.format;
     const decoupage = useMemo(() => {
       if (!paragraphes.length) return [];
@@ -1345,8 +1356,8 @@
         gardes = gardes.slice(0, PROP.MAX_PROPOSITIONS);
         if (!gardes.length) throw new Error(`aucune proposition ne tenait en ${maxPages} pages sans page qui déborde. Raccourcis le texte, ou garde le découpage simple.`);
         setGen({ cle, etat: 'repos', plans: gardes, detail: ecartes ? `${ecartes} proposition${ecartes > 1 ? 's écartées' : ' écartée'} par la vérification : plus de ${maxPages} pages, page qui déborde ou texte incomplet.` : '' });
-        setChoix(0); setFond(gardes[0].fond); setPageVue(0);
-        return { n: gardes.length, ecartes };
+        setChoix(0); setFond(gardes[0].fond); setPageVue(0); setEnvieVue(null);
+        return { n: gardes.length, ecartes, plans: gardes };
       } catch (erreur) {
         setGen({ cle, etat: 'erreur', plans: deja, detail: erreur instanceof IA.ErreurIA ? erreur.message : 'CCB n’a pas pu proposer de mise en page : ' + erreur.message });
         return false;
@@ -1386,19 +1397,44 @@
       if (!demande || discEnCours || !configIA || !PROP) return;
       const fil0 = discussion.concat([{ de: 'moi', texte: demande }]);
       setDiscussion(fil0); setSaisie(''); setDiscEnCours(true);
-      const dire = (t) => setDiscussion((d) => d.concat([{ de: 'ccb', texte: t }]));
+      const dire = (t, envie) => setDiscussion((d) => d.concat([{ de: 'ccb', texte: t, envie }]));
       try {
         {
-          const res = await generer(false, fil0.filter((m) => m.de === 'moi').map((m) => m.texte));
+          const res = await generer(false, fil0.filter((m) => m.de === 'moi' && !m.ancien).map((m) => m.texte));
           // Dire combien de propositions sont vraiment affichées (certaines peuvent être écartées par la vérification).
           const nombres = ['', 'une proposition', 'deux propositions', 'trois propositions'];
-          dire(!res ? 'Je n’ai pas pu composer de propositions : regarde le message au-dessus de l’aperçu.'
+          const reponse = !res ? 'Je n’ai pas pu composer de propositions : regarde le message au-dessus de l’aperçu.'
             : res.n >= PROP.MAX_PROPOSITIONS ? 'Voici trois propositions qui tiennent compte de tes indications.'
-            : `Voici ${nombres[res.n] || res.n + ' propositions'} qui tiennent compte de tes indications : ${res.ecartes ? 'les autres débordaient de leurs pages ou dépassaient ' + maxPages + ' pages, je les ai écartées' : 'je n’ai pas trouvé mieux'}. Demande « Proposer 3 autres » pour en voir d’autres.`);
+            : `Voici ${nombres[res.n] || res.n + ' propositions'} qui tiennent compte de tes indications : ${res.ecartes ? 'les autres débordaient de leurs pages ou dépassaient ' + maxPages + ' pages, je les ai écartées' : 'je n’ai pas trouvé mieux'}. Demande « Proposer 3 autres » pour en voir d’autres.`;
+          // L'envie est gardée avec ses propositions, même si l'on ferme la fenêtre.
+          const rec = res && res.plans && res.plans.length ? { id: 'env-' + Date.now().toString(36), quand: Date.now(), envie: demande, reponse, cle: empreinteTexte(cleTexte), plans: res.plans } : null;
+          dire(reponse, rec ? rec.id : undefined);
+          if (rec) {
+            setEnvies((l) => l.concat([rec]).slice(-MAX_ENVIES)); setEnvieVue({ id: rec.id, note: '' });
+            if (edite) dispatch({ type: 'envies', id: edite.id, maj: (l) => l.concat([rec]).slice(-MAX_ENVIES) });
+          }
         }
       } catch (erreur) {
         dire(erreur instanceof IA.ErreurIA ? erreur.message : 'Je n’ai pas pu répondre : ' + erreur.message);
       } finally { setDiscEnCours(false); }
+    }
+
+    // Revoir les propositions d'une envie précédente. Si le texte a changé depuis, elles sont adaptées au nouveau texte
+    // (comme un favori) ; celles qui débordent sont écartées.
+    function revoirEnvie(id) {
+      const rec = envies.find((e) => e.id === id);
+      if (!rec || !PROP) return;
+      let liste = rec.plans;
+      let note = '';
+      if (rec.cle !== empreinteTexte(cleTexte)) {
+        liste = rec.plans.map((pl) => PROP.adapterRecette(PROP.recetteDe(pl), paragraphes.length, pl.nom, M.GABARITS, fonds, M.NATURES))
+          .filter(Boolean).map((pl, k) => ({ ...pl, pourquoi: rec.plans[k] ? rec.plans[k].pourquoi : pl.pourquoi })).map(reparer).filter(garder);
+        note = liste.length ? 'Ton texte a changé depuis cette envie : ses propositions sont adaptées au texte actuel.' : '';
+      }
+      if (!liste.length) { setEnvieVue({ id, note: 'Ces propositions ne tiennent plus sur ton texte modifié. Relance cette envie pour en avoir de nouvelles.', relancer: rec.envie }); return; }
+      setGen({ cle: cleTexte, etat: 'repos', plans: liste, detail: '' }); setRetouche(null);
+      setChoix(0); setFond(liste[0].fond); setPageVue(0);
+      setEnvieVue({ id, note });
     }
 
     // Les propositions de CCB peuvent rejoindre tes carrousels favoris (les mêmes que dans Composition).
@@ -1474,7 +1510,17 @@
 
     const discussionCCB = discOuverte && h('div', { className: 'mep-discussion', role: 'region', 'aria-label': `Discussion avec ${IA.ASSISTANT.nom}` },
       h('p', { className: 'doux petit' }, `Ton envie pour la mise en page : ${IA.ASSISTANT.nom} compose trois nouvelles propositions qui la suivent, en ${maxPages} pages au plus. Pour retoucher une page précise, ouvre-la en grand en la touchant.`),
-      discussion.length > 0 && h('div', { className: 'mep-fil-messages' }, discussion.map((m, k) => h('div', { key: k, className: cls('mep-message', m.de === 'moi' ? 'moi' : 'ccb') }, m.texte))),
+      discussion.length > 0 && h('div', { className: 'mep-fil-messages', ref: refFilEnvies }, discussion.map((m, k) => {
+        const rec = m.envie && envies.find((e) => e.id === m.envie);
+        const vue = rec && envieVue && envieVue.id === rec.id;
+        return h('div', { key: k, className: cls('mep-message', m.de === 'moi' ? 'moi' : 'ccb', vue && 'envie-vue') }, m.texte,
+          rec && h('div', { className: 'actions-ligne' },
+            vue && !envieVue.relancer ? h('span', { className: 'pastille-envie' }, 'Affichées en haut')
+              : h(Bouton, { variante: 'petit', disabled: discEnCours, onClick: () => revoirEnvie(rec.id) }, 'Revoir ces propositions'),
+            h('span', { className: 'doux petit' }, new Date(rec.quand).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))),
+          vue && envieVue.note && h('p', { className: 'doux petit note-envie', role: 'status' }, envieVue.note),
+          vue && envieVue.relancer && h(Bouton, { variante: 'petit', disabled: discEnCours || !configIA, onClick: () => envoyer(envieVue.relancer) }, 'Relancer cette envie'));
+      })),
       discEnCours && h('div', { className: 'mep-attente petit', role: 'status' }, h('span', { className: 'rond-attente', 'aria-hidden': 'true' }), `${IA.ASSISTANT.nom} réfléchit…`),
       h('label', { className: 'etiquette petit', htmlFor: 'indications-ccb' }, 'Une envie ?'),
       h('div', { className: 'mep-saisie' },

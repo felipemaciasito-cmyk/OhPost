@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-26.7'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-26.8'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -1261,6 +1261,7 @@
     const [pageVue, setPageVue] = useState(0);
     const [fil, setFil] = useState(false);
     const [discOuverte, setDiscOuverte] = useState(envieDemande);
+    const [discRepliee, setDiscRepliee] = useState(false); // la conversation « Une envie ? » réduite à son en-tête
     const [bulleMep, setBulleMep] = useState(false);
     const refBulleMep = useRef(null);
     useEffect(() => {
@@ -1516,7 +1517,21 @@
     const nomChoix = choixEffectif === 'favori' ? 'Favori : ' + plan.nom : plan ? plan.nom : choixEffectif === 'actuelle' ? 'Mise en page actuelle' : auHasard ? 'Sans IA, au hasard' : 'Découpage simple, sans IA';
     const pourquoiChoix = choixEffectif === 'favori' ? 'Ton carrousel favori, appliqué à ce texte : même rythme, mêmes gabarits, même fond.' : plan ? plan.pourquoi : choixEffectif === 'actuelle' ? 'Les pages de ton article telles qu’elles sont aujourd’hui, retouches comprises. Rien ne change tant que tu n’appliques pas une autre mise en page.' : auHasard ? 'Des gabarits et un fond tirés au hasard, sans IA, qui tiennent dans les marges.' : 'Les paragraphes les uns après les autres jusqu’à remplir chaque page. « Une autre au hasard » change les gabarits et le fond, toujours sans IA.';
 
-    const discussionCCB = discOuverte && h('div', { className: 'mep-discussion', role: 'region', 'aria-label': `Discussion avec ${IA.ASSISTANT.nom}` },
+    // Replier ou fermer la conversation arrête la dictée ; la conversation est gardée (le robot › « Une envie ? » la rouvre).
+    const arreterDicteeMep = () => { if (voixMep.actif) voixMep.basculer(); };
+    const replierDiscussion = () => { arreterDicteeMep(); setDiscRepliee(!discRepliee); };
+    const fermerDiscussion = () => { arreterDicteeMep(); setDiscOuverte(false); setDiscRepliee(false); };
+    const nbEnvies = discussion.filter((m) => m.de === 'moi').length;
+    const enteteDiscussion = h('div', { className: 'mep-discussion-tete' },
+      h('strong', { className: 'gill' }, IA.ASSISTANT.nom + ' · Une envie ?'),
+      discRepliee && h('span', { className: 'doux petit' }, discEnCours ? IA.ASSISTANT.nom + ' réfléchit…' : nbEnvies ? nbEnvies + ' envie' + (nbEnvies > 1 ? 's' : '') : ''),
+      h('span', { className: 'pied-droite' },
+        h('button', { type: 'button', className: 'bouton icone petit', 'aria-expanded': !discRepliee, 'aria-label': discRepliee ? 'Déplier la discussion' : 'Replier la discussion', title: discRepliee ? 'Déplier' : 'Replier', onClick: replierDiscussion },
+          h('svg', { className: cls('icone', discRepliee && 'retournee'), width: 18, height: 18, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d: 'M6 15l6-6 6 6', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }))),
+        h('button', { type: 'button', className: 'bouton icone petit', 'aria-label': 'Fermer la discussion', title: 'Fermer (la conversation est gardée)', onClick: fermerDiscussion }, '×')));
+    const discussionCCB = discOuverte && h('div', { className: cls('mep-discussion', discRepliee && 'repliee'), role: 'region', 'aria-label': `Discussion avec ${IA.ASSISTANT.nom}` },
+      enteteDiscussion,
+      !discRepliee && h(Fragment, null,
       discussion.length > 0 && h('div', { className: 'mep-fil-messages', ref: refFilEnvies }, discussion.map((m, k) => {
         const rec = m.envie && envies.find((e) => e.id === m.envie);
         const vue = rec && envieVue && envieVue.id === rec.id;
@@ -1536,7 +1551,7 @@
       h('div', { className: 'mep-saisie' },
         h(EtatVoix, { voix: voixMep, nomIA: IA.ASSISTANT.nom }),
         h('textarea', { id: 'indications-ccb', rows: 3, value: saisie, placeholder: 'Par exemple : plus de citations en grand, un fond vert pâle, une couverture plus percutante…', onChange: (e) => setSaisie(e.target.value), onKeyDown: (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); envoyer(); } } }),
-        h('div', { className: 'actions-ligne' }, h(BoutonMicro, { voix: voixMep, nomIA: IA.ASSISTANT.nom }), h(BoutonHautParleur, { voix: voixMep, nomIA: IA.ASSISTANT.nom }), h(Bouton, { variante: 'principal', disabled: !saisie.trim() || discEnCours || !configIA, onClick: () => envoyer() }, 'Envoyer'))));
+        h('div', { className: 'actions-ligne' }, h(BoutonMicro, { voix: voixMep, nomIA: IA.ASSISTANT.nom }), h(BoutonHautParleur, { voix: voixMep, nomIA: IA.ASSISTANT.nom }), h(Bouton, { variante: 'principal', disabled: !saisie.trim() || discEnCours || !configIA, onClick: () => envoyer() }, 'Envoyer')))));
 
     const etapeMiseEnPage = h('div', { className: 'mise-en-page' },
       h('div', { className: 'mep-choix' },
@@ -1553,7 +1568,7 @@
           h('button', { type: 'button', className: cls('bouton-robot', (bulleMep || discOuverte) && 'actif'), 'aria-label': `${IA.ASSISTANT.nom} · apparence générale`, title: `${IA.ASSISTANT.nom} · apparence générale`, 'aria-haspopup': 'true', 'aria-expanded': bulleMep, onClick: () => setBulleMep(!bulleMep) }, h(Robot, { taille: 40 })),
           bulleMep && h('div', { className: 'bulle-ccb', role: 'menu', 'aria-label': IA.ASSISTANT.nom },
             h('button', { type: 'button', role: 'menuitem', className: 'item-bulle', disabled: etatGen === 'encours', onClick: () => { setBulleMep(false); generer(plans.length > 0); } }, h('strong', null, 'Générer 3 propositions'), h('span', { className: 'doux petit' }, 'Trois nouvelles mises en page, tout de suite')),
-            h('button', { type: 'button', role: 'menuitem', className: 'item-bulle', onClick: () => { setBulleMep(false); setDiscOuverte(true); } }, h('strong', null, 'Une envie ?'), h('span', { className: 'doux petit' }, 'Dis ce que tu veux : trois propositions la suivront'))))),
+            h('button', { type: 'button', role: 'menuitem', className: 'item-bulle', onClick: () => { setBulleMep(false); setDiscOuverte(true); setDiscRepliee(false); } }, h('strong', null, 'Une envie ?'), h('span', { className: 'doux petit' }, 'Dis ce que tu veux : trois propositions la suivront'))))),
       favorisOuverts && h('div', { className: 'mep-favoris', role: 'group', 'aria-label': 'Mes carrousels favoris' },
         h('p', { className: 'doux petit' }, 'Appliqués à ce texte : même rythme, mêmes gabarits, même fond.'),
         favorisCarrousels.length

@@ -979,6 +979,8 @@ canvas.slide.editable { cursor: text; }
 
 .mep-discussion { align-self: stretch; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--trait); }
 .mep-discussion p { margin: 0; }
+.etiquette-info { display: flex; align-items: center; gap: 8px; }
+.etiquette-info .etiquette { margin: 0; }
 .mep-fil-messages { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
 .mep-message { max-width: 85%; padding: 8px 12px; border-radius: 14px; font-size: 14px; line-height: 1.45; white-space: pre-wrap; }
 .mep-message.moi { align-self: flex-end; background: var(--action); color: var(--action-texte); }

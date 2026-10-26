@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-26.6'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-26.7'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -1517,7 +1517,6 @@
     const pourquoiChoix = choixEffectif === 'favori' ? 'Ton carrousel favori, appliqué à ce texte : même rythme, mêmes gabarits, même fond.' : plan ? plan.pourquoi : choixEffectif === 'actuelle' ? 'Les pages de ton article telles qu’elles sont aujourd’hui, retouches comprises. Rien ne change tant que tu n’appliques pas une autre mise en page.' : auHasard ? 'Des gabarits et un fond tirés au hasard, sans IA, qui tiennent dans les marges.' : 'Les paragraphes les uns après les autres jusqu’à remplir chaque page. « Une autre au hasard » change les gabarits et le fond, toujours sans IA.';
 
     const discussionCCB = discOuverte && h('div', { className: 'mep-discussion', role: 'region', 'aria-label': `Discussion avec ${IA.ASSISTANT.nom}` },
-      h('p', { className: 'doux petit' }, `Ton envie pour la mise en page : ${IA.ASSISTANT.nom} compose trois nouvelles propositions qui la suivent, en ${maxPages} pages au plus. Pour retoucher une page précise, ouvre-la en grand en la touchant.`),
       discussion.length > 0 && h('div', { className: 'mep-fil-messages', ref: refFilEnvies }, discussion.map((m, k) => {
         const rec = m.envie && envies.find((e) => e.id === m.envie);
         const vue = rec && envieVue && envieVue.id === rec.id;
@@ -1530,7 +1529,10 @@
           vue && envieVue.relancer && h(Bouton, { variante: 'petit', disabled: discEnCours || !configIA, onClick: () => envoyer(envieVue.relancer) }, 'Relancer cette envie'));
       })),
       discEnCours && h('div', { className: 'mep-attente petit', role: 'status' }, h('span', { className: 'rond-attente', 'aria-hidden': 'true' }), `${IA.ASSISTANT.nom} réfléchit…`),
-      h('label', { className: 'etiquette petit', htmlFor: 'indications-ccb' }, 'Une envie ?'),
+      // L'explication est dans le « i », à côté de l'étiquette mais hors d'elle : le toucher n'ouvre pas le clavier.
+      h('div', { className: 'etiquette-info' },
+        h('label', { className: 'etiquette petit', htmlFor: 'indications-ccb' }, 'Une envie ?'),
+        h(Info, { texte: `Ton envie pour la mise en page : ${IA.ASSISTANT.nom} compose trois nouvelles propositions qui la suivent, en ${maxPages} pages au plus. Pour retoucher une page précise, ouvre-la en grand en la touchant.` })),
       h('div', { className: 'mep-saisie' },
         h(EtatVoix, { voix: voixMep, nomIA: IA.ASSISTANT.nom }),
         h('textarea', { id: 'indications-ccb', rows: 3, value: saisie, placeholder: 'Par exemple : plus de citations en grand, un fond vert pâle, une couverture plus percutante…', onChange: (e) => setSaisie(e.target.value), onKeyDown: (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); envoyer(); } } }),

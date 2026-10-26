@@ -31,7 +31,7 @@ with sync_playwright() as p:
     pg.locator('nav.etapes .etape').nth(1).click(); pg.wait_for_timeout(700)
     pg.get_by_role('button', name='CCB · Creative Collaborative Boost').click(); pg.wait_for_timeout(200)
     m = pg.locator('[role=menu][aria-label="CCB · Creative Collaborative Boost"]').inner_text()
-    verifie('avec clé : bulle à deux choix', 'Générer 3 propositions' in m and 'Discuter' in m, m)
+    verifie('avec clé : bulle à deux choix, l’apparence', 'Générer 3 propositions' in m and 'Une envie ?' in m and 'Discuter' not in m, m)
     pg.get_by_role('menuitem', name='Générer 3 propositions').click(); pg.wait_for_timeout(300)
     verifie('le robot ouvre la fenêtre de mise en page', pg.locator('[role=dialog][aria-label="Apparence générale"]').count() == 1)
     pg.locator('[role=dialog] .feuille-tete').get_by_role('button', name='Annuler').click(); pg.wait_for_timeout(300)

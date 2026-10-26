@@ -34,8 +34,13 @@ with sync_playwright() as p:
     pg.evaluate("localStorage.setItem('postsop-ia', JSON.stringify({fournisseur:'claude', cles:{claude:'sk-ant-test'}, modeles:{}}))"); pg.reload(); pg.wait_for_timeout(900)
     pg.get_by_text('Le silence au travail').first.click(); pg.wait_for_timeout(300)
     pg.locator('nav.etapes .etape').nth(1).click(); pg.wait_for_timeout(700)
-    pg.locator('.bouton-robot-menu').click(); pg.wait_for_timeout(200)
-    pg.get_by_role('menuitem', name='Discuter').click(); pg.wait_for_timeout(300)
+    # La discussion s'ouvre depuis le robot de la barre de sélection (celui de la barre de menus sert à l'apparence).
+    pg.mouse.click(600, 300); pg.wait_for_timeout(250); pg.mouse.click(600, 300); pg.wait_for_timeout(400)
+    pg.locator('.editeur-bloc').evaluate("(el) => { const r = document.createRange(); r.selectNodeContents(el); const s = getSelection(); s.removeAllRanges(); s.addRange(r); document.dispatchEvent(new Event('selectionchange')); }"); pg.wait_for_timeout(400)
+    rb = pg.locator('.barre-flottante').get_by_role('button', name='CCB · Creative Collaborative Boost')
+    rb.click(); pg.wait_for_timeout(300)
+    if pg.locator('[role=menu][aria-label="CCB · Creative Collaborative Boost"]').count() == 0: rb.click(); pg.wait_for_timeout(300)  # la barre peut encore se placer
+    pg.get_by_role('menuitem', name='Discuter de ce passage avec CCB').click(); pg.wait_for_timeout(300)
     fen = pg.locator('.fenetre-discussion')
     micro = fen.get_by_role('button', name='Parler à CCB à voix haute')
     verifie('micro dans la fenêtre de discussion', micro.count() == 1)

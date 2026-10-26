@@ -54,7 +54,7 @@ L'app affiche un bandeau « Mise à jour incomplète » si un module en cache es
 
 Prérequis : Node.js, Python 3, Playwright et Chromium (`pip install playwright`, puis `python3 -m playwright install chromium`).
 
-- `python3 tests/lancer.py` : tout (18 fichiers unitaires, 47 séries dans le navigateur).
+- `python3 tests/lancer.py` : tout (18 fichiers unitaires, 48 séries dans le navigateur).
 - `python3 tests/lancer.py unitaires` ou `python3 tests/lancer.py navigateur`.
 - `python3 tests/lancer.py test_cible.py` : une série.
 
@@ -83,7 +83,7 @@ Les tests navigateur servent la racine du dépôt sur `localhost:8765` (`tests/n
 
 1. **Nouvel article** : pas de fenêtre. L'article s'ouvre sur un champ vide, puis un questionnaire demande le format (1:1 ou 4:5) et le titre (nom dans la bibliothèque, avec CCB pour proposer). Un article laissé vide est supprimé en le quittant. « Utiliser comme modèle » suit le même chemin (seulement la question du titre).
 2. **Étape Texte** : texte, relecture, typographie, discussion avec CCB.
-3. **Étape Mise en page** : édition directe des pages. Au premier passage, la fenêtre « Apparence générale » s'ouvre. Le robot de la barre ouvre une bulle « Générer 3 propositions » ou « Discuter ». Un bouton fleur (logo ou fleurs) est dans la barre de menus.
+3. **Étape Mise en page** : édition directe des pages. Au premier passage, la fenêtre « Apparence générale » s'ouvre. Le robot de la barre de menus est l’agent de l’apparence : sa bulle propose « Générer 3 propositions » ou « Une envie ? », qui ouvrent toutes deux « Apparence générale ». Pour retravailler des mots, le robot de la barre de sélection (passage choisi) ouvre la discussion avec CCB. Un bouton fleur (logo ou fleurs) est dans la barre de menus.
 4. **Apparence générale** : propositions de CCB, Actuelle, favoris (étoile + petite flèche), Sans IA, fond, logo et fleurs. L'agent général : « Générer 3 propositions » ou « Une envie ? ».
 5. **Grande fenêtre** : toucher la page affichée (Apparence générale) ou l'aperçu (Publication) l'ouvre en grand. Logos LinkedIn puis Instagram en haut à droite (4,8 % de la largeur de la page, à 81,9 % et 89,0 %, 5,4 % du haut), à 50 % de visibilité, 100 % au survol, sans bulle d'aide ; chacun ouvre l'aperçu du post de son réseau. Tracer un rectangle sélectionne une zone (Tab, Maj ou le bouton « + » ajoutent une zone) et ouvre **l'agent ciblé**, qui ne retouche que les paragraphes de la zone.
 6. **Étape Publication** : réseau (LinkedIn, Instagram ou les deux), texte du post (CCB : trois propositions ou discussion), fichier, date (programmer ou non), publié.

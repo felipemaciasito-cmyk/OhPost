@@ -27,7 +27,7 @@ with sync_playwright() as p:
     pg.locator('nav.etapes .etape').nth(1).click(); pg.wait_for_timeout(700)
     pg.get_by_role('button', name='CCB · Creative Collaborative Boost').click(); pg.wait_for_timeout(200)
     m = pg.locator('[role=menu][aria-label="CCB · Creative Collaborative Boost"]').inner_text()
-    verifie('robot de la barre de menus : « Générer 3 propositions » ou « Discuter »', 'Générer 3 propositions' in m and 'Discuter' in m, m)
+    verifie('robot de la barre de menus : « Générer 3 propositions » ou « Une envie ? »', 'Générer 3 propositions' in m and 'Une envie ?' in m and 'Discuter' not in m, m)
     pg.keyboard.press('Escape'); pg.wait_for_timeout(150)
     verifie('Échap ferme le menu du robot', pg.locator('[role=menu][aria-label="CCB · Creative Collaborative Boost"]').count() == 0)
     # Barre flottante : sélectionner « Pourtant, » dans le 2e bloc de la couverture

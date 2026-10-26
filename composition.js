@@ -1210,12 +1210,13 @@
         if (!configIA) return [{ type: 'titre', libelle: 'CCB · Creative Collaborative Boost' }, { type: 'note', texte: 'Pour utiliser l’IA, ajoute une clé dans Configuration, onglet IA.' }];
         const sel = texteChoisi();
         const rapides = [['Clarifier', 'Clarifie ce passage.'], ['Raccourcir', 'Raccourcis ce passage pour qu’il tienne mieux dans sa page.'], ['Plus percutant', 'Rends ce passage plus percutant.'], ['3 propositions', 'Donne-moi 3 propositions différentes pour ce passage.']];
-        // Robot de la barre de menus : une bulle à deux choix, comme dans Publication.
+        // Robot de la barre de menus : l'agent de l'apparence, comme dans Apparence générale (les mots se retouchent
+        // avec le robot de la barre de sélection). Les deux choix ouvrent Apparence générale.
         if (!depuisBarre) return [{ type: 'libre', rendu: (fermer) => h('div', { className: 'bulle-choix', role: 'group', 'aria-label': nomIA },
           h('button', { type: 'button', role: 'menuitem', className: 'item-bulle', onMouseDown: garder, onClick: () => { fermer(); setMenuIA(false); dispatch({ type: 'feuille', feuille: { reglages: article.id, generer: true } }); } },
-            h('strong', null, 'Générer 3 propositions'), h('span', { className: 'doux petit' }, 'Trois mises en page pour ce carrousel')),
-          h('button', { type: 'button', role: 'menuitem', className: 'item-bulle', onMouseDown: garder, onClick: () => { fermer(); setMenuIA(false); ouvrirDiscussion(sel || ''); } },
-            h('strong', null, 'Discuter'), h('span', { className: 'doux petit' }, sel ? 'À propos du passage choisi' : 'Retravailler ton texte avec ' + nomIA))) }];
+            h('strong', null, 'Générer 3 propositions'), h('span', { className: 'doux petit' }, 'Trois nouvelles mises en page, tout de suite')),
+          h('button', { type: 'button', role: 'menuitem', className: 'item-bulle', onMouseDown: garder, onClick: () => { fermer(); setMenuIA(false); dispatch({ type: 'feuille', feuille: { reglages: article.id, envie: true } }); } },
+            h('strong', null, 'Une envie ?'), h('span', { className: 'doux petit' }, 'Dis ce que tu veux : trois propositions la suivront'))) }];
         // Robot de la barre de sélection : la discussion et les actions rapides sur le passage choisi.
         return [
           { type: 'titre', libelle: 'CCB · Creative Collaborative Boost' },
@@ -1414,7 +1415,7 @@
         h('button', { type: 'button', className: 'bouton secondaire bouton-mise-en-page', onClick: () => dispatch({ type: 'feuille', feuille: { reglages: article.id } }), title: 'Apparence générale : propositions de CCB, mes favoris, sans IA, fond, logo et fleurs' },
           h('svg', { width: 18, height: 18, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('rect', { x: 3, y: 4, width: 7, height: 16, rx: 1.5, fill: 'none', stroke: 'currentColor', strokeWidth: 2 }), h('rect', { x: 14, y: 4, width: 7, height: 7, rx: 1.5, fill: 'none', stroke: 'currentColor', strokeWidth: 2 }), h('rect', { x: 14, y: 13, width: 7, height: 7, rx: 1.5, fill: 'none', stroke: 'currentColor', strokeWidth: 2 })),
           'Apparence générale'),
-        h('button', { ref: refRobot, type: 'button', className: cls('bouton-robot', 'bouton-robot-menu', (menuIA || disc.ouvert) && 'actif'), 'aria-label': 'CCB · Creative Collaborative Boost', title: 'CCB · Creative Collaborative Boost', 'aria-haspopup': 'true', 'aria-expanded': menuIA, onMouseDown: garder, onClick: () => { setMenu(null); setMenuIA(!menuIA); } }, h(outilsIA.Robot, { taille: 34 })),
+        h('button', { ref: refRobot, type: 'button', className: cls('bouton-robot', 'bouton-robot-menu', menuIA && 'actif'), 'aria-label': 'CCB · Creative Collaborative Boost', title: 'CCB · Creative Collaborative Boost', 'aria-haspopup': 'true', 'aria-expanded': menuIA, onMouseDown: garder, onClick: () => { setMenu(null); setMenuIA(!menuIA); } }, h(outilsIA.Robot, { taille: 34 })),
         menuIA && h('div', { className: 'voile-menu', 'aria-hidden': 'true', onPointerDown: () => setMenuIA(false) }),
         menuIA && h(Popover, { ancre: refRobot, fermer: () => setMenuIA(false), etiquette: 'CCB · Creative Collaborative Boost', contenu: () => menuAssistant(false) }));
       return h('div', { className: 'composition' },

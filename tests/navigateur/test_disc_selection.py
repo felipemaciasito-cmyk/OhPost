@@ -1,4 +1,4 @@
-# Mise en page : discussion ouverte, puis sélection de mots dans une page → le passage discuté change.
+# Mise en page : discussion ouverte depuis le robot de la barre de sélection, puis sélection de mots dans une page → le passage discuté change.
 from playwright.sync_api import sync_playwright
 import serveur, json; _srv = serveur.demarrer()
 res = []
@@ -22,11 +22,15 @@ with sync_playwright() as p:
     pg.evaluate("localStorage.setItem('postsop-ia', JSON.stringify({fournisseur:'claude', cles:{claude:'sk-ant-test'}, modeles:{}}))"); pg.reload(); pg.wait_for_timeout(900)
     pg.get_by_text('Le silence au travail').first.click(); pg.wait_for_timeout(300)
     pg.locator('nav.etapes .etape').nth(1).click(); pg.wait_for_timeout(700)
-    pg.locator('.bouton-robot-menu').click(); pg.wait_for_timeout(200)
-    pg.get_by_role('menuitem', name='Discuter').click(); pg.wait_for_timeout(300)
-    fen = pg.locator('.fenetre-discussion')
-    verifie('discussion ouverte sans passage, avec l’invitation à sélectionner', fen.count() == 1 and 'touche deux fois un bloc' in fen.inner_text())
+    # La discussion s'ouvre depuis le robot de la barre de sélection (celui de la barre de menus sert à l'apparence).
     pg.mouse.click(600, 300); pg.wait_for_timeout(250); pg.mouse.click(600, 300); pg.wait_for_timeout(400)
+    selectionner(pg, 9)
+    rb = pg.locator('.barre-flottante').get_by_role('button', name='CCB · Creative Collaborative Boost')
+    pg.wait_for_timeout(300); rb.click(); pg.wait_for_timeout(300)
+    if pg.locator('[role=menu][aria-label="CCB · Creative Collaborative Boost"]').count() == 0: rb.click(); pg.wait_for_timeout(300)  # la barre peut encore se placer
+    pg.get_by_role('menuitem', name='Discuter de ce passage avec CCB').click(); pg.wait_for_timeout(300)
+    fen = pg.locator('.fenetre-discussion')
+    verifie('discussion ouverte sur le passage sélectionné', fen.count() == 1 and 'Passage choisi' in fen.inner_text(), fen.inner_text()[:200] if fen.count() else '')
     verifie('on peut encore écrire dans un bloc, la discussion reste ouverte', pg.locator('.editeur-bloc').count() == 1 and fen.count() == 1)
     selectionner(pg, 9)
     t = fen.inner_text()
@@ -40,6 +44,8 @@ with sync_playwright() as p:
     verifie('la demande porte sur ce passage', bool(envois) and 'passage' in m.lower(), m[-300:])
     verifie('CCB sait sur quelle page est le passage et ce qu’une page doit être', 'étape Mise en page' in m and 'page 1 sur' in m and '20 à 40 mots' in m, m[-600:])
     verifie('CCB sait sur quelle page on travaille (gabarit, volume)', 'étape Mise en page), page 1 sur' in m and 'gabarit « ' in m and 'mots) : « ' in m, m[-600:])
+    fen.get_by_role('button', name='Retirer le passage choisi').click(); pg.wait_for_timeout(300)
+    verifie('passage retiré : invitation à sélectionner', fen.count() == 1 and 'touche deux fois un bloc' in fen.inner_text())
     verifie('aucune erreur JS', not erreurs, erreurs)
     b.close()
 print(sum(1 for _, o in res if o), '/', len(res), 'vérifications réussies')

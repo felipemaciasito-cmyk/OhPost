@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-26.5'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-26.6'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -476,17 +476,25 @@
   function Info({ texte }) {
     const [position, setPosition] = useState(null);
     const bouton = useRef(null);
+    const ouvertA = useRef(0);
     const ouvrir = () => {
       const r = bouton.current && bouton.current.getBoundingClientRect();
       if (!r) return;
+      ouvertA.current = Date.now();
       const largeur = 280;
       const gauche = Math.max(12, Math.min(r.left + r.width / 2 - largeur / 2, racine.innerWidth - largeur - 12));
       const enBas = r.bottom + 160 < racine.innerHeight;
       setPosition({ left: gauche, top: enBas ? r.bottom + 8 : undefined, bottom: enBas ? undefined : racine.innerHeight - r.top + 8, width: largeur });
     };
     const fermer = () => setPosition(null);
-    return h('span', { className: 'info', onMouseEnter: ouvrir, onMouseLeave: fermer },
-      h('button', { type: 'button', ref: bouton, className: 'info-bouton', 'aria-label': 'Explication', 'aria-expanded': !!position, onClick: () => (position ? fermer() : ouvrir()), onBlur: fermer }, 'i'),
+    // Le survol n'ouvre qu'à la souris : au doigt (iPad), le navigateur simule un survol qui refermerait aussitôt la bulle.
+    const souris = (f) => (e) => { if (e.pointerType === 'mouse') f(); };
+    return h('span', { className: 'info', onPointerEnter: souris(ouvrir), onPointerLeave: souris(fermer) },
+      h('button', { type: 'button', ref: bouton, className: 'info-bouton', 'aria-label': 'Explication', 'aria-expanded': !!position, onClick: () => {
+        // Le pointeur qui arrive sur le « i » l'ouvre déjà ; le toucher qui suit aussitôt ne doit pas le refermer.
+        if (position && Date.now() - ouvertA.current < 600) return;
+        if (position) fermer(); else ouvrir();
+      }, onBlur: fermer }, 'i'),
       position && h('span', { className: 'bulle-fixe', role: 'tooltip', style: position }, texte));
   }
 
@@ -1568,11 +1576,11 @@
             h('div', { className: 'mep-actions-apercu' },
               configIA && PROP && h(Bouton, { disabled: etatGen === 'encours', onClick: () => generer(plans.length > 0) }, plans.length ? 'Proposer 3 autres' : 'Proposer 3 mises en page'))) : null),
         h('div', { className: 'mep-infos' },
-          h('h3', { className: 'gill' }, nomChoix),
+          // L'explication du choix affiché (Actuelle, proposition de CCB, favori, Sans IA) : dans le « i », à côté du nom.
+          h('h3', { className: 'gill' }, nomChoix, pourquoiChoix && h(Info, { texte: pourquoiChoix })),
           h('div', { className: 'doux petit' }, `${slides.length} page${slides.length > 1 ? 's' : ''}, fond ${(fonds[fond] || {}).nom ? fonds[fond].nom.toLowerCase() : fond}, environ ${moyenne} mots par page`),
           // Discussion ouverte : elle passe en premier, juste sous le nom, pour garder le champ de saisie à portée.
           discussionCCB,
-          !discOuverte && h('p', null, pourquoiChoix),
           gen.detail && etatGen === 'repos' && h('p', { className: 'doux petit' }, gen.detail),
           choixEffectif === 'simple' && h(Bouton, { variante: 'petit', onClick: autreAuHasard }, 'Une autre au hasard'),
           )),

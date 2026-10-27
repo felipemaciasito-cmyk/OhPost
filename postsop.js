@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-27.1'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-27.2'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -131,7 +131,7 @@
     articles: [], projet: PROJET_DEFAUT, apparence: 'auto',
     polices: { light: null, bold: null, lightItalic: null, boldItalic: null }, images: { logo: null, logoClair: null, fleurs: null },
     bibliotheque: { section: 'encours', tri: 'ordre', vue: 'grille' },
-    synchro: { statut: 'non-configure', detail: '', derniere: null, attente: 0, conflits: [] },
+    synchro: { statut: 'non-configure', detail: '', derniere: null, attente: 0, enAttente: [], conflits: [] },
     historique: { passe: [], futur: [], groupe: null, quand: 0 },
   };
 
@@ -564,6 +564,60 @@
       !ici && h(Icone, { nom: 'retour', taille: 18 }), 'Oh!Post');
   }
 
+  // Synchronisation lancée à la main depuis la bulle de l'indicateur (renseignée par l'app).
+  const SYNCHRO_MANUELLE = { lancer: null };
+  // Les articles pas encore copiés sur GitHub, d'après les fichiers en attente (articles/<id>.json).
+  function articlesEnAttente(etat) {
+    const ids = (etat.synchro.enAttente || []).filter((e) => /^articles\/.+\.json$/.test(e.chemin));
+    const titres = ids.filter((e) => !e.supprime).map((e) => { const id = e.chemin.slice(9, -5); const a = etat.articles.find((x) => x.id === id); return { id, titre: a ? a.titre || 'Sans titre' : null }; }).filter((x) => x.titre);
+    return { titres, supprimes: ids.filter((e) => e.supprime).length, autres: (etat.synchro.enAttente || []).length - ids.length };
+  }
+  // L'indicateur en haut à droite : discret, mais il dit combien d'articles ne sont que sur cet appareil.
+  // Un toucher ouvre une petite bulle : lesquels, la dernière copie, « Copier maintenant ».
+  function IndicateurSynchro({ etat, dispatch, libelle, ton }) {
+    const [ouverte, setOuverte] = useState(false);
+    const ref = useRef(null);
+    useEffect(() => {
+      if (!ouverte) return undefined;
+      const fermer = (e) => { if (ref.current && !ref.current.contains(e.target)) setOuverte(false); };
+      const echap = (e) => { if (e.key === 'Escape') setOuverte(false); };
+      document.addEventListener('pointerdown', fermer); document.addEventListener('keydown', echap);
+      return () => { document.removeEventListener('pointerdown', fermer); document.removeEventListener('keydown', echap); };
+    }, [ouverte]);
+    const sy = etat.synchro;
+    const configure = sy.statut !== 'non-configure';
+    const att = articlesEnAttente(etat);
+    const n = att.titres.length + att.supprimes;
+    const pasCopies = (k) => `${k} article${k > 1 ? 's' : ''} pas encore copié${k > 1 ? 's' : ''}`;
+    // Le libellé : l'état, et ce qui n'est que sur cet appareil (les articles d'abord).
+    const texte = !configure ? libelle
+      : sy.statut === 'en-cours' ? libelle
+      : n ? (sy.statut === 'a-jour' || sy.statut === 'conflit' ? pasCopies(n) : `${libelle} · ${pasCopies(n)}`)
+      : sy.attente ? `${libelle} · ${sy.attente} en attente` : libelle;
+    const quand = sy.derniere ? new Date(sy.derniere).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : null;
+    const reglages = () => { setOuverte(false); dispatch({ type: 'ecran', ecran: 'configuration', onglet: 'synchro' }); };
+    return h('span', { className: 'ancre-synchro', ref },
+      h('button', { type: 'button', className: cls('etat-synchro', ton, n > 0 && configure && sy.statut === 'a-jour' && 'a-copier'), title: sy.detail || texte, 'aria-haspopup': 'true', 'aria-expanded': ouverte, onClick: () => setOuverte(!ouverte) },
+        h(Icone, { nom: 'nuage', taille: 18 }), h('span', null, texte)),
+      ouverte && h('div', { className: 'bulle-synchro', role: 'dialog', 'aria-label': 'Synchronisation' },
+        !configure
+          ? h('p', { className: 'petit' }, 'La synchronisation n’est pas réglée : tes articles ne sont que sur cet appareil. Règle-la pour les copier sur ton dépôt GitHub privé et les retrouver sur tes autres appareils.')
+          : n
+            ? h(Fragment, null,
+              h('p', { className: 'petit' }, h('strong', null, n > 1 ? 'Ces articles ne sont que sur cet appareil :' : 'Cet article n’est que sur cet appareil :')),
+              h('ul', { className: 'liste-synchro petit' },
+                att.titres.map((x) => h('li', { key: x.id }, '« ' + x.titre + ' »')),
+                att.supprimes > 0 && h('li', { className: 'doux' }, `${att.supprimes} suppression${att.supprimes > 1 ? 's' : ''} à reporter`)),
+              h('p', { className: 'doux petit' }, 'Ils seront copiés sur ton dépôt GitHub privé à la prochaine synchronisation.'))
+            : h('p', { className: 'petit' }, sy.statut === 'a-jour' ? 'Tous tes articles sont copiés sur ton dépôt GitHub privé.' : libelle + '.'),
+        configure && sy.detail && h('p', { className: 'erreur petit' }, sy.detail),
+        configure && att.autres > 0 && h('p', { className: 'doux petit' }, `Aussi : ${att.autres} autre${att.autres > 1 ? 's' : ''} changement${att.autres > 1 ? 's' : ''} (réglages, charte, polices).`),
+        configure && quand && h('p', { className: 'doux petit' }, 'Dernière copie réussie : ' + quand + '.'),
+        h('div', { className: 'actions-ligne' },
+          configure && h(Bouton, { variante: 'principal', disabled: sy.statut === 'en-cours' || !SYNCHRO_MANUELLE.lancer, onClick: () => SYNCHRO_MANUELLE.lancer() }, sy.statut === 'en-cours' ? 'Copie en cours…' : 'Copier maintenant'),
+          h(Bouton, { variante: 'lien', onClick: reglages }, 'Réglages de synchronisation'))));
+  }
+
   function Barre({ etat, dispatch, gauche, titre }) {
     const [libelle, ton] = LIBELLES_SYNCHRO[etat.synchro.statut] || LIBELLES_SYNCHRO['non-configure'];
     const h0 = etat.historique;
@@ -574,8 +628,7 @@
           h(Bouton, { variante: 'petit', titre: 'Rétablir (⇧⌘Z ou Ctrl+Y)', disabled: !h0.futur.length, onClick: () => dispatch({ type: 'retablir' }) }, h(Icone, { nom: 'retablir', taille: 18 }), 'Rétablir'))),
       h('div', { className: 'barre-titre gill' }, titre),
       h('div', { className: 'barre-droite' },
-        h('button', { type: 'button', className: 'etat-synchro ' + ton, title: etat.synchro.detail || libelle, onClick: () => dispatch({ type: 'ecran', ecran: 'configuration', onglet: 'synchro' }) },
-          h(Icone, { nom: 'nuage', taille: 18 }), h('span', null, libelle + (etat.synchro.attente ? ` · ${etat.synchro.attente} en attente` : ''))),
+        h(IndicateurSynchro, { etat, dispatch, libelle, ton }),
         h(Segmente, {
           etiquette: 'Apparence', petit: true, valeur: etat.apparence, onChange: (v) => dispatch({ type: 'apparence', valeur: v }),
           options: [{ valeur: 'clair', icone: 'soleil', etiquette: 'Mode clair' }, { valeur: 'sombre', icone: 'lune', etiquette: 'Mode sombre' }, { valeur: 'auto', icone: 'auto', etiquette: 'Automatique, comme l’appareil' }],
@@ -3187,11 +3240,17 @@
 
     /* ---------- Synchronisation ---------- */
 
+    // Ce qui attend d'être copié sur GitHub (un ancien synchro.js sans « enAttente » donne seulement le nombre).
+    const attenteDe = async (depot) => {
+      if (!depot.enAttente) return { attente: await depot.changementsEnAttente(), enAttente: [] };
+      const l = await depot.enAttente();
+      return { attente: l.length, enAttente: l };
+    };
     async function synchroniser() {
       const depot = depotRef.current;
       if (!depot) return;
-      if (!depot.estConfigure()) { dispatch({ type: 'synchro', synchro: { statut: 'non-configure', attente: await depot.changementsEnAttente() } }); return; }
-      if (racine.navigator && racine.navigator.onLine === false) { dispatch({ type: 'synchro', synchro: { statut: 'hors-ligne', attente: await depot.changementsEnAttente() } }); return; }
+      if (!depot.estConfigure()) { dispatch({ type: 'synchro', synchro: { statut: 'non-configure', ...(await attenteDe(depot)) } }); return; }
+      if (racine.navigator && racine.navigator.onLine === false) { dispatch({ type: 'synchro', synchro: { statut: 'hors-ligne', ...(await attenteDe(depot)) } }); return; }
       if (synchroEnCours.current) return;
       synchroEnCours.current = true;
       dispatch({ type: 'synchro', synchro: { statut: 'en-cours', detail: '' } });
@@ -3199,14 +3258,15 @@
         await persister();
         const rapport = await depot.synchroniser();
         if (rapport.recus || rapport.supprimes || rapport.conflits.length) await recharger();
-        dispatch({ type: 'synchro', synchro: { statut: rapport.conflits.length ? 'conflit' : 'a-jour', derniere: maintenant(), attente: await depot.changementsEnAttente(), conflits: rapport.conflits, detail: '' } });
+        dispatch({ type: 'synchro', synchro: { statut: rapport.conflits.length ? 'conflit' : 'a-jour', derniere: maintenant(), ...(await attenteDe(depot)), conflits: rapport.conflits, detail: '' } });
         if (rapport.conflits.length) dispatch({ type: 'message', message: 'Un article avait été modifié sur deux appareils : les deux versions sont gardées. Détails dans Configuration › Synchronisation.' });
       } catch (erreur) {
-        dispatch({ type: 'synchro', synchro: { statut: erreur.code === 'reseau' ? 'hors-ligne' : 'erreur', detail: erreur.message, attente: await depot.changementsEnAttente() } });
+        dispatch({ type: 'synchro', synchro: { statut: erreur.code === 'reseau' ? 'hors-ligne' : 'erreur', detail: erreur.message, ...(await attenteDe(depot)) } });
       } finally {
         synchroEnCours.current = false;
       }
     }
+    SYNCHRO_MANUELLE.lancer = synchroniser; // « Copier maintenant » dans la bulle de l'indicateur
     function planifierSynchro(delai) {
       clearTimeout(minuterie.current);
       minuterie.current = setTimeout(synchroniser, delai);

@@ -182,6 +182,10 @@
       async changementsEnAttente() {
         return (await magasin.tout()).filter((e) => e.sale).length;
       },
+      // Ce qui n'est pas encore copié sur GitHub : un fichier par changement (article, réglages, police…).
+      async enAttente() {
+        return (await magasin.tout()).filter((e) => e.sale).map((e) => ({ chemin: e.chemin, supprime: !!e.supprime }));
+      },
 
       async synchroniser() {
         if (!clientActuel) throw Object.assign(new Error('Synchronisation non configurée.'), { code: 'non-configure' });

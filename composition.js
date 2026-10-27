@@ -1447,7 +1447,7 @@
                 s.libre && h('span', { className: 'libre' }, 'Mise en page libre'),
                 s.libre && h('button', { type: 'button', className: 'lien-repere', onClick: (e) => { e.stopPropagation(); actionsBlocs.revenir(i); } }, 'Revenir au gabarit'),
                 // La page en grand : l'agent ciblé (tracer une zone) et l'aperçu des posts, sans passer par Apparence générale.
-                outilsIA.GrandeFenetre && h('button', { type: 'button', className: 'bouton-agrandir', 'aria-label': `Agrandir la page ${i + 1}`, title: 'La page en grand : trace une zone pour la retoucher avec CCB', onMouseDown: garder, onClick: (e) => { e.stopPropagation(); setGrand(i); } },
+                outilsIA.GrandeFenetre && h('button', { type: 'button', className: 'bouton-agrandir', title: 'La page en grand : trace une zone pour la retoucher avec CCB', onMouseDown: garder, onClick: (e) => { e.stopPropagation(); setGrand(i); } },
                   h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d: 'M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' })),
                   'Agrandir')),
               h('div', { className: cls('cadre-page', cible === i && 'cible'), style: { width: largeurSlide + 'px', height: Math.round(largeurSlide * fmt.h / fmt.l) + 'px' } },

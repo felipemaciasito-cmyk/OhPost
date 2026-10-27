@@ -413,6 +413,13 @@ blockquote { margin: 8px 0; padding: 8px 12px; border-left: 3px solid var(--touc
 .etat-synchro.info { background: var(--info-fond); color: var(--info-texte); }
 .etat-synchro.attention { background: var(--attention-doux); color: var(--attention-texte); }
 .etat-synchro.erreur { background: var(--erreur-doux); color: var(--erreur); }
+/* Articles pas encore copiés alors que la synchronisation marche : un point discret, pas d'alerte */
+.etat-synchro.a-copier { background: var(--surface-2); color: var(--texte); }
+.ancre-synchro { position: relative; display: inline-flex; }
+.bulle-synchro { position: absolute; top: calc(100% + 8px); right: 0; z-index: 60; width: min(340px, calc(100vw - 24px)); display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 16px; background: var(--surface); color: var(--texte); border: 1px solid var(--trait); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18); text-align: left; }
+.bulle-synchro p { margin: 0; }
+.liste-synchro { margin: 0; padding-left: 18px; max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.bulle-synchro .actions-ligne { flex-wrap: wrap; }
 
 /* Éditeur : le texte est superposé à une copie où les fautes sont surlignées. */
 .editeur { position: relative; }

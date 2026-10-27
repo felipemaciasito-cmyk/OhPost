@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-26.8'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-27.1'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -37,6 +37,7 @@
     const verifier = (module, nom, fonctions) => { if (!module || fonctions.some((f) => typeof module[f] !== 'function')) manque.push(nom); };
     verifier(R, 'relecture.js', ['messageDiscussion', 'lireDiscussion', 'placerPassage', 'consigneDescription', 'lireSuggestion', 'formulationsDe', 'lireFormulations', 'premierObjet', 'blocProfil']);
     if (racine.PostsOPRelecture && !racine.PostsOPRelecture.JSON_DISCUSSION) manque.push('relecture.js');
+    verifier(M, 'moteur.js', ['composer', 'figerSlide', 'retoucherDisposition']); // retoucherDisposition : gestes de l'agent ciblé
     verifier(racine.PostsOPTypographie || (typeof require === 'function' ? require('./typographie.js') : null), 'typographie.js', ['notesDeTravail', 'retirerLignes', 'corrections']);
     verifier(racine.PostsOPIA || (typeof require === 'function' ? require('./ia.js') : null), 'ia.js', ['demander', 'active']);
     // Un module trop ancien a ses fonctions, mais pas les éléments ajoutés depuis : on les vérifie aussi.
@@ -116,7 +117,7 @@
     bibliotheque: { titre: 'Tes articles', textes: ['Trois sections : En cours, Publiés (validés par toi) et Corbeille, d’où tu peux restaurer un article.', 'Le menu « … » d’une carte permet de dupliquer, d’utiliser un article comme modèle pour un nouveau texte, de le marquer comme publié ou de le mettre à la corbeille.', 'Trie et affiche tes articles comme tu veux, en grille ou en liste. « Annuler » et ⌘Z (Ctrl+Z) reviennent en arrière à tout moment.', 'Calendrier : place tes articles sur une date, puis « Programmer un rappel » ajoute une alerte au calendrier de ton appareil. La publication automatique arrivera plus tard.'] },
     configuration: { titre: 'La configuration', textes: ['Charte : tes couleurs et tes tailles de texte. Tout changement s’applique à tous tes carrousels.', 'Ressources : tes polices, ton logo et tes fleurs, importés une fois et retrouvés sur tous tes appareils.', 'Réglages : le comportement de l’outil. Synchronisation : la liaison avec ton dépôt GitHub privé.', 'IA : le fournisseur d’intelligence artificielle et sa clé. Comme la clé GitHub, elle reste sur l’appareil : à saisir une fois sur chacun.'] },
     texte: { titre: 'Étape 1 · Texte', textes: ['Ton texte est la référence du carrousel : chaque modification ici met les pages à jour, sans toucher à leur mise en page. Et un paragraphe modifié dans Mise en page modifie aussi ce texte.', 'Relis ton texte avant de passer à la mise en page : CCB composera ses propositions sur le texte corrigé.', 'Pour remplacer tout le texte : sélectionne tout, colle le nouveau, puis ouvre « Apparence générale » à l’étape 2 pour que CCB recompose les pages.', 'Avec une IA active (Configuration, onglet IA), « Relire avec CCB » propose des corrections sous forme de cartes : accepte, modifie ou refuse chacune ; rien n’est appliqué sans toi. Sans IA, la vérification LanguageTool surligne les fautes ; pour chacune, choisis la bonne correction ou ignore-la.', 'La typographie française se corrige toute seule quand tu tapes ou colles du texte, ici comme sur les pages : un message montre chaque correction, avec « Annuler ».', 'Discussion : sélectionne un passage, puis « CCB » (le petit robot). Donne tes consignes en langage naturel et demande plusieurs propositions ; « Appliquer » remplace le passage, « Annuler » le rétablit.', 'Le micro dicte ta demande : elle s’écrit dans le champ, tu la corriges, puis tu l’envoies. Le haut-parleur, à côté, fait lire ses réponses à CCB (touche-le de nouveau pour couper).'] },
-    composition: { titre: 'Étape 2 · Mise en page', textes: ['La première fois que tu arrives ici, la fenêtre de mise en page s’ouvre : propositions de CCB, tes favoris, ou le découpage sans IA. Le bouton « Apparence générale », à droite des menus, la rouvre quand tu veux : autres propositions, favoris, fond, logo et fleurs. Le réseau et les dimensions se changent dans le menu Carrousel.', 'Le robot de la barre de menus, c’est CCB pour l’apparence : « Générer 3 propositions » ou « Une envie ? » ouvrent Apparence générale. Chaque envie y garde ses propositions, même des jours après : « Revoir ces propositions » les remet en haut. Pour retravailler des mots, sélectionne-les dans une page : le robot de la petite barre en discute avec toi.', 'Pour retoucher une zone précise : dans Apparence générale (ou sur l’aperçu de Publication), touche la page pour l’ouvrir en grand, puis trace un rectangle avec le doigt ou la souris. CCB ne retouche que les paragraphes de la zone. Maj ou Tab ajoute une zone, le « + » fait de même au doigt.', 'Tes pages, les unes sous les autres, exactement comme elles seront exportées. Clique dans un paragraphe pour l’écrire à sa place ; sélectionne des mots pour les mettre en forme avec la petite barre qui apparaît.', 'Entrée crée un nouveau paragraphe, ⇧Entrée un retour à la ligne, ⌘↩ (Ctrl+↩) un saut de page. ⌫ au début d’un paragraphe le réunit au précédent ; au début d’une page, avec la page précédente.', 'Les menus en haut regroupent tout le reste : gabarits, fond, logo, et Vérifier pour les points à regarder. Ton texte reste la référence : chaque modification ici le met à jour.'] },
+    composition: { titre: 'Étape 2 · Mise en page', textes: ['La première fois que tu arrives ici, la fenêtre de mise en page s’ouvre : propositions de CCB, tes favoris, ou le découpage sans IA. Le bouton « Apparence générale », à droite des menus, la rouvre quand tu veux : autres propositions, favoris, fond, logo et fleurs. Le réseau et les dimensions se changent dans le menu Carrousel.', 'Le robot de la barre de menus, c’est CCB pour l’apparence : « Générer 3 propositions » ou « Une envie ? » ouvrent Apparence générale. Chaque envie y garde ses propositions, même des jours après : « Revoir ces propositions » les remet en haut. Pour retravailler des mots, sélectionne-les dans une page : le robot de la petite barre en discute avec toi.', 'Pour retoucher une zone précise : dans Apparence générale (ou sur l’aperçu de Publication), touche la page pour l’ouvrir en grand, puis trace un rectangle avec le doigt ou la souris. CCB ne retouche que ce qui est dans la zone : les mots des paragraphes, mais aussi leur place et leur taille, le logo et les fleurs. Pour faire de la place, il peut envoyer le dernier paragraphe au début de la page suivante (ou le premier à la fin de la précédente), sans changer l’ordre de ton texte. Maj ou Tab ajoute une zone, le « + » fait de même au doigt.', 'Tes pages, les unes sous les autres, exactement comme elles seront exportées. Clique dans un paragraphe pour l’écrire à sa place ; sélectionne des mots pour les mettre en forme avec la petite barre qui apparaît.', 'Entrée crée un nouveau paragraphe, ⇧Entrée un retour à la ligne, ⌘↩ (Ctrl+↩) un saut de page. ⌫ au début d’un paragraphe le réunit au précédent ; au début d’une page, avec la page précédente.', 'Les menus en haut regroupent tout le reste : gabarits, fond, logo, et Vérifier pour les points à regarder. Ton texte reste la référence : chaque modification ici le met à jour.'] },
     publication: { titre: 'Étape 3 · Publication', textes: ['Tout pour publier, dans l’ordre : le texte du post, le fichier, la date de publication, puis « Marquer comme publié ».', 'Le texte du post : écris-le ou demande une proposition à CCB, puis « Copier » pour le coller sur le réseau.', 'Le fichier : un PDF pour LinkedIn, des images PNG pour Instagram. S’il reste des alertes, l’outil te les rappelle avant : à toi de décider.', 'La date : programme-la (elle apparaît dans le calendrier de la bibliothèque) ou choisis « Ne pas programmer ».'] },
   };
 
@@ -1109,6 +1110,14 @@
     const largeur = Math.floor(lp);
     const slide = slides[page];
     // Les paragraphes de la page et leur boîte (en points de la page), pour savoir lesquels une zone touche.
+    const composerPage = (sl, k) => M.composer(sl, format, fond, choisirPolice, { charte, reglages, index: k, total: n, logo });
+    // Le logo et les fleurs de la page (en points), pour que la zone puisse aussi les choisir.
+    const boitesImages = useMemo(() => {
+      const c = composerPage(slide, page);
+      const b = {};
+      c.elements.filter((e) => e.type === 'image' && (e.cle === 'fleurs' || e.cle === 'logo' || e.cle === 'logoClair')).forEach((e) => { b[e.cle === 'fleurs' ? 'fleurs' : 'logo'] = { x0: e.x, y0: e.y, x1: e.x + e.l, y1: e.y + e.h }; });
+      return b;
+    }, [slide, format, fond, page, n]);
     const boites = useMemo(() => {
       const c = M.composer(slide, format, fond, choisirPolice, { charte, reglages, index: page, total: n, logo });
       const b = {};
@@ -1122,6 +1131,7 @@
       return w * hh >= 0.1 * Math.min((b.x1 - b.x0) * (b.y1 - b.y0), (zx1 - zx0) * (zy1 - zy0));
     };
     const choisis = Object.keys(boites).map(Number).filter((k) => zones.some((z) => touches(z, boites[k])));
+    const imagesChoisies = Object.keys(boitesImages).filter((k) => zones.some((z) => touches(z, boitesImages[k])));
     const pos = (e) => { const r = surface.current.getBoundingClientRect(); return { x: Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)), y: Math.max(0, Math.min(1, (e.clientY - r.top) / r.height)) }; };
     const debut = (e) => {
       if (e.button != null && e.button > 0) return;
@@ -1138,8 +1148,11 @@
       if (petit) {
         // Un simple toucher : le paragraphe sous le doigt ; sur le vide, on efface (sauf si on ajoute).
         const cx = trace.x0 * f.l, cy = trace.y0 * f.h;
-        const k = Object.keys(boites).map(Number).find((q) => cx >= boites[q].x0 && cx <= boites[q].x1 && cy >= boites[q].y0 && cy <= boites[q].y1);
-        nouvelle = k == null ? null : { x0: boites[k].x0 / f.l, x1: boites[k].x1 / f.l, y0: boites[k].y0 / f.h, y1: boites[k].y1 / f.h };
+        const dedans = (bx) => cx >= bx.x0 && cx <= bx.x1 && cy >= bx.y0 && cy <= bx.y1;
+        const k = Object.keys(boites).map(Number).find((q) => dedans(boites[q]));
+        const im = k == null ? Object.keys(boitesImages).find((q) => dedans(boitesImages[q])) : undefined;
+        const bx = k != null ? boites[k] : im ? boitesImages[im] : null;
+        nouvelle = bx ? { x0: bx.x0 / f.l, x1: bx.x1 / f.l, y0: bx.y0 / f.h, y1: bx.y1 / f.h } : null;
       }
       setZones((anciennes) => (nouvelle ? (trace.ajout ? [...anciennes, nouvelle] : [nouvelle]) : (trace.ajout ? anciennes : [])));
       setTrace(null);
@@ -1151,14 +1164,16 @@
       if (!q || enCours || !configIA) return;
       const hist = messages;
       dire('moi', q);
-      if (!choisis.length) { dire('ccb', 'Je ne vois aucun paragraphe dans cette zone : trace un rectangle qui touche du texte, ou touche directement un paragraphe.'); return; }
+      if (!choisis.length && !imagesChoisies.length) { dire('ccb', 'Je ne vois aucun paragraphe dans cette zone : trace un rectangle qui touche du texte, le logo ou les fleurs, ou touche-les directement.'); return; }
       setEnCours(true);
       try {
-        const zone = choisis.map((k) => ({ n: k, style: slide.blocs[k].style, texte: slide.blocs[k].texte }));
+        const dernierBloc = slide.blocs.length - 1;
+        const place = (k) => (k === 0 && k === dernierBloc ? 'seul paragraphe de la page' : k === 0 ? 'premier de la page' : k === dernierBloc ? 'dernier de la page' : '');
+        const zone = choisis.map((k) => ({ n: k, style: slide.blocs[k].style, texte: slide.blocs[k].texte, place: place(k) }));
         const contexte = slide.blocs.map((b, k) => ({ n: k, style: b.style, texte: b.texte })).filter((b) => !choisis.includes(b.n));
         const g = M.gabaritParDefaut(slide, page);
-        const brut = await IA.demander(configIA, { systeme: R.SYSTEME_CIBLE, texte: R.messageCible({ page: page + 1, total: n, role: slide.role, gabarit: M.GABARITS[g] ? M.GABARITS[g].nom : '', reseau: '', zone, contexte, historique: hist, demande: q, profil }), maxJetons: 2500, delai: 90000, json: R.JSON_CIBLE });
-        const lu = R.lireCible(brut, choisis);
+        const brut = await IA.demander(configIA, { systeme: R.SYSTEME_CIBLE, texte: R.messageCible({ page: page + 1, total: n, role: slide.role, gabarit: M.GABARITS[g] ? M.GABARITS[g].nom : '', reseau: '', zone, contexte, historique: hist, demande: q, profil, images: imagesChoisies, libre: !!slide.libre }), maxJetons: 2500, delai: 90000, json: R.JSON_CIBLE });
+        const lu = R.lireCible(brut, choisis, imagesChoisies);
         const changements = lu.modifications.map((m) => ({ i: page, n: m.bloc, texte: T.appliquer(m.texte, T.corrections(m.texte)), style: m.style, lien: slide.blocs[m.bloc].lien, avant: { texte: slide.blocs[m.bloc].texte, style: slide.blocs[m.bloc].style } }));
         let reponse = lu.reponse || (changements.length ? 'C’est fait.' : 'Je n’ai rien changé.');
         if (changements.length) {
@@ -1167,15 +1182,78 @@
           onModifier(changements, `Page ${page + 1} retouchée par ${nomIA} (${changements.length} paragraphe${changements.length > 1 ? 's' : ''}).`);
           setAnnulations((a) => [...a, changements]);
           if (deborde) reponse += ' Attention : le texte déborde un peu de la page. Demande-moi de le raccourcir.';
+        } else if (lu.actions.length) {
+          const r = disposer(lu.actions);
+          if (r.pages) {
+            onModifier([{ type: 'pages', pages: r.pages, avant: r.avant }], `Page ${page + 1} réarrangée par ${nomIA}.`);
+            setAnnulations((a) => [...a, [{ type: 'pages', pages: r.pages, avant: r.avant }]]);
+          }
+          reponse = [lu.reponse || (r.pages ? 'C’est fait.' : 'Je n’ai rien changé.')].concat(r.notes).join(' ');
         }
         dire('ccb', reponse);
       } catch (erreur) {
         dire('ccb', erreur instanceof IA.ErreurIA ? erreur.message : 'Je n’ai pas pu répondre : ' + erreur.message);
       } finally { setEnCours(false); }
     }
+    // Les gestes de mise en page de l'agent : sur la page affichée, puis éventuellement vers la page voisine.
+    // Rend les pages modifiées ({ indice: slide }), leur état d'avant (pour « Annuler ») et des notes pour la réponse.
+    function disposer(actions) {
+      const notes = [];
+      const pages = {};
+      const surPage = actions.filter((a) => a.type !== 'page');
+      let courante = slide;
+      if (surPage.length) {
+        const r = M.retoucherDisposition(slide, composerPage(slide, page), surPage);
+        notes.push(...r.refus);
+        if (r.faits.length) { courante = r.slide; pages[page] = courante; }
+        if (r.libre) notes.push('La page est maintenant en mise en page libre : elle ne se réarrange plus toute seule (menu Page › « Revenir au gabarit » pour l’annuler).');
+        // Un paragraphe déplacé qui en touche un autre : on le signale.
+        const zonesDe = (c) => { const b = {}; c.elements.filter((e) => e.type === 'bloc').forEach((e) => { const o = b[e.bloc]; b[e.bloc] = o ? { x0: Math.min(o.x0, e.x), y0: Math.min(o.y0, e.y), x1: Math.max(o.x1, e.x + e.l), y1: Math.max(o.y1, e.y + e.h) } : { x0: e.x, y0: e.y, x1: e.x + e.l, y1: e.y + e.h }; }); return b; };
+        const chevauche = (b) => { const k = Object.keys(b); return k.some((p, i) => k.slice(i + 1).some((q) => Math.min(b[p].x1, b[q].x1) > Math.max(b[p].x0, b[q].x0) && Math.min(b[p].y1, b[q].y1) > Math.max(b[p].y0, b[q].y0))); };
+        if (pages[page]) {
+          const apres = composerPage(courante, page);
+          if (chevauche(zonesDe(apres)) && !chevauche(zonesDe(composerPage(slide, page)))) notes.push('Attention : deux paragraphes se touchent maintenant. Dis-moi lequel décaler.');
+          if (apres.deborde) notes.push('Attention : le texte déborde de la page.');
+        }
+      }
+      // Changer de page : le dernier paragraphe vers la page suivante, ou le premier vers la précédente. L'ordre ne change pas.
+      const versPage = actions.find((a) => a.type === 'page');
+      if (versPage) {
+        const suivante = versPage.vers === 'suivante';
+        const j = page + (suivante ? 1 : -1);
+        const src = courante;
+        const k = versPage.bloc;
+        if (j < 0 || j >= n) notes.push(`Il n’y a pas de page ${suivante ? 'suivante' : 'précédente'}.`);
+        else if (src.blocs.filter((b) => b.texte).length <= 1) notes.push('C’est le seul paragraphe de la page : elle serait vide.');
+        else if (suivante ? k !== src.blocs.length - 1 : k !== 0) notes.push(`Seul le ${suivante ? 'dernier' : 'premier'} paragraphe de la page peut passer sur la page ${suivante ? 'suivante' : 'précédente'} sans changer l’ordre de ton texte.`);
+        else {
+          const bloc = { ...src.blocs[k] }; delete bloc.pos; delete bloc.fige;
+          const dst = slides[j];
+          let blocsDst = dst.blocs.map((b) => ({ ...b }));
+          // Page d'arrivée en mise en page libre : le paragraphe arrivé en haut pousse les autres vers le bas.
+          if (dst.libre && suivante && boites[k]) {
+            const decale = boites[k].y1 - boites[k].y0 + 40;
+            blocsDst = blocsDst.map((b) => (b.pos ? { ...b, pos: { ...b.pos, y: b.pos.y + decale } } : b));
+          }
+          pages[page] = { ...src, blocs: src.blocs.filter((_, m) => m !== k) };
+          pages[j] = { ...dst, blocs: suivante ? [bloc, ...blocsDst] : [...blocsDst, bloc] };
+          notes.push(`Le paragraphe est maintenant ${suivante ? 'le premier de la page ' : 'le dernier de la page '}${j + 1}.`);
+          if (composerPage(pages[j], j).deborde) notes.push(`Attention : la page ${j + 1} déborde maintenant. Demande-moi d’y raccourcir le texte.`);
+        }
+      }
+      if (!Object.keys(pages).length) return { pages: null, notes };
+      const avant = {};
+      Object.keys(pages).forEach((k) => { avant[k] = slides[k]; });
+      return { pages, avant, notes };
+    }
     const annuler = () => {
       const dernier = annulations[annulations.length - 1];
       if (!dernier) return;
+      if (dernier[0].type === 'pages') {
+        onModifier([{ type: 'pages', pages: dernier[0].avant, avant: dernier[0].pages }], `Mise en page de la page ${page + 1} rétablie.`);
+        setAnnulations((a) => a.slice(0, -1)); dire('ccb', 'J’ai annulé le dernier changement.');
+        return;
+      }
       onModifier(dernier.map((c) => ({ i: c.i, n: c.n, texte: c.avant.texte, style: c.avant.style, lien: c.lien })), `Retouche de la page ${dernier[0].i + 1} annulée.`);
       setAnnulations((a) => a.slice(0, -1)); dire('ccb', 'J’ai annulé la dernière retouche.');
     };
@@ -1200,6 +1278,7 @@
         // La surface de sélection : un rectangle tracé à la souris ou au doigt.
         h('div', { ref: surface, className: 'gf-surface', 'aria-hidden': 'true', onPointerDown: debut, onPointerMove: deplace, onPointerUp: fin, onPointerCancel: () => setTrace(null) },
           choisis.map((k) => rect({ x0: boites[k].x0 / f.l, x1: boites[k].x1 / f.l, y0: boites[k].y0 / f.h, y1: boites[k].y1 / f.h }, 'p' + k, 'gf-paragraphe')),
+          imagesChoisies.map((k) => rect({ x0: boitesImages[k].x0 / f.l, x1: boitesImages[k].x1 / f.l, y0: boitesImages[k].y0 / f.h, y1: boitesImages[k].y1 / f.h }, 'i' + k, 'gf-paragraphe')),
           zones.map((z, k) => rect(z, 'z' + k, 'gf-zone')),
           apercuTrace && rect(apercuTrace, 'trace', 'gf-zone trace')),
         ICONES_RESEAUX.map((ic) => h('button', { key: ic.id, type: 'button', className: 'gf-reseau', 'aria-label': `Aperçu du post ${ic.nom}`,
@@ -1212,14 +1291,14 @@
       h('button', { type: 'button', className: cls('gf-ajout', ajout && 'actif'), 'aria-pressed': ajout, 'aria-label': 'Ajouter une zone à la sélection', title: 'Ajouter une zone à la sélection (au clavier : Maj ou Tab)', onClick: () => setAjout(!ajout) }, '+'),
       zones.length > 0 && h('div', { className: cls('gf-agent', reduit && 'reduit'), role: 'region', 'aria-label': `${nomIA}, agent ciblé`, ...isoler },
         h('div', { className: 'gf-agent-tete' },
-          h('span', { className: 'gf-agent-titre' }, h(Robot, { taille: 26 }), h('strong', null, nomIA), h('span', { className: 'doux petit' }, `Page ${page + 1} · ${zones.length} zone${zones.length > 1 ? 's' : ''} · ${nbPar} paragraphe${nbPar > 1 ? 's' : ''}`)),
+          h('span', { className: 'gf-agent-titre' }, h(Robot, { taille: 26 }), h('strong', null, nomIA), h('span', { className: 'doux petit' }, `Page ${page + 1} · ${zones.length} zone${zones.length > 1 ? 's' : ''} · ${nbPar} paragraphe${nbPar > 1 ? 's' : ''}${imagesChoisies.length ? ' · ' + imagesChoisies.map((k) => (k === 'fleurs' ? 'fleurs' : 'logo')).join(' et ') : ''}`)),
           h('span', { className: 'gf-agent-actions' },
             annulations.length > 0 && h('button', { type: 'button', className: 'btn-mini', onClick: annuler }, 'Annuler la retouche'),
             h('button', { type: 'button', className: 'btn-mini', onClick: () => setReduit(!reduit) }, reduit ? 'Agrandir' : 'Réduire'),
             h('button', { type: 'button', className: 'btn-mini', onClick: () => { setZones([]); setTrace(null); } }, 'Effacer la zone'))),
         !reduit && h(Fragment, null,
           !configIA && h('p', { className: 'doux petit' }, `Pour retoucher avec ${nomIA}, ajoute ta clé dans Configuration, onglet IA.`),
-          nbPar === 0 && h('p', { className: 'doux petit' }, 'Aucun paragraphe dans cette zone : trace un rectangle qui touche du texte.'),
+          nbPar === 0 && !imagesChoisies.length && h('p', { className: 'doux petit' }, 'Aucun paragraphe dans cette zone : trace un rectangle qui touche du texte, le logo ou les fleurs.'),
           nbPar > 0 && h('p', { className: 'gf-extraits petit' }, choisis.map((k) => '« ' + String(slide.blocs[k].texte).replace(/\s+/g, ' ').slice(0, 46) + (String(slide.blocs[k].texte).length > 46 ? '…' : '') + ' »').join('   ')),
           messages.length > 0 && h('div', { className: 'mep-fil-messages gf-messages' }, messages.map((m, k) => h('div', { key: k, className: cls('mep-message', m.de === 'moi' ? 'moi' : 'ccb') }, m.texte))),
           enCours && h('p', { className: 'doux petit', role: 'status' }, `${nomIA} retouche la zone…`),
@@ -1604,7 +1683,10 @@
       fil && slides.length > 0 && h(GrandeFenetre, { slides, format, fond, depart: vue, texte: paragraphes[0], onPage: setPageVue, onFermer: () => setFil(false), profil: (etat.projet && etat.projet.profilEditorial) || '',
         onModifier: (chg) => {
           const copie = slides.map((sl) => ({ ...sl, blocs: sl.blocs.map((b) => ({ ...b })) }));
-          chg.forEach((c) => { Object.assign(copie[c.i].blocs[c.n], { texte: c.texte, ...(c.style ? { style: c.style } : {}) }); });
+          chg.forEach((c) => {
+            if (c.type === 'pages') Object.keys(c.pages).forEach((k) => { copie[k] = c.pages[k]; }); // gestes de mise en page de l'agent ciblé
+            else Object.assign(copie[c.i].blocs[c.n], { texte: c.texte, ...(c.style ? { style: c.style } : {}) });
+          });
           setRetouche({ cle: cleRetouche, slides: copie });
         } }));
 
@@ -2688,6 +2770,8 @@
         h('div', { className: 'publication-vignettes' }, article.slides.slice(1).map((s, k) => h(SlideCanvas, { key: k, slide: s, formatId: article.format, fondId: article.fond, largeur: 44, index: k + 1, total, logo }))),
         fil && h(GrandeFenetre, { slides: article.slides, format: article.format, fond: article.fond, depart: 0, logo, profil: (etat.projet && etat.projet.profilEditorial) || '', texte: article.texte[0],
           onModifier: (chg, annonce) => majA((a) => chg.reduce((x, c) => {
+            // Gestes de mise en page de l'agent ciblé : les pages touchées sont remplacées (le texte, lui, ne change pas).
+            if (c.type === 'pages') return { ...x, slides: x.slides.map((sl, k) => c.pages[k] || sl) };
             let y = c.lien ? OP.blocLie(c.i, c.n, c.texte)(x) : OP.modifierBloc(c.i, c.n, { texte: c.texte })(x);
             if (c.style) y = OP.modifierBloc(c.i, c.n, { style: c.style })(y);
             return y;

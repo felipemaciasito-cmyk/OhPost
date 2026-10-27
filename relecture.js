@@ -278,9 +278,20 @@
   const CONTEXTE_TEXTE = 'Étape Texte : la personne relit et améliore son article avant qu’il soit mis en pages en carrousel. Aide-la sur le fond, la clarté, la structure, le rythme et le style ; la mise en page viendra ensuite. Garde la voix de l’article.';
   // ---- L'agent ciblé : retoucher seulement les paragraphes d'une zone tracée sur une page, dans la grande fenêtre ----
   const STYLES_CIBLE = ['corps', 'emphase', 'citation', 'titre', 'contrepoint'];
-  const JSON_CIBLE = { nom: 'retouche', description: 'La réponse et les retouches des paragraphes de la zone.', schema: { type: 'object', properties: {
+  // Les gestes de mise en page (déplacer, taille, largeur, page voisine, logo et fleurs), appliqués par le moteur dans les marges.
+  const ACTIONS_CIBLE = ['deplacer', 'taille', 'largeur', 'page', 'image'];
+  const VERTICAL_CIBLE = ['haut', 'milieu', 'bas', 'plus_haut', 'plus_bas'];
+  const HORIZONTAL_CIBLE = ['gauche', 'centre', 'droite'];
+  const JSON_CIBLE = { nom: 'retouche', description: 'La réponse, les retouches du texte et les gestes de mise en page de la zone.', schema: { type: 'object', properties: {
     reponse: { type: 'string', description: 'Une à deux phrases, en tutoyant : ce que tu as fait, ou ce que tu ne peux pas faire.' },
-    modifications: { type: 'array', items: { type: 'object', properties: { bloc: { type: 'integer', description: 'Numéro du paragraphe de la zone.' }, texte: { type: 'string', description: 'Le nouveau texte complet du paragraphe.' }, style: { type: 'string', enum: STYLES_CIBLE, description: 'Seulement si le style change.' } }, required: ['bloc', 'texte'] } } }, required: ['reponse', 'modifications'] } };
+    modifications: { type: 'array', items: { type: 'object', properties: { bloc: { type: 'integer', description: 'Numéro du paragraphe de la zone.' }, texte: { type: 'string', description: 'Le nouveau texte complet du paragraphe.' }, style: { type: 'string', enum: STYLES_CIBLE, description: 'Seulement si le style change.' } }, required: ['bloc', 'texte'] } },
+    actions: { type: 'array', description: 'Gestes de mise en page, seulement si la personne en demande.', items: { type: 'object', properties: {
+      type: { type: 'string', enum: ACTIONS_CIBLE },
+      bloc: { type: 'integer', description: 'Numéro du paragraphe de la zone (pas pour « image »).' },
+      vertical: { type: 'string', enum: VERTICAL_CIBLE }, horizontal: { type: 'string', enum: HORIZONTAL_CIBLE },
+      facteur: { type: 'number', description: 'Pour taille, largeur ou image : 1.2 = 20 % plus grand, 0.8 = 20 % plus petit.' },
+      vers: { type: 'string', enum: ['suivante', 'precedente'], description: 'Pour « page ».' },
+      image: { type: 'string', enum: ['logo', 'fleurs'] }, retirer: { type: 'boolean' } }, required: ['type'] } } }, required: ['reponse', 'modifications'] } };
   const SYSTEME_CIBLE = [
     'Tu es CCB, l’assistant d’Oh!Post. Ici tu es l’agent ciblé : tu retouches UNIQUEMENT les paragraphes que la personne a sélectionnés en traçant une zone sur une page de carrousel.',
     'Règles :',
@@ -288,28 +299,49 @@
     '- Le sens est respecté : tu n’inventes aucun fait, chiffre, nom ni citation, et tu ne transformes pas une nuance en affirmation.',
     '- Une page se lit d’un coup d’œil : phrases courtes, rien de plus long que l’original sauf demande contraire, une idée par paragraphe.',
     '- Tu peux changer le style d’un paragraphe (corps, emphase, citation, titre, contrepoint) seulement si la personne le demande ou si c’est évidemment ce qu’elle veut.',
-    '- Tu ne peux pas changer : couleurs, fond, position, taille, gabarit, logo, fleurs. Si on te le demande, dis en une phrase que ça se règle dans les menus Page et Carrousel, et ne renvoie aucune modification.',
+    '- Gestes de mise en page, dans « actions », seulement si la personne les demande : « deplacer » un paragraphe de la zone (vertical : haut, milieu, bas, plus_haut, plus_bas ; horizontal : gauche, centre, droite) ; « taille » de son texte (facteur, 1.2 = 20 % plus grand) ; « largeur » de son cadre (facteur) ; « image » pour le logo ou les fleurs s’ils sont dans la zone (vertical, horizontal, facteur, ou retirer: true).',
+    '- « page » envoie un paragraphe sur la page voisine sans changer l’ordre des paragraphes : seulement le DERNIER paragraphe de la page vers la page « suivante » (il y devient le premier), ou le PREMIER vers la page « precedente » (il y devient le dernier). C’est fait pour libérer de la place. Un paragraphe du milieu ne peut pas changer de page : dis-le et ne fais rien.',
+    '- Déplacer, agrandir ou élargir un paragraphe passe la page en mise en page libre : la page ne se réarrange plus toute seule (le menu Page › « Revenir au gabarit » l’annule). Dis-le en une courte phrase la première fois.',
+    '- Dans une même réponse, soit tu retouches le texte (« modifications »), soit tu fais des gestes de mise en page (« actions ») : pas les deux. Si on te demande les deux, fais d’abord le texte et propose de faire le reste ensuite.',
+    '- Tu ne peux pas changer : couleurs, fond, gabarit, les logos LinkedIn et Instagram. Si on te le demande, dis en une phrase que les couleurs et le fond se règlent dans les menus Page et Carrousel, et ne renvoie rien.',
     '- Typographie française : guillemets « », espaces insécables avant ; : ? !, apostrophe ’.',
-    'Réponds uniquement avec un objet JSON : {"reponse": "…", "modifications": [{"bloc": 0, "texte": "…", "style": "optionnel"}]}. Pas de modification si la demande n’en appelle aucune.',
+    'Réponds uniquement avec un objet JSON : {"reponse": "…", "modifications": [{"bloc": 0, "texte": "…", "style": "optionnel"}], "actions": [{"type": "deplacer", "bloc": 0, "vertical": "bas"}]}. Rien dans « modifications » ni « actions » si la demande n’en appelle aucune.',
     REGLE_PROFIL,
   ].join('\n');
-  function messageCible({ page, total, role, gabarit, reseau, zone, contexte, historique, demande, profil }) {
-    const ligne = (b) => `[${b.n}] (${b.style}) ${b.texte}`;
+  function messageCible({ page, total, role, gabarit, reseau, zone, contexte, historique, demande, profil, images = [], libre = false }) {
+    const ligne = (b) => `[${b.n}] (${b.style})${b.place ? ' [' + b.place + ']' : ''} ${b.texte}`;
     return [
       blocProfil(profil) + `Page ${page} sur ${total}${role ? ` (${role})` : ''}${gabarit ? `, gabarit « ${gabarit} »` : ''}${reseau ? `, carrousel pour ${reseau}` : ''}.`,
       '<page>', contexte.length ? contexte.map(ligne).join('\n') : '(aucun autre paragraphe)', '</page>',
-      '<zone>', zone.map(ligne).join('\n'), '</zone>', '',
+      '<zone>', zone.length ? zone.map(ligne).join('\n') : '(aucun paragraphe)', ...(images.length ? ['Images dans la zone : ' + images.join(', ')] : []), '</zone>',
+      libre ? 'La page est déjà en mise en page libre.' : '', '',
       ...historique.map((m) => (m.de === 'moi' ? 'Personne : ' : 'Toi : ') + m.texte),
       'Demande de la personne : ' + demande,
     ].join('\n');
   }
   // Ne garde que les retouches valides : un paragraphe de la zone, un texte non vide, un style connu.
-  function lireCible(brut, autorises) {
-    const o = premierObjet(brut, (x) => typeof x.reponse === 'string' || Array.isArray(x.modifications)) || {};
+  function lireCible(brut, autorises, imagesAutorisees = []) {
+    const o = premierObjet(brut, (x) => typeof x.reponse === 'string' || Array.isArray(x.modifications) || Array.isArray(x.actions)) || {};
     const vues = new Set();
     const modifications = (Array.isArray(o.modifications) ? o.modifications : []).filter((m) => m && Number.isInteger(m.bloc) && autorises.includes(m.bloc) && typeof m.texte === 'string' && m.texte.trim() && !vues.has(m.bloc) && vues.add(m.bloc))
       .map((m) => ({ bloc: m.bloc, texte: m.texte.trim(), ...(STYLES_CIBLE.includes(m.style) ? { style: m.style } : {}) }));
-    return { reponse: String(o.reponse || '').trim(), modifications };
+    // Gestes de mise en page : seulement sur les paragraphes et images de la zone, avec des valeurs connues.
+    const actions = (Array.isArray(o.actions) ? o.actions : []).filter((x) => x && ACTIONS_CIBLE.includes(x.type)
+      && (x.type === 'image' ? imagesAutorisees.includes(x.image) : Number.isInteger(x.bloc) && autorises.includes(x.bloc))
+      && (x.type !== 'page' || ['suivante', 'precedente'].includes(x.vers))
+      && (!['taille', 'largeur'].includes(x.type) || (typeof x.facteur === 'number' && x.facteur > 0)))
+      .slice(0, 8)
+      .map((x) => {
+        const r = { type: x.type };
+        if (x.type === 'image') r.image = x.image; else r.bloc = x.bloc;
+        if (VERTICAL_CIBLE.includes(x.vertical)) r.vertical = x.vertical;
+        if (HORIZONTAL_CIBLE.includes(x.horizontal)) r.horizontal = x.horizontal;
+        if (typeof x.facteur === 'number' && x.facteur > 0) r.facteur = Math.max(0.2, Math.min(5, x.facteur));
+        if (x.type === 'page') r.vers = x.vers;
+        if (x.type === 'image' && x.retirer === true) r.retirer = true;
+        return r;
+      });
+    return { reponse: String(o.reponse || '').trim(), modifications, actions };
   }
 
   // Précision ajoutée à chaque demande de la discussion sur le texte du post.

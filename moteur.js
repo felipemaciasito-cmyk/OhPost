@@ -1006,10 +1006,102 @@
   }
 
   const fondsDePage = (palette) => Object.fromEntries(Object.entries(fondsDe(palette)).filter(([cle]) => !FONDS_INTERDITS_EN_PAGE.includes(cle)));
+  /* ---------- Agent ciblé : déplacer, agrandir un paragraphe, placer le logo et les fleurs ----------
+   * actions : [{ type: 'deplacer', bloc, vertical?, horizontal? }, { type: 'taille', bloc, facteur }, { type: 'largeur', bloc, facteur },
+   *            { type: 'image', image: 'logo' | 'fleurs', vertical?, horizontal?, facteur?, retirer? }]
+   * vertical : haut, milieu, bas, plus_haut, plus_bas ; horizontal : gauche, centre, droite.
+   * Rien ne sort des marges de la charte. Déplacer ou agrandir un paragraphe passe la page en mise en page libre (comme à la main).
+   * Rend { slide, faits, refus } : la slide modifiée et, en clair, ce qui a été fait ou refusé. */
+  const BORNES_TAILLE = [0.6, 1.6];
+  const BORNES_IMAGE = [0.5, 2];
+  const borner = (v, min, max) => Math.max(min, Math.min(max, v));
+  function retoucherDisposition(slide, compo, actions) {
+    const L = compo.fmt.l, H = compo.fmt.h;
+    const faits = [], refus = [];
+    const boite = (n) => {
+      const z = compo.elements.filter((e) => e.type === 'bloc' && e.bloc === n);
+      if (!z.length) return null;
+      return { x0: Math.min(...z.map((e) => e.x)), y0: Math.min(...z.map((e) => e.y)), x1: Math.max(...z.map((e) => e.x + e.l)), y1: Math.max(...z.map((e) => e.y + e.h)) };
+    };
+    let s = { ...slide, blocs: slide.blocs.map((b) => ({ ...b })) };
+    let figee = false;
+    const libre = () => {
+      if (figee) return;
+      if (!s.libre) s = figerSlide(s, compo);
+      s = { ...s, blocs: s.blocs.map((b) => (b.pos ? { ...b, pos: { ...b.pos }, fige: b.fige ? JSON.parse(JSON.stringify(b.fige)) : b.fige } : b)) };
+      figee = true;
+    };
+    const cible = (v, actuel, taille, min, max) => {
+      const bas = Math.max(min, max - taille);
+      const pas = (max - min) * 0.1;
+      const r = { haut: min, bas, milieu: (min + max - taille) / 2, plus_haut: actuel - pas, plus_bas: actuel + pas,
+        gauche: min, droite: bas, centre: (min + max - taille) / 2 }[v];
+      return r === undefined ? null : borner(r, min, bas);
+    };
+    (actions || []).forEach((a) => {
+      if (!a || typeof a !== 'object') return;
+      if (a.type === 'image') {
+        const imgs = Array.isArray(s.images) ? s.images.map((im) => ({ ...im })) : imagesDe(compo);
+        const k = imgs.findIndex((im) => im.type === a.image);
+        const nom = a.image === 'fleurs' ? 'les fleurs' : 'le logo';
+        if (k < 0) { refus.push(`Il n’y a pas ${a.image === 'fleurs' ? 'de fleurs' : 'de logo'} sur cette page.`); return; }
+        if (imgs[k].verrou) { refus.push(`${nom[0].toUpperCase() + nom.slice(1)} ${a.image === 'fleurs' ? 'sont verrouillées' : 'est verrouillé'} : déverrouille-${a.image === 'fleurs' ? 'les' : 'le'} d’abord (menu Page).`); return; }
+        if (a.retirer) { imgs.splice(k, 1); s = { ...s, images: imgs }; faits.push(`J’ai retiré ${nom}.`); return; }
+        const im = imgs[k];
+        if (typeof a.facteur === 'number' && a.facteur > 0) im.w = borner(im.w * borner(a.facteur, BORNES_IMAGE[0], BORNES_IMAGE[1]), 0.06, 0.8);
+        const ratio = a.image === 'fleurs' ? 275 / 696 : RATIO_LOGO;
+        const lpx = im.w * L, hpx = lpx * ratio;
+        let x = im.x * L, y = im.y * H;
+        if (a.vertical) { const v = cible(a.vertical, y, hpx, MARGES.haute, H - MARGES.basse); if (v !== null) y = v; }
+        if (a.horizontal) { const v = cible(a.horizontal, x, lpx, MARGES.gauche, L - MARGES.droite); if (v !== null) x = v; }
+        im.x = borner(x, 0, L - lpx) / L; im.y = borner(y, 0, H - hpx) / H;
+        s = { ...s, images: imgs };
+        faits.push(`J’ai ${a.facteur ? (a.facteur > 1 ? 'agrandi' : 'réduit') : 'déplacé'} ${nom}.`);
+        return;
+      }
+      const n = a.bloc;
+      if (!Number.isInteger(n) || !s.blocs[n]) return;
+      const b0 = boite(n);
+      if (!b0) return;
+      if (a.type === 'deplacer') {
+        if (a.horizontal && ['gauche', 'centre', 'droite'].includes(a.horizontal)) {
+          // Aligner le texte dans son cadre ; si le cadre est plus étroit que la page, il se place aussi.
+          s.blocs[n] = { ...s.blocs[n], alignement: a.horizontal };
+        }
+        if (a.vertical || (a.horizontal && s.libre)) {
+          libre();
+          const b = s.blocs[n];
+          if (!b.pos) return;
+          if (a.vertical) { const v = cible(a.vertical, b0.y0, b0.y1 - b0.y0, MARGES.haute, H - MARGES.basse); if (v !== null) b.pos.y += v - b0.y0; }
+          if (a.horizontal && b.pos.l < L - MARGES.gauche - MARGES.droite - 1) { const v = cible(a.horizontal, b.pos.x, b.pos.l, MARGES.gauche, L - MARGES.droite); if (v !== null) b.pos.x = v; }
+        }
+        faits.push(`J’ai déplacé le paragraphe ${n + 1}.`);
+      } else if (a.type === 'taille' && typeof a.facteur === 'number' && a.facteur > 0) {
+        libre();
+        const f = borner(a.facteur, BORNES_TAILLE[0], BORNES_TAILLE[1]);
+        const fige = s.blocs[n].fige;
+        if (!fige) return;
+        (fige.parties ? fige.parties.map((p) => p.style) : [fige.style]).forEach((st) => { if (st && st.taille) st.taille = Math.round(st.taille * f); });
+        faits.push(`J’ai ${f > 1 ? 'agrandi' : 'réduit'} le texte du paragraphe ${n + 1}.`);
+      } else if (a.type === 'largeur' && typeof a.facteur === 'number' && a.facteur > 0) {
+        libre();
+        const b = s.blocs[n];
+        if (!b.pos) return;
+        const utile = L - MARGES.gauche - MARGES.droite;
+        const l = borner(b.pos.l * borner(a.facteur, 0.4, 2.5), Math.min(200, utile), utile);
+        if (b.fige && b.fige.parties) b.fige.parties.forEach((p) => { if (p.l) p.l = Math.round(p.l * l / b.pos.l); });
+        b.pos.l = Math.round(l);
+        b.pos.x = borner(b.pos.x, MARGES.gauche, L - MARGES.droite - b.pos.l);
+        faits.push(`J’ai ${a.facteur > 1 ? 'élargi' : 'rétréci'} le paragraphe ${n + 1}.`);
+      }
+    });
+    return { slide: s, faits, refus, libre: figee && !slide.libre };
+  }
+
   const api = { fondsDePage, OPACITE_FONDS, FONDS_INTERDITS_EN_PAGE, imagesDe, RATIO_LOGO, reperesDeplacement,
     PALETTE, FONDS, CHARTE_DEFAUT, construireFonds, fondsDe, naturesUtiles, natureAffichee, FORMATS, MARGES, NATURES, GABARITS, LIMITES_SLIDES,
     policeExacte, policeSysteme, fondFonce, cleLogo, couperLignes, composer, dessiner, gabaritParDefaut,
-    compterMots, passagesManquants, textesAjoutes, controler, solutionsDebordement, figerSlide, revenirAuGabarit, decouperMecaniquement, proposerPresentation,
+    compterMots, passagesManquants, textesAjoutes, controler, solutionsDebordement, figerSlide, revenirAuGabarit, decouperMecaniquement, proposerPresentation, retoucherDisposition,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else racine.PostsOPMoteur = api;

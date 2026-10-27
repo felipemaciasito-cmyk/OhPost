@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-27.2'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-27.3'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -117,7 +117,7 @@
     bibliotheque: { titre: 'Tes articles', textes: ['Trois sections : En cours, Publiés (validés par toi) et Corbeille, d’où tu peux restaurer un article.', 'Le menu « … » d’une carte permet de dupliquer, d’utiliser un article comme modèle pour un nouveau texte, de le marquer comme publié ou de le mettre à la corbeille.', 'Trie et affiche tes articles comme tu veux, en grille ou en liste. « Annuler » et ⌘Z (Ctrl+Z) reviennent en arrière à tout moment.', 'Calendrier : place tes articles sur une date, puis « Programmer un rappel » ajoute une alerte au calendrier de ton appareil. La publication automatique arrivera plus tard.'] },
     configuration: { titre: 'La configuration', textes: ['Charte : tes couleurs et tes tailles de texte. Tout changement s’applique à tous tes carrousels.', 'Ressources : tes polices, ton logo et tes fleurs, importés une fois et retrouvés sur tous tes appareils.', 'Réglages : le comportement de l’outil. Synchronisation : la liaison avec ton dépôt GitHub privé.', 'IA : le fournisseur d’intelligence artificielle et sa clé. Comme la clé GitHub, elle reste sur l’appareil : à saisir une fois sur chacun.'] },
     texte: { titre: 'Étape 1 · Texte', textes: ['Ton texte est la référence du carrousel : chaque modification ici met les pages à jour, sans toucher à leur mise en page. Et un paragraphe modifié dans Mise en page modifie aussi ce texte.', 'Relis ton texte avant de passer à la mise en page : CCB composera ses propositions sur le texte corrigé.', 'Pour remplacer tout le texte : sélectionne tout, colle le nouveau, puis ouvre « Apparence générale » à l’étape 2 pour que CCB recompose les pages.', 'Avec une IA active (Configuration, onglet IA), « Relire avec CCB » propose des corrections sous forme de cartes : accepte, modifie ou refuse chacune ; rien n’est appliqué sans toi. Sans IA, la vérification LanguageTool surligne les fautes ; pour chacune, choisis la bonne correction ou ignore-la.', 'La typographie française se corrige toute seule quand tu tapes ou colles du texte, ici comme sur les pages : un message montre chaque correction, avec « Annuler ».', 'Discussion : sélectionne un passage, puis « CCB » (le petit robot). Donne tes consignes en langage naturel et demande plusieurs propositions ; « Appliquer » remplace le passage, « Annuler » le rétablit.', 'Le micro dicte ta demande : elle s’écrit dans le champ, tu la corriges, puis tu l’envoies. Le haut-parleur, à côté, fait lire ses réponses à CCB (touche-le de nouveau pour couper).'] },
-    composition: { titre: 'Étape 2 · Mise en page', textes: ['La première fois que tu arrives ici, la fenêtre de mise en page s’ouvre : propositions de CCB, tes favoris, ou le découpage sans IA. Le bouton « Apparence générale », à droite des menus, la rouvre quand tu veux : autres propositions, favoris, fond, logo et fleurs. Le réseau et les dimensions se changent dans le menu Carrousel.', 'Le robot de la barre de menus, c’est CCB pour l’apparence : « Générer 3 propositions » ou « Une envie ? » ouvrent Apparence générale. Chaque envie y garde ses propositions, même des jours après : « Revoir ces propositions » les remet en haut. Pour retravailler des mots, sélectionne-les dans une page : le robot de la petite barre en discute avec toi.', 'Pour retoucher une zone précise : dans Apparence générale (ou sur l’aperçu de Publication), touche la page pour l’ouvrir en grand, puis trace un rectangle avec le doigt ou la souris. CCB ne retouche que ce qui est dans la zone : les mots des paragraphes, mais aussi leur place et leur taille, le logo et les fleurs. Pour faire de la place, il peut envoyer le dernier paragraphe au début de la page suivante (ou le premier à la fin de la précédente), sans changer l’ordre de ton texte. Maj ou Tab ajoute une zone, le « + » fait de même au doigt.', 'Tes pages, les unes sous les autres, exactement comme elles seront exportées. Clique dans un paragraphe pour l’écrire à sa place ; sélectionne des mots pour les mettre en forme avec la petite barre qui apparaît.', 'Entrée crée un nouveau paragraphe, ⇧Entrée un retour à la ligne, ⌘↩ (Ctrl+↩) un saut de page. ⌫ au début d’un paragraphe le réunit au précédent ; au début d’une page, avec la page précédente.', 'Les menus en haut regroupent tout le reste : gabarits, fond, logo, et Vérifier pour les points à regarder. Ton texte reste la référence : chaque modification ici le met à jour.'] },
+    composition: { titre: 'Étape 2 · Mise en page', textes: ['La première fois que tu arrives ici, la fenêtre de mise en page s’ouvre : propositions de CCB, tes favoris, ou le découpage sans IA. Le bouton « Apparence générale », à droite des menus, la rouvre quand tu veux : autres propositions, favoris, fond, logo et fleurs. Le réseau et les dimensions se changent dans le menu Carrousel.', 'Le robot de la barre de menus, c’est CCB pour l’apparence : « Générer 3 propositions » ou « Une envie ? » ouvrent Apparence générale. Chaque envie y garde ses propositions, même des jours après : « Revoir ces propositions » les remet en haut. Pour retravailler des mots, sélectionne-les dans une page : le robot de la petite barre en discute avec toi.', 'Pour retoucher une zone précise : touche « Agrandir » à gauche d’une page (ou, dans Apparence générale et Publication, touche la page) pour l’ouvrir en grand, puis trace un rectangle avec le doigt ou la souris. CCB ne retouche que ce qui est dans la zone : les mots des paragraphes, mais aussi leur place et leur taille, le logo et les fleurs. Pour faire de la place, il peut envoyer le dernier paragraphe au début de la page suivante (ou le premier à la fin de la précédente), sans changer l’ordre de ton texte. Maj ou Tab ajoute une zone, le « + » fait de même au doigt.', 'Tes pages, les unes sous les autres, exactement comme elles seront exportées. Clique dans un paragraphe pour l’écrire à sa place ; sélectionne des mots pour les mettre en forme avec la petite barre qui apparaît.', 'Entrée crée un nouveau paragraphe, ⇧Entrée un retour à la ligne, ⌘↩ (Ctrl+↩) un saut de page. ⌫ au début d’un paragraphe le réunit au précédent ; au début d’une page, avec la page précédente.', 'Les menus en haut regroupent tout le reste : gabarits, fond, logo, et Vérifier pour les points à regarder. Ton texte reste la référence : chaque modification ici le met à jour.'] },
     publication: { titre: 'Étape 3 · Publication', textes: ['Tout pour publier, dans l’ordre : le texte du post, le fichier, la date de publication, puis « Marquer comme publié ».', 'Le texte du post : écris-le ou demande une proposition à CCB, puis « Copier » pour le coller sur le réseau.', 'Le fichier : un PDF pour LinkedIn, des images PNG pour Instagram. S’il reste des alertes, l’outil te les rappelle avant : à toi de décider.', 'La date : programme-la (elle apparaît dans le calendrier de la bibliothèque) ou choisis « Ne pas programmer ».'] },
   };
 
@@ -1122,6 +1122,17 @@
     { id: 'instagram', nom: 'Instagram', fichier: 'logo-instagram.png', x: 0.890 },
   ];
   const TAILLE_ICONE = 0.048; const HAUT_ICONE = 0.054; const MARGE_FENETRE = 28;
+  // Les retouches de la grande fenêtre, appliquées à un article (Publication, Mise en page) : texte lié au texte de
+  // l'article, style, ou pages remplacées par les gestes de mise en page de l'agent ciblé (le texte ne change pas).
+  const retouchesGrandeFenetre = (chg) => (a) => chg.reduce((x, c) => {
+    if (c.type === 'pages') return { ...x, slides: x.slides.map((sl, k) => c.pages[k] || sl) };
+    let y = c.lien ? OP.blocLie(c.i, c.n, c.texte)(x) : OP.modifierBloc(c.i, c.n, { texte: c.texte })(x);
+    if (c.style) y = OP.modifierBloc(c.i, c.n, { style: c.style })(y);
+    return y;
+  }, a);
+  // Le texte du post de chaque réseau, pour l'aperçu ouvert par les logos LinkedIn et Instagram.
+  const textesDuPost = (article) => ({ linkedin: ((article.descriptions || {}).linkedin || {}).fr || article.texte[0], instagram: ((article.descriptions || {}).instagram || {}).fr || article.texte[0] });
+
   function GrandeFenetre({ slides, format, fond, depart, texte, textes, onFermer, onPage, logo, profil, onModifier }) {
     const { choisirPolice, charte, reglages } = useContext(Contexte);
     const [page, setPage] = useState(Math.min(depart || 0, Math.max(0, slides.length - 1)));
@@ -2608,7 +2619,7 @@
   /* ---------- Étape 2 : Composition (fichier composition.js) ---------- */
 
   // ia : donné à la demande (ces éléments sont définis plus bas dans ce fichier).
-  const { EtapeComposition } = (racine.PostsOPComposition || require('./composition.js'))({ React, M, L, T, OP, Contexte, Icone, Bouton, SlideCanvas, cls, ia: () => ({ useDiscussion, FenetreDiscussion, Robot }) });
+  const { EtapeComposition } = (racine.PostsOPComposition || require('./composition.js'))({ React, M, L, T, OP, Contexte, Icone, Bouton, SlideCanvas, cls, ia: () => ({ useDiscussion, FenetreDiscussion, Robot, GrandeFenetre, retouchesGrandeFenetre, textesDuPost }) });
 
   /* ---------- Étapes 4 et 5 ---------- */
 
@@ -2822,13 +2833,7 @@
           h(SlideCanvas, { slide: article.slides[0], formatId: article.format, fondId: article.fond, largeur: 236, index: 0, total, logo, etiquette: 'Page 1' })),
         h('div', { className: 'publication-vignettes' }, article.slides.slice(1).map((s, k) => h(SlideCanvas, { key: k, slide: s, formatId: article.format, fondId: article.fond, largeur: 44, index: k + 1, total, logo }))),
         fil && h(GrandeFenetre, { slides: article.slides, format: article.format, fond: article.fond, depart: 0, logo, profil: (etat.projet && etat.projet.profilEditorial) || '', texte: article.texte[0],
-          onModifier: (chg, annonce) => majA((a) => chg.reduce((x, c) => {
-            // Gestes de mise en page de l'agent ciblé : les pages touchées sont remplacées (le texte, lui, ne change pas).
-            if (c.type === 'pages') return { ...x, slides: x.slides.map((sl, k) => c.pages[k] || sl) };
-            let y = c.lien ? OP.blocLie(c.i, c.n, c.texte)(x) : OP.modifierBloc(c.i, c.n, { texte: c.texte })(x);
-            if (c.style) y = OP.modifierBloc(c.i, c.n, { style: c.style })(y);
-            return y;
-          }, a), null, annonce), textes: { linkedin: ((article.descriptions || {}).linkedin || {}).fr || article.texte[0], instagram: ((article.descriptions || {}).instagram || {}).fr || article.texte[0] }, onFermer: () => setFil(false) })));
+          onModifier: (chg, annonce) => majA(retouchesGrandeFenetre(chg), null, annonce), textes: textesDuPost(article), onFermer: () => setFil(false) })));
   }
 
   /* ================================================================== */

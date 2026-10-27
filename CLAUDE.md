@@ -54,7 +54,7 @@ L'app affiche un bandeau « Mise à jour incomplète » si un module en cache es
 
 Prérequis : Node.js, Python 3, Playwright et Chromium (`pip install playwright`, puis `python3 -m playwright install chromium`).
 
-- `python3 tests/lancer.py` : tout (18 fichiers unitaires, 52 séries dans le navigateur).
+- `python3 tests/lancer.py` : tout (19 fichiers unitaires, 53 séries dans le navigateur).
 - `python3 tests/lancer.py unitaires` ou `python3 tests/lancer.py navigateur`.
 - `python3 tests/lancer.py test_cible.py` : une série.
 
@@ -85,7 +85,7 @@ Les tests navigateur servent la racine du dépôt sur `localhost:8765` (`tests/n
 2. **Étape Texte** : texte, relecture, typographie, discussion avec CCB.
 3. **Étape Mise en page** : édition directe des pages. Au premier passage, la fenêtre « Apparence générale » s'ouvre. Le robot de la barre de menus est l’agent de l’apparence : sa bulle propose « Générer 3 propositions » ou « Une envie ? », qui ouvrent toutes deux « Apparence générale ». Pour retravailler des mots, le robot de la barre de sélection (passage choisi) ouvre la discussion avec CCB. Un bouton fleur (logo ou fleurs) est dans la barre de menus.
 4. **Apparence générale** : propositions de CCB, Actuelle, favoris (étoile + petite flèche), Sans IA, fond, logo et fleurs. L'explication du choix affiché est dans un « i » à côté de son nom, pas sous le titre ; celle de « Une envie ? » aussi, dans un « i » à côté de l'étiquette (hors de l'étiquette, pour ne pas ouvrir le clavier). L'agent général : « Générer 3 propositions » ou « Une envie ? ». Chaque envie garde ses propositions, enregistrées avec l'article (champ `envies`, les 20 dernières, synchronisé) : « Revoir ces propositions » les remet en haut ; si le texte a changé depuis, elles sont adaptées au nouveau texte comme un favori. Une nouvelle envie ne reprend que les envies de la même ouverture de la fenêtre. La conversation « Une envie ? » a un en-tête avec « Replier » (réduite à l'en-tête, nombre d'envies) et « Fermer » (×) ; elle est gardée et se rouvre par le robot › « Une envie ? ».
-5. **Grande fenêtre** : toucher la page affichée (Apparence générale) ou l'aperçu (Publication) l'ouvre en grand. Logos LinkedIn puis Instagram en haut à droite (4,8 % de la largeur de la page, à 81,9 % et 89,0 %, 5,4 % du haut), à 50 % de visibilité, 100 % au survol, sans bulle d'aide ; chacun ouvre l'aperçu du post de son réseau. Tracer un rectangle sélectionne une zone (Tab, Maj ou le bouton « + » ajoutent une zone) et ouvre **l'agent ciblé**, qui ne retouche que les paragraphes de la zone.
+5. **Grande fenêtre** : toucher la page affichée (Apparence générale) ou l'aperçu (Publication) l'ouvre en grand. Logos LinkedIn puis Instagram en haut à droite (4,8 % de la largeur de la page, à 81,9 % et 89,0 %, 5,4 % du haut), à 50 % de visibilité, 100 % au survol, sans bulle d'aide ; chacun ouvre l'aperçu du post de son réseau. Tracer un rectangle sélectionne une zone (Tab, Maj ou le bouton « + » ajoutent une zone) et ouvre **l'agent ciblé**, qui ne retouche que ce qui est dans la zone (la zone peut aussi toucher le logo et les fleurs). Il change les mots et le style des paragraphes, ou fait des gestes de mise en page (`retoucherDisposition` dans `moteur.js`) : déplacer un paragraphe (haut, milieu, bas, gauche, centre, droite), changer la taille de son texte ou la largeur de son cadre, déplacer, agrandir ou retirer le logo et les fleurs, toujours dans les marges. Déplacer ou agrandir un paragraphe passe la page en mise en page libre. Pour libérer de la place, il peut envoyer le **dernier** paragraphe au début de la page suivante ou le **premier** à la fin de la précédente : jamais un paragraphe du milieu, l'ordre du texte ne change jamais (décision de Romain). Texte et gestes ne se mélangent pas dans une même réponse ; « Annuler la retouche » défait l'un ou l'autre.
 6. **Étape Publication** : réseau (LinkedIn, Instagram ou les deux), texte du post (CCB : trois propositions ou discussion), fichier, date (programmer ou non), publié.
 7. **Voix** : dans toutes les conversations avec CCB, le micro sert de dictée : ce que Romain dit s'écrit dans le champ, il le corrige et l'envoie lui-même (rien ne part tout seul). Un bouton haut-parleur, à côté du micro, choisit si CCB lit ses réponses à voix haute (coupé par défaut, choix gardé sur l'appareil dans `postsop-voix-lecture`). Voix de l'iPad réglable dans Configuration › IA.
 
@@ -95,7 +95,6 @@ Les tests navigateur servent la racine du dépôt sur `localhost:8765` (`tests/n
 
 ## Points ouverts
 
-- L'agent ciblé ne sait pas encore déplacer ou redimensionner un bloc, ni toucher aux images (logo, fleurs).
-- Accès direct à la grande fenêtre depuis les pages de l'étape Mise en page : proposé à Romain, pas encore décidé.
-- Avertissement quand des articles ne sont que sur l'appareil (non synchronisés) : proposé, pas fait.
+- Accès direct à la grande fenêtre depuis les pages de l'étape Mise en page : un bouton « Agrandir » sur chaque page, accepté par Romain, pas encore fait.
+- Avertissement quand des articles ne sont que sur l'appareil (non synchronisés) : accepté, pas encore fait. Il doit rester discret (au même endroit que l'indicateur de synchronisation), mais plus détaillé : combien d'articles, lesquels au toucher, relancer la copie.
 - Rien n'est testé sur un vrai iPad ni avec de vrais appels à l'IA : demande à Romain de vérifier.

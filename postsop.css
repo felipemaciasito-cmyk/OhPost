@@ -723,6 +723,9 @@ canvas.slide.editable { cursor: text; }
 .reperes .libre { color: var(--touche-texte); background: var(--touche-doux); border-radius: 6px; padding: 1px 6px; font-weight: 600; }
 .lien-repere { border: 0; background: none; padding: 2px 0; color: var(--action); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
 .theme-sombre .lien-repere { color: var(--touche); }
+/* « Agrandir » : la page en grand depuis Mise en page */
+.bouton-agrandir { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; margin-top: 4px; border: 1px solid var(--trait); border-radius: 999px; background: var(--surface); color: var(--texte); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.bouton-agrandir:hover { border-color: var(--touche); }
 /* Barre d'actions des blocs : sans contour, comme la barre de texte */
 .barre-blocs { position: fixed; z-index: 50; display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 5px; border-radius: 16px; background: var(--surface); box-shadow: 0 1px 2px rgba(0, 20, 26, 0.06), 0 14px 36px rgba(0, 30, 40, 0.2); max-width: calc(100vw - 16px); }
 .theme-sombre .barre-blocs { background: var(--surface-2); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 16px 40px rgba(0, 0, 0, 0.55); }

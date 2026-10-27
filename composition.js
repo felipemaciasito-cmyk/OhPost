@@ -370,6 +370,7 @@
       })();
       const disc = outilsIA.useDiscussion(article, texteArticle, majA, (d0, f0) => setZoneIA({ d: d0, f: f0 }), (etat.projet && etat.projet.profilEditorial) || '', { precision: precisionPage });
       const [menuIA, setMenuIA] = useState(false);
+      const [grand, setGrand] = useState(null); // page ouverte dans la grande fenêtre (« Agrandir »)
       const refRobot = useRef(null);
       const refFleur = useRef(null);
       const [ajoutOuvert, setAjoutOuvert] = useState(false); // bouton fleur : ajouter le logo ou les fleurs
@@ -1418,7 +1419,12 @@
         h('button', { ref: refRobot, type: 'button', className: cls('bouton-robot', 'bouton-robot-menu', menuIA && 'actif'), 'aria-label': 'CCB · Creative Collaborative Boost', title: 'CCB · Creative Collaborative Boost', 'aria-haspopup': 'true', 'aria-expanded': menuIA, onMouseDown: garder, onClick: () => { setMenu(null); setMenuIA(!menuIA); } }, h(outilsIA.Robot, { taille: 34 })),
         menuIA && h('div', { className: 'voile-menu', 'aria-hidden': 'true', onPointerDown: () => setMenuIA(false) }),
         menuIA && h(Popover, { ancre: refRobot, fermer: () => setMenuIA(false), etiquette: 'CCB · Creative Collaborative Boost', contenu: () => menuAssistant(false) }));
+      const grandeFenetre = grand !== null && article.slides[grand] && h(outilsIA.GrandeFenetre, {
+        slides: article.slides, format: article.format, fond: article.fond, depart: grand, logo, texte: article.texte[0], textes: outilsIA.textesDuPost(article),
+        profil: (etat.projet && etat.projet.profilEditorial) || '', onPage: (k) => dispatch({ type: 'slide', index: k }), onFermer: () => setGrand(null),
+        onModifier: (chg, annonce) => majA(outilsIA.retouchesGrandeFenetre(chg), null, annonce) });
       return h('div', { className: 'composition' },
+        grandeFenetre,
         configIA && disc.ouvert && h(outilsIA.FenetreDiscussion, {
           disc, nomIA, passage: passageIA, onRetirerPassage: () => setZoneIA(null),
           invitation: 'Aucun passage choisi : touche deux fois un bloc puis sélectionne des mots, ils deviennent le sujet de la discussion. Ou cite-les dans ta demande.',
@@ -1439,7 +1445,11 @@
                 c.deborde && h('span', { className: 'deborde' }, c.libre ? 'Texte coupé' : 'Déborde'),
                 s.echelle && s.echelle < 1 && h('span', { className: 'reduit' }, `Texte à ${Math.round(s.echelle * 100)} %`),
                 s.libre && h('span', { className: 'libre' }, 'Mise en page libre'),
-                s.libre && h('button', { type: 'button', className: 'lien-repere', onClick: (e) => { e.stopPropagation(); actionsBlocs.revenir(i); } }, 'Revenir au gabarit')),
+                s.libre && h('button', { type: 'button', className: 'lien-repere', onClick: (e) => { e.stopPropagation(); actionsBlocs.revenir(i); } }, 'Revenir au gabarit'),
+                // La page en grand : l'agent ciblé (tracer une zone) et l'aperçu des posts, sans passer par Apparence générale.
+                outilsIA.GrandeFenetre && h('button', { type: 'button', className: 'bouton-agrandir', title: 'La page en grand : trace une zone pour la retoucher avec CCB', onMouseDown: garder, onClick: (e) => { e.stopPropagation(); setGrand(i); } },
+                  h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d: 'M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' })),
+                  'Agrandir')),
               h('div', { className: cls('cadre-page', cible === i && 'cible'), style: { width: largeurSlide + 'px', height: Math.round(largeurSlide * fmt.h / fmt.l) + 'px' } },
                 h(SlideCanvas, { slide: slidesVues[i], compo: c, formatId: article.format, fondId: article.fond, largeur: largeurSlide, index: i, total, logo, masquer: enEdition ? edition.n : undefined, etiquette: `Page ${i + 1}` }),
                 h('div', {

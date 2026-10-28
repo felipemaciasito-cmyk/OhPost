@@ -1,4 +1,4 @@
-# Barre des blocs sélectionnés : style de paragraphe, filet, fond, alignement du texte (dans « Aligner ») et « Revenir à l'original ».
+# Barre des blocs sélectionnés : style de paragraphe, filet (icône en couleur), fond, alignement du texte (dans « Placer ») et « Revenir à l'original ».
 from playwright.sync_api import sync_playwright
 import serveur, json; _srv = serveur.demarrer()
 res = []
@@ -29,6 +29,10 @@ with sync_playwright() as p:
         bt = barre.get_by_role('button', name=nom, exact=True)
         verifie('bouton « ' + nom + ' » (44 points)', bt.count() == 1 and bt.bounding_box()['height'] >= 44)
     verifie('pas de bouton « Alignement » en double', barre.get_by_role('button', name='Alignement').count() == 0)
+    PLACER = 'Placer : sur la page, et le texte dans le bloc'
+    verifie('« Aligner » s’appelle maintenant « Placer »', barre.get_by_role('button', name=PLACER, exact=True).count() == 1 and 'Placer' in barre.inner_text() and 'Aligner' not in barre.inner_text())
+    ic = lambda: barre.get_by_role('button', name='Filet latéral', exact=True).evaluate("(b) => { const r = b.querySelector('svg rect'); return r ? r.getAttribute('fill') : 'pointillé'; }")
+    verifie('sans filet : l’icône du filet est en pointillé', ic() == 'pointillé', ic())
     def choisir_dans(nom_bouton, nom_choix):
         barre.get_by_role('button', name=nom_bouton, exact=True).click(); pg.wait_for_timeout(250)
         m = pg.locator('.popover-menu').last
@@ -47,14 +51,15 @@ with sync_playwright() as p:
     t = choisir_dans('Filet latéral', 'Filet de la charte')
     blocs, _ = bloc_choisi()
     verifie('filet : posé sur le paragraphe', blocs[n].get('filet') is True, json.dumps(blocs[n])[:200])
+    verifie('avec un filet : l’icône montre sa couleur (vert anis)', (ic() or '').upper() == '#C9D420', ic())
     # Fond
     t = choisir_dans('Fond du paragraphe', 'Couleur de mise en valeur')
     blocs, _ = bloc_choisi()
     verifie('fond : posé sur le paragraphe', isinstance(blocs[n].get('fondBloc'), dict), json.dumps(blocs[n].get('fondBloc')))
-    # Alignement du texte, dans « Aligner »
-    t = choisir_dans('Aligner', 'Texte centré')
+    # Alignement du texte, dans « Placer »
+    t = choisir_dans(PLACER, 'Texte centré')
     blocs, _ = bloc_choisi()
-    verifie('« Aligner » propose aussi le texte dans le bloc', 'Le texte dans le bloc' in t.upper() or 'LE TEXTE DANS LE BLOC' in t.upper(), t[-150:])
+    verifie('« Placer » propose aussi le texte dans le bloc', 'Le texte dans le bloc' in t.upper() or 'LE TEXTE DANS LE BLOC' in t.upper(), t[-150:])
     verifie('alignement du texte : centré', blocs[n].get('alignement') == 'centre', blocs[n].get('alignement'))
     # Revenir à l'original
     barre.get_by_role('button', name='Revenir à l’original (effacer la mise en forme)', exact=True).click(); pg.wait_for_timeout(300)
@@ -67,6 +72,10 @@ with sync_playwright() as p:
     pg.get_by_role('button', name='Annuler', exact=True).first.click(); pg.wait_for_timeout(300)
     blocs, _ = bloc_choisi()
     verifie('un seul « Annuler » rétablit tout', blocs[n].get('alignement') == 'centre' and isinstance(blocs[n].get('fondBloc'), dict), json.dumps(blocs[n])[:250])
+    pg.get_by_role('button', name='Bloc', exact=True).click(); pg.wait_for_timeout(250)
+    mb = pg.locator('.popover-menu').last.inner_text()
+    verifie('menu « Bloc » : « Placer » aussi', 'Placer' in mb and 'Aligner\n' not in mb and not mb.strip().startswith('Aligner'), mb[:200])
+    pg.keyboard.press('Escape')
     verifie('aucune erreur JS', not erreurs, erreurs)
     b.close()
 print(sum(1 for _, o in res if o), '/', len(res), 'vérifications réussies')

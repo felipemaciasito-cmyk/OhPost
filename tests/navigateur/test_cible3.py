@@ -36,9 +36,10 @@ with sync_playwright() as p:
     pg.get_by_text('Le silence au travail').first.click(); pg.wait_for_timeout(300)
     a0 = article(pg)
     verifie('article lu sur l’appareil', a0 is not None and len(a0['slides']) >= 3, len(a0['slides']) if a0 else None)
-    pg.locator('nav.etapes .etape').nth(2).click(); pg.wait_for_timeout(600)
-    pg.evaluate('window.scrollTo(0,0)')
-    pg.locator('.publication-apercu .page-cliquable').click(); pg.wait_for_timeout(500)
+    pg.locator('nav.etapes .etape').nth(1).click(); pg.wait_for_timeout(700)
+    if pg.get_by_role('dialog', name='Apparence générale', exact=True).count(): pg.get_by_role('dialog', name='Apparence générale', exact=True).locator('.feuille-tete').get_by_role('button', name='Annuler').click(); pg.wait_for_timeout(300)
+    # La grande fenêtre de l'étape Mise en page (« Agrandir ») : à l'étape Publication, elle n'est plus qu'un aperçu
+    pg.locator('.page-slide[data-index="0"] .bouton-agrandir').click(); pg.wait_for_timeout(500)
     gf = pg.locator('.grande-fenetre')
     # Page 2 : la sélection de tout le texte de la page
     gf.get_by_role('button', name='Page suivante').click(); pg.wait_for_timeout(300)

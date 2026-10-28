@@ -1201,3 +1201,8 @@ canvas.slide.editable { cursor: text; }
 /* Bulle de synchronisation ouverte : la barre du haut passe devant la barre de menus de la Mise en page, sinon la bulle est coupée */
 .barre:has(.bulle-synchro) { z-index: 61; }
 .rangee-favori > .confirmer-retrait { grid-column: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; border-radius: 12px; background: var(--erreur-doux); color: var(--erreur); font-size: 14px; }
+
+/* Grande fenêtre en aperçu seulement (étape Publication) : pas de tracé de zone, on glisse pour changer de page */
+.gf-surface.lecture { cursor: default; }
+.vignette-publication { padding: 0; border: 0; background: none; line-height: 0; cursor: zoom-in; border-radius: 3px; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+.vignette-publication:focus-visible { outline: 3px solid var(--touche); outline-offset: 2px; }

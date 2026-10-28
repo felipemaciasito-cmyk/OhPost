@@ -1170,6 +1170,8 @@
       const luminance = (hex) => { const c = String(hex || '').replace('#', ''); if (c.length !== 6) return 0.5; const v = [0, 2, 4].map((k) => { const x = parseInt(c.slice(k, k + 2), 16) / 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
       const contraste = (a, b) => { const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
       const couleurDe = (v) => (v === 'charte' ? fond.filet || fond.accent : v === 'accent' ? fond.accent : v === 'texte' ? fond.texte : v);
+      // L'alignement du texte des blocs sélectionnés (null s'ils diffèrent), pour la barre des blocs.
+      const alignementDesBlocs = () => { const v = [...new Set(cibles().map((c) => c.b.alignement || parDefautF1(c)))]; return v.length === 1 ? v[0] : null; };
       // La couleur du filet des blocs sélectionnés (null s'ils n'en ont pas), pour l'icône de la barre des blocs.
       const filetDesBlocs = () => {
         const c = cibles()[0];
@@ -1515,7 +1517,7 @@
                     })))));
           })),
         selection.n.length > 0 && !apercu && !menu && !edition && h(BarreBlocs, { selection, boites: selection.n.map((n) => boiteDe(selection.i, n)).filter(Boolean), k, pagesRef, libre: !!(article.slides[selection.i] && article.slides[selection.i].libre), actions: actionsBlocs,
-          forme: { menuStyle, menuFilet, menuFond, alignerTexte: aligner, revenirOriginal, filetCouleur: filetDesBlocs } }),
+          forme: { menuStyle, menuFilet, menuFond, alignerTexte: aligner, alignementTexte: alignementDesBlocs, revenirOriginal, filetCouleur: filetDesBlocs } }),
         barre && blocCourant && !menu && h(BarreFlottante, {
           position: barre, st, deplie, setDeplie: (v) => { setDeplie(v); ecrirePref('postsop-barre-depliee', v ? 'oui' : 'non'); },
           presets, fond, natures: natures(), sous: sousBarre, setSous: setSousBarre,
@@ -1529,9 +1531,11 @@
     /* ================================================================ */
 
     // Barre d'actions des blocs sélectionnés : au-dessus de la sélection, sans contour (comme la barre de texte).
+    // Les trois alignements du texte dans un bloc, avec leur icône.
+    const ALIGNEMENTS_TEXTE = [['gauche', 'Texte à gauche', 'M4 6h16M4 12h10M4 18h14'], ['centre', 'Texte centré', 'M4 6h16M7 12h10M5 18h14'], ['droite', 'Texte à droite', 'M4 6h16M10 12h10M6 18h14']];
     function BarreBlocs({ selection, boites, k, pagesRef, libre, actions, forme }) {
       // Mise en forme des blocs sélectionnés (les mêmes réglages que le menu Format) : style, filet, fond, retour à l'original.
-      const refStyle = useRef(null); const refFilet = useRef(null); const refFond = useRef(null);
+      const refStyle = useRef(null); const refFilet = useRef(null); const refFond = useRef(null); const refAlignTexte = useRef(null);
       const [sousForme, setSousForme] = useState(null);
       const ref = useRef(null);
       const refAligner = useRef(null);
@@ -1567,13 +1571,15 @@
         b(h(Fragment, null, h('svg', { className: 'icone', width: 18, height: 18, viewBox: '0 0 24 24', 'aria-hidden': 'true' },
           h('rect', { x: 3, y: 4, width: 18, height: 16, rx: 2, fill: 'none', stroke: 'currentColor', strokeWidth: 2 }), h('rect', { x: 6, y: 9, width: 6, height: 6, rx: 1, fill: 'currentColor' }),
           h('path', { d: 'M15 12h3M16.5 10.5L18 12l-1.5 1.5', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' })), 'Placer'),
-          () => { setSousForme(null); setAligner(!aligner); }, 'Placer : sur la page, et le texte dans le bloc', { classe: 'avec-texte', ref: refAligner }),
+          () => { setSousForme(null); setAligner(!aligner); }, 'Placer sur la page', { classe: 'avec-texte', ref: refAligner }),
         h('span', { className: 'separateur', 'aria-hidden': 'true' }),
         b(ico('M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3'), actions.supprimer, 'Supprimer (⌫)', { classe: 'danger' }),
         libre && b(h(Fragment, null, ico('M4 4h16v16H4zM4 9h16'), 'Revenir au gabarit'), () => actions.revenir(selection.i), 'La page reprend sa mise en page automatique', { classe: 'avec-texte' }),
         forme && h(Fragment, null,
           h('span', { className: 'separateur', 'aria-hidden': 'true' }),
           b(h(Fragment, null, ico('M5 19L11 5h2l6 14M8 13h8'), h('span', { className: 'chevron-bas', 'aria-hidden': 'true' }, '▾')), () => { setAligner(false); setSousForme(sousForme === 'style' ? null : 'style'); }, 'Style de paragraphe', { ref: refStyle, classe: sousForme === 'style' && 'actif' }),
+          // L'alignement du texte dans le bloc : son propre bouton (« Placer » ne fait que placer les blocs sur la page).
+          b(ico((ALIGNEMENTS_TEXTE.find(([v]) => v === forme.alignementTexte()) || ALIGNEMENTS_TEXTE[0])[2]), () => { setAligner(false); setSousForme(sousForme === 'alignement' ? null : 'alignement'); }, 'Alignement du texte', { ref: refAlignTexte, classe: sousForme === 'alignement' && 'actif' }),
           // Le filet en couleur : un trait épais de la couleur du filet des blocs, en pointillé gris s'ils n'en ont pas.
           b(h('svg', { className: 'icone', width: 18, height: 18, viewBox: '0 0 24 24', 'aria-hidden': 'true' },
             forme.filetCouleur() ? h('rect', { x: 4, y: 4, width: 4, height: 16, rx: 2, fill: forme.filetCouleur(), stroke: 'currentColor', strokeOpacity: 0.25, strokeWidth: 0.6 })
@@ -1593,11 +1599,9 @@
           { type: 'titre', libelle: 'Entre les blocs sélectionnés' },
           { type: 'action', libelle: 'Aligner leurs bords gauches', action: () => actions.aligner('entre'), desactive: n < 2 },
           { type: 'action', libelle: 'Répartir verticalement', action: () => actions.aligner('repartir'), desactive: n < 3 },
-          ...(forme ? [{ type: 'titre', libelle: 'Le texte dans le bloc' },
-            { type: 'action', libelle: 'Texte à gauche', action: () => forme.alignerTexte('gauche') },
-            { type: 'action', libelle: 'Texte centré', action: () => forme.alignerTexte('centre') },
-            { type: 'action', libelle: 'Texte à droite', action: () => forme.alignerTexte('droite') }] : []),
-        ] }));
+        ] }),
+        sousForme === 'alignement' && h(Popover, { ancre: refAlignTexte, fermer: () => setSousForme(null), etiquette: 'Alignement du texte', contenu: () => [{ type: 'titre', libelle: 'Le texte dans le bloc' }].concat(
+          ALIGNEMENTS_TEXTE.map(([v, nom, d]) => ({ type: 'action', libelle: h(Fragment, null, ico(d), nom), action: () => forme.alignerTexte(v), coche: forme.alignementTexte() === v }))) }));
     }
 
     function TailleLibre({ appliquer }) {

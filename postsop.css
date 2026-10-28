@@ -1197,3 +1197,5 @@ canvas.slide.editable { cursor: text; }
 .loupe-favori .fermer-loupe { position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(12px + env(safe-area-inset-right, 0px)); }
 .loupe-favori .nav-loupe { display: flex; align-items: center; gap: 12px; color: #FFFFFF; font-weight: 600; text-align: center; }
 @media (prefers-reduced-motion: reduce) { .rangee-favori { transition: none; } }
+/* Bulle de synchronisation ouverte : la barre du haut passe devant la barre de menus de la Mise en page, sinon la bulle est coupée */
+.barre:has(.bulle-synchro) { z-index: 61; }

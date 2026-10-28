@@ -54,7 +54,7 @@ with sync_playwright() as p:
     fen.get_by_role('button', name='Fermer le calendrier').click(); pg.wait_for_timeout(200)
     verifie('× ferme la fenêtre', pg.locator('[role=dialog][aria-label=Calendrier]').count() == 0)
     pg.get_by_role('button', name='Aide sur cet écran').click(); pg.wait_for_timeout(150)
-    verifie('aide : calendrier et version', 'Programmer un rappel' in pg.locator('.panneau-aide').inner_text() and 'version 2026-10-28.7' in pg.locator('.panneau-aide').inner_text())
+    verifie('aide : calendrier et version', 'Programmer un rappel' in pg.locator('.panneau-aide').inner_text() and 'version 2026-10-28.8' in pg.locator('.panneau-aide').inner_text())
     print('erreurs JS :', erreurs); verifie('aucune erreur JavaScript', not erreurs)
     # Capture en sombre
     pg2 = b.new_page(viewport={'width': 1180, 'height': 820}, color_scheme='dark'); pg2.goto('http://localhost:8765/'); pg2.wait_for_timeout(900)

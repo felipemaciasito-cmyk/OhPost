@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-28.7'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-28.8'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {

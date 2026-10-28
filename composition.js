@@ -1225,6 +1225,20 @@
         ];
       };
       const menuAlignement = () => [['gauche', 'Aligner à gauche'], ['centre', 'Centrer'], ['droite', 'Aligner à droite']].map(([v, nom]) => item(nom, () => aligner(v), { coche: blocCourant ? st.alignement === v : undefined }));
+      // Barre des blocs sélectionnés : le style de paragraphe (coché quand tous les blocs l'ont) et le retour à l'original.
+      const menuStyle = () => {
+        const ip = edition ? edition.i : selection.i !== null ? selection.i : active;
+        const g = M.gabaritParDefaut(article.slides[ip], ip);
+        const vus = [...new Set(cibles().map((c) => M.natureAffichee(g, c.b.style, c.n)))];
+        return [{ type: 'titre', libelle: 'Style de paragraphe' }].concat(natures().map(([cle, nom]) => item(h('span', { className: 'apercu-style ' + cle }, nom), () => natureDe(cle), { coche: vus.length === 1 ? vus[0] === cle : undefined })));
+      };
+      // « Revenir à l'original » : efface en une seule étape (un seul « Annuler ») gras, italique, souligné, taille, couleur,
+      // filets, alignement et fond posés à la main ; le texte, le style de paragraphe et la place du bloc ne changent pas.
+      const revenirOriginal = () => {
+        if (!exigerBloc()) return;
+        appliquer((c) => (a) => OP.paragraphe(c.i, c.n, { alignement: null, filet: null, fondBloc: null })(OP.formater(c.i, c.n, 0, c.b.texte.length, { gras: null, italique: null, souligne: null, taille: null, couleur: null, filet: null })(a)),
+          cibles().length > 1 ? 'Mise en forme effacée : les blocs reviennent à l’original.' : 'Mise en forme effacée : le bloc revient à l’original.');
+      };
       const allerA = (i) => { dispatch({ type: 'slide', index: i }); const page = pagesRef.current && pagesRef.current.querySelector(`[data-index="${i}"]`); if (page) page.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
       const nouveauParagraphe = () => {
         const [i, n] = edition ? [edition.i, edition.n] : [active, article.slides[active].blocs.length - 1];
@@ -1491,7 +1505,8 @@
                       onTexte: ecrire, onTouche: toucher,
                     })))));
           })),
-        selection.n.length > 0 && !apercu && !menu && !edition && h(BarreBlocs, { selection, boites: selection.n.map((n) => boiteDe(selection.i, n)).filter(Boolean), k, pagesRef, libre: !!(article.slides[selection.i] && article.slides[selection.i].libre), actions: actionsBlocs }),
+        selection.n.length > 0 && !apercu && !menu && !edition && h(BarreBlocs, { selection, boites: selection.n.map((n) => boiteDe(selection.i, n)).filter(Boolean), k, pagesRef, libre: !!(article.slides[selection.i] && article.slides[selection.i].libre), actions: actionsBlocs,
+          forme: { menuStyle, menuFilet, menuFond, alignerTexte: aligner, revenirOriginal } }),
         barre && blocCourant && !menu && h(BarreFlottante, {
           position: barre, st, deplie, setDeplie: (v) => { setDeplie(v); ecrirePref('postsop-barre-depliee', v ? 'oui' : 'non'); },
           presets, fond, natures: natures(), sous: sousBarre, setSous: setSousBarre,
@@ -1505,7 +1520,10 @@
     /* ================================================================ */
 
     // Barre d'actions des blocs sélectionnés : au-dessus de la sélection, sans contour (comme la barre de texte).
-    function BarreBlocs({ selection, boites, k, pagesRef, libre, actions }) {
+    function BarreBlocs({ selection, boites, k, pagesRef, libre, actions, forme }) {
+      // Mise en forme des blocs sélectionnés (les mêmes réglages que le menu Format) : style, filet, fond, retour à l'original.
+      const refStyle = useRef(null); const refFilet = useRef(null); const refFond = useRef(null);
+      const [sousForme, setSousForme] = useState(null);
       const ref = useRef(null);
       const refAligner = useRef(null);
       const [aligner, setAligner] = useState(false);
@@ -1536,10 +1554,19 @@
         b(h(Fragment, null, ico('M8 4v6a4 4 0 004 4 4 4 0 014 4v2M16 4v6a4 4 0 01-4 4'), 'Fusionner'), actions.fusionner, 'Réunir les blocs sélectionnés en un seul paragraphe', { desactive: n < 2, classe: 'avec-texte' }),
         b(h(Fragment, null, ico('M8 8h12v12H8zM16 8V4H4v12h4'), 'Dupliquer'), actions.dupliquer, 'Dupliquer', { classe: 'avec-texte' }),
         b(h(Fragment, null, ico('M12 5v14M5 12h14'), 'Nouveau'), actions.nouveau, 'Nouveau bloc après', { classe: 'avec-texte' }),
-        b(h(Fragment, null, ico('M4 4v16M8 7h12M8 12h8M8 17h10'), 'Aligner'), () => setAligner(!aligner), 'Aligner', { classe: 'avec-texte', ref: refAligner }),
+        b(h(Fragment, null, ico('M4 4v16M8 7h12M8 12h8M8 17h10'), 'Aligner'), () => { setSousForme(null); setAligner(!aligner); }, 'Aligner', { classe: 'avec-texte', ref: refAligner }),
         h('span', { className: 'separateur', 'aria-hidden': 'true' }),
         b(ico('M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3'), actions.supprimer, 'Supprimer (⌫)', { classe: 'danger' }),
         libre && b(h(Fragment, null, ico('M4 4h16v16H4zM4 9h16'), 'Revenir au gabarit'), () => actions.revenir(selection.i), 'La page reprend sa mise en page automatique', { classe: 'avec-texte' }),
+        forme && h(Fragment, null,
+          h('span', { className: 'separateur', 'aria-hidden': 'true' }),
+          b(h(Fragment, null, ico('M5 19L11 5h2l6 14M8 13h8'), h('span', { className: 'chevron-bas', 'aria-hidden': 'true' }, '▾')), () => { setAligner(false); setSousForme(sousForme === 'style' ? null : 'style'); }, 'Style de paragraphe', { ref: refStyle, classe: sousForme === 'style' && 'actif' }),
+          b(ico('M6 4v16M11 7h8M11 12h8M11 17h6'), () => { setAligner(false); setSousForme(sousForme === 'filet' ? null : 'filet'); }, 'Filet latéral', { ref: refFilet, classe: sousForme === 'filet' && 'actif' }),
+          b(ico('M4 6h16v12H4zM8 10h8M8 14h5'), () => { setAligner(false); setSousForme(sousForme === 'fond' ? null : 'fond'); }, 'Fond du paragraphe', { ref: refFond, classe: sousForme === 'fond' && 'actif' }),
+          b(ico('M16 4l4 4-9 9H7v-4zM7 17l-3 3M14 20h6'), () => { setSousForme(null); forme.revenirOriginal(); }, 'Revenir à l’original (effacer la mise en forme)')),
+        sousForme === 'style' && h(Popover, { ancre: refStyle, fermer: () => setSousForme(null), etiquette: 'Style de paragraphe', contenu: forme.menuStyle }),
+        sousForme === 'filet' && h(Popover, { ancre: refFilet, fermer: () => setSousForme(null), etiquette: 'Filet latéral', contenu: forme.menuFilet }),
+        sousForme === 'fond' && h(Popover, { ancre: refFond, fermer: () => setSousForme(null), etiquette: 'Fond du paragraphe', contenu: forme.menuFond }),
         aligner && h(Popover, { ancre: refAligner, fermer: () => setAligner(false), etiquette: 'Aligner', contenu: () => [
           { type: 'titre', libelle: 'Sur la page' },
           { type: 'action', libelle: 'Sur la marge de gauche', action: () => actions.aligner('marge') },
@@ -1548,6 +1575,10 @@
           { type: 'titre', libelle: 'Entre les blocs sélectionnés' },
           { type: 'action', libelle: 'Aligner leurs bords gauches', action: () => actions.aligner('entre'), desactive: n < 2 },
           { type: 'action', libelle: 'Répartir verticalement', action: () => actions.aligner('repartir'), desactive: n < 3 },
+          ...(forme ? [{ type: 'titre', libelle: 'Le texte dans le bloc' },
+            { type: 'action', libelle: 'Texte à gauche', action: () => forme.alignerTexte('gauche') },
+            { type: 'action', libelle: 'Texte centré', action: () => forme.alignerTexte('centre') },
+            { type: 'action', libelle: 'Texte à droite', action: () => forme.alignerTexte('droite') }] : []),
         ] }));
     }
 

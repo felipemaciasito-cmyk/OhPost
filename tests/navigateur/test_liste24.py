@@ -62,7 +62,7 @@ with sync_playwright() as p:
         return True
     ok1 = sortir(1); ok2 = sortir(2)
     pg.mouse.click(5, 300); pg.wait_for_timeout(200)
-    pg.locator('.menus-composition .titre-menu').filter(has_text='Vérifier').first.click(); pg.wait_for_timeout(300)
+    pg.locator('.bouton-notifications').click(); pg.wait_for_timeout(300)
     panneau = pg.locator('.panneau-verifier')
     txt = panneau.inner_text() if panneau.count() else ''
     verifie('deux blocs sortis de la page : alertes', ok1 and ok2 and txt.count('sort de la page') >= 2, txt[:300])
@@ -74,14 +74,14 @@ with sync_playwright() as p:
     pg.screenshot(path='mise-en-avant.png')
     pg.wait_for_timeout(2800)
     verifie('la mise en avant s’efface seule', pg.locator('.mise-en-avant').count() == 0)
-    pg.locator('.menus-composition .titre-menu').filter(has_text='Vérifier').first.click(); pg.wait_for_timeout(300)
+    pg.locator('.bouton-notifications').click(); pg.wait_for_timeout(300)
     panneau = pg.locator('.panneau-verifier')
     panneau.get_by_role('button', name='Tout est voulu').click(); pg.wait_for_timeout(200)
     verifie('« Tout est voulu » demande confirmation', panneau.get_by_role('alertdialog').count() == 1 and 'alertes d’un coup' in panneau.inner_text())
     panneau.get_by_role('button', name='Tout valider').click(); pg.wait_for_timeout(400)
     msg = pg.locator('.message').inner_text() if pg.locator('.message').count() else ''
     verifie('toutes les alertes validées d’un coup', 'validées' in msg, msg)
-    if not pg.locator('.panneau-verifier').count(): pg.locator('.menus-composition .titre-menu').filter(has_text='Vérifier').first.click(); pg.wait_for_timeout(300)
+    if not pg.locator('.panneau-verifier').count(): pg.locator('.bouton-notifications').click(); pg.wait_for_timeout(300)
     verifie('plus d’alerte affichée', 'Tout est en ordre' in pg.locator('.panneau-verifier').inner_text())
     verifie('aucune erreur JS', not erreurs, erreurs)
     b.close()

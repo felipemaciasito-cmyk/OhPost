@@ -374,6 +374,9 @@
       const refRobot = useRef(null);
       const refFleur = useRef(null);
       const [ajoutOuvert, setAjoutOuvert] = useState(false); // bouton fleur : ajouter le logo ou les fleurs
+      const [notif, setNotif] = useState(null); // notifications ouvertes : 'tout' (cloche de la barre) ou le numéro d'une page
+      const refCloche = useRef(null);
+      const refsAlertePage = useRef({});
       useEffect(() => {
         if (!menuIA) return undefined;
         const touche = (e) => { if (e.key === 'Escape') setMenuIA(false); };
@@ -429,6 +432,10 @@
       const validees = article.alertesValidees || [];
       const toutes = M.controler(article, compositions, reglages);
       const alertes = toutes.filter((a) => !validees.includes(a.cle));
+      // La cloche tinte une fois quand une nouvelle alerte apparaît (pas au premier affichage).
+      const nbAlertesAvant = useRef(alertes.length);
+      const [tinte, setTinte] = useState(0);
+      useEffect(() => { if (alertes.length > nbAlertesAvant.current) setTinte(Date.now()); nbAlertesAvant.current = alertes.length; }, [alertes.length]);
       const largeurSlide = Math.max(240, Math.min(TAILLES_ECRAN[tailleEcran], largeurDispo - (largeurDispo > 760 ? 150 : 70)));
       const k = largeurSlide / 1080;
       const blocCourant = edition && article.slides[edition.i] ? article.slides[edition.i].blocs[edition.n] : null;
@@ -491,7 +498,7 @@
         };
         const echap = (e) => {
           if (e.key !== 'Escape') return;
-          if (menu || sousBarre) { setMenu(null); setSousBarre(null); return; }
+          if (menu || sousBarre || notif !== null) { setMenu(null); setSousBarre(null); setNotif(null); return; }
           const ed = vu.current.edition;
           if (ed) { setEdition(null); setSelection({ i: ed.i, n: [ed.n] }); }
         };
@@ -499,7 +506,7 @@
         document.addEventListener('pointerdown', exterieur);
         document.addEventListener('keydown', echap);
         return () => { racine.removeEventListener('scroll', defiler); document.removeEventListener('pointerdown', exterieur); document.removeEventListener('keydown', echap); };
-      }, [menu, sousBarre]);
+      }, [menu, sousBarre, notif]);
 
       /* ---------- Édition ---------- */
       const ouvrirBloc = (i, n, depart) => { selRef.current = depart && depart.sel ? depart.sel : { debut: 0, fin: 0 }; setBarre(null); setSelection({ i: null, n: [] }); setEdition({ i, n, depart, cle: Date.now() }); dispatch({ type: 'slide', index: i }); };
@@ -1414,10 +1421,12 @@
             ...(!images.logo || !images.logoClair ? [{ type: 'note', texte: 'Une version du logo n’est pas encore importée (Configuration › Ressources).' }] : []),
           ] },
         ] },
-        { nom: 'Vérifier', titre: h(Fragment, null, 'Vérifier ', h('span', { className: cls('compteur', !alertes.length && 'ok') }, alertes.length || '✓')), classe: 'large', contenu: () => [
-          { type: 'libre', rendu: (fermer) => h(PanneauVerifier, { article, alertes, nbValidees: toutes.length - alertes.length, majA, choisirPolice, contexteRendu: { reglages, charte, logo }, voir: (i, blocs) => { fermer(); allerA(i); if (blocs && blocs.length) { setMiseEnAvant({ i, blocs, n: Date.now() }); } } }) },
-        ] },
       ];
+      // Notifications (ex-menu « Vérifier ») : la cloche de la barre montre toutes les alertes, le bouton d'une page seulement les siennes.
+      const panneauAlertes = (liste, nbValidees) => [{ type: 'libre', rendu: (fermer) => h(PanneauVerifier, { article, alertes: liste, nbValidees, majA, choisirPolice, contexteRendu: { reglages, charte, logo }, voir: (i, blocs) => { fermer(); allerA(i); if (blocs && blocs.length) { setMiseEnAvant({ i, blocs, n: Date.now() }); } } }) }];
+      const alertesDePage = (i) => alertes.filter((a) => a.slide === i);
+      const graves = (liste) => liste.some((a) => a.niveau === 'bloquant');
+      const libelleAlertes = (n) => (n ? `${n} alerte${n > 1 ? 's' : ''} à vérifier` : 'tout est en ordre');
 
       /* ---------- Rendu ---------- */
       const fondClair = (() => { const c = (fond.fond || '#003846').replace('#', ''); const v = [0, 2, 4].map((p) => parseInt(c.slice(p, p + 2), 16) / 255); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2] > 0.5; })();
@@ -1425,6 +1434,14 @@
       if (zoneEdition) zoneMemoire.current = zoneEdition;
       const zoneAffichee = zoneEdition || (edition && zoneMemoire.current) || null;
       const historique = h('span', { className: 'historique-menus' },
+        h('button', { ref: refCloche, type: 'button', className: cls('bouton-notifications', notif === 'tout' && 'actif'), title: 'Notifications : ' + libelleAlertes(alertes.length), 'aria-label': 'Notifications : ' + libelleAlertes(alertes.length), 'aria-haspopup': 'true', 'aria-expanded': notif === 'tout', onMouseDown: garder, onClick: () => { setMenu(null); setNotif(notif === 'tout' ? null : 'tout'); } },
+          h('svg', { key: tinte, className: cls('cloche', tinte && 'tinte'), viewBox: '0 0 24 24', 'aria-hidden': 'true' },
+            h('path', { d: 'M6 16.5V11a6 6 0 0 1 12 0v5.5l1.6 1.8H4.4z', fill: 'none', stroke: 'currentColor', strokeWidth: 1.9, strokeLinejoin: 'round' }),
+            h('path', { d: 'M10 20.5a2.1 2.1 0 0 0 4 0', fill: 'none', stroke: 'currentColor', strokeWidth: 1.9, strokeLinecap: 'round' })),
+          h('span', { className: cls('pastille-notif', !alertes.length ? 'ok' : !graves(alertes) && 'legere'), 'aria-hidden': 'true' }, alertes.length || '✓')),
+        notif !== null && h('div', { className: 'voile-menu', 'aria-hidden': 'true', onPointerDown: () => setNotif(null) }),
+        notif === 'tout' && h(Popover, { ancre: refCloche, fermer: () => setNotif(null), classe: 'large', etiquette: 'Notifications', contenu: () => panneauAlertes(alertes, toutes.length - alertes.length) }),
+        typeof notif === 'number' && refsAlertePage.current[notif] && h(Popover, { ancre: refsAlertePage.current[notif], fermer: () => setNotif(null), classe: 'large', etiquette: `Alertes de la page ${notif + 1}`, contenu: () => panneauAlertes(alertesDePage(notif), 0) }),
         h('span', { className: 'position' }, `Page ${active + 1} sur ${total}`),
         // Ajouter le logo ou les fleurs : la fleur de la charte, avec un « + » vert anis qui dépasse en haut à droite.
         h('button', { ref: refFleur, type: 'button', className: cls('bouton-fleur', ajoutOuvert && 'actif'), title: 'Ajouter le logo ou les fleurs', 'aria-label': 'Ajouter le logo ou les fleurs', 'aria-haspopup': 'true', 'aria-expanded': ajoutOuvert, onMouseDown: garder, onClick: () => setAjoutOuvert(!ajoutOuvert) },
@@ -1474,7 +1491,11 @@
                 // La page en grand : l'agent ciblé (tracer une zone) et l'aperçu des posts, sans passer par Apparence générale.
                 outilsIA.GrandeFenetre && h('button', { type: 'button', className: 'bouton-agrandir', title: 'La page en grand : trace une zone pour la retoucher avec CCB', onMouseDown: garder, onClick: (e) => { e.stopPropagation(); setGrand(i); } },
                   h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d: 'M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' })),
-                  'Agrandir')),
+                  'Agrandir'),
+                // Le souci s'affiche à côté de la page concernée : seulement s'il y en a un.
+                (() => { const la = alertesDePage(i); return la.length > 0 && h('button', { ref: (e) => { refsAlertePage.current[i] = { current: e }; }, type: 'button', className: cls('alerte-page', graves(la) ? 'grave' : 'legere', notif === i && 'actif'), title: 'Les alertes de cette page', 'aria-haspopup': 'true', 'aria-expanded': notif === i, onMouseDown: garder, onClick: (e) => { e.stopPropagation(); setMenu(null); setNotif(notif === i ? null : i); } },
+                  h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d: 'M12 3.5 21.5 20h-19z', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinejoin: 'round' }), h('path', { d: 'M12 10v4.5M12 17.2v.1', stroke: 'currentColor', strokeWidth: 2.2, strokeLinecap: 'round' })),
+                  la.length > 1 ? `${la.length} alertes` : '1 alerte'); })()),
               h('div', { className: cls('cadre-page', cible === i && 'cible'), style: { width: largeurSlide + 'px', height: Math.round(largeurSlide * fmt.h / fmt.l) + 'px' } },
                 h(SlideCanvas, { slide: slidesVues[i], compo: c, formatId: article.format, fondId: article.fond, largeur: largeurSlide, index: i, total, logo, masquer: enEdition ? edition.n : undefined, etiquette: `Page ${i + 1}` }),
                 h('div', {

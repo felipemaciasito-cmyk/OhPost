@@ -39,10 +39,10 @@ with sync_playwright() as p:
     verifie('article : texte suivi', 'Pourtant, j’adore mon travail. «' + NB + 'Oui' + NB + '» ! Fin' in val, v(val[:120]))
     carte = pg.locator('section.carte', has_text='Typographie').inner_text()
     verifie('carte : la correction annulée est proposée', 'Reste 1 correction : espace insécable avant « ! »' in carte, carte)
-    # Vérifier : aucune alerte d'intégrité
+    # Notifications (ex-Vérifier) : aucune alerte d'intégrité
     pg.locator('nav.etapes .etape').nth(1).click(); pg.wait_for_timeout(500)
-    verifier = pg.locator('button', has_text='Vérifier').first.inner_text()
-    pg.locator('button', has_text='Vérifier').first.click(); pg.wait_for_timeout(300)
+    verifier = pg.locator('.bouton-notifications').get_attribute('aria-label')
+    pg.locator('.bouton-notifications').click(); pg.wait_for_timeout(300)
     pg.screenshot(path='verifier.png')
     panneau = pg.locator('body').inner_text()
     verifie('aucun texte perdu ni ajouté', 'absent' not in panneau.lower() and 'ajouté' not in panneau.lower(), panneau[-400:])

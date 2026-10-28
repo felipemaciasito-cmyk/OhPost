@@ -58,7 +58,7 @@ with sync_playwright() as p:
     pg.wait_for_timeout(300)
     verifie('Annuler : la page reprend sa présentation exacte', pg.locator('canvas[aria-label="Page 3"]').evaluate('(c) => c.toDataURL()') == img_avant)
     # Le texte des pages n'a pas bougé : vérifier dans l'étape Texte + Vérifier
-    pg.locator('button', has_text='Vérifier').first.click(); pg.wait_for_timeout(300)
+    pg.locator('.bouton-notifications').click(); pg.wait_for_timeout(300)
     t = pg.locator('body').inner_text()
     verifie('aucun texte perdu ni ajouté', 'absent' not in t.lower() and 'ajouté' not in t.lower())
     pg.keyboard.press('Escape')

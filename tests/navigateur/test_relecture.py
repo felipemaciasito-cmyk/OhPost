@@ -95,7 +95,7 @@ with sync_playwright() as p:
     verifie('retour à la relecture', 'Relecture' in panneau())
     # Les slides suivent : Vérifier dans Composition
     pg.locator('nav.etapes .etape').nth(1).click(); pg.wait_for_timeout(600)
-    pg.locator('button', has_text='Vérifier').first.click(); pg.wait_for_timeout(300)
+    pg.locator('.bouton-notifications').click(); pg.wait_for_timeout(300)
     t = pg.locator('body').inner_text()
     verifie('aucun texte perdu ni ajouté dans les pages', 'absent' not in t.lower() and 'ajouté' not in t.lower())
     pg.screenshot(path='relecture.png')

@@ -1156,3 +1156,23 @@ canvas.slide.editable { cursor: text; }
 .btn-mini { min-height: 34px; padding: 0 10px; border: 1px solid var(--trait); border-radius: 9px; background: var(--surface-2); color: var(--texte); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
 .gf-extraits { margin: 0; color: var(--doux); }
 .gf-messages { max-height: 22vh; overflow-y: auto; }
+
+/* Notifications (à la place du menu « Vérifier ») : la cloche de la barre de menus et le bouton d'alerte à côté d'une page */
+.bouton-notifications { position: relative; width: 44px; height: 44px; flex: none; padding: 0; border: 0; border-radius: 12px; background: transparent; color: var(--texte); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: background-color 0.2s ease; }
+.bouton-notifications:hover, .bouton-notifications.actif { background: var(--surface-2); }
+.bouton-notifications:focus-visible { outline: 2px solid var(--touche); outline-offset: 2px; }
+.bouton-notifications .cloche { width: 26px; height: 26px; transform-origin: 50% 12%; }
+.bouton-notifications .cloche.tinte { animation: clocheTinte 0.9s ease 1; }
+@keyframes clocheTinte { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(14deg); } 40% { transform: rotate(-12deg); } 60% { transform: rotate(7deg); } 80% { transform: rotate(-4deg); } }
+.pastille-notif { position: absolute; top: 3px; right: 1px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 999px; border: 2px solid var(--surface); background: var(--erreur); color: #FFFFFF; font-size: 11.5px; font-weight: 700; line-height: 15px; text-align: center; font-variant-numeric: tabular-nums; pointer-events: none; }
+.pastille-notif.legere { background: #C98A00; }
+.pastille-notif.ok { background: var(--touche); color: #2E3300; }
+.alerte-page { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; margin-top: 4px; border: 0; border-radius: 999px; font: inherit; font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.alerte-page.grave { background: var(--erreur-doux); color: var(--erreur); }
+.alerte-page.legere { background: var(--attention-doux); color: var(--attention-texte); }
+.alerte-page:focus-visible { outline: 2px solid var(--touche); outline-offset: 2px; }
+@media (max-width: 760px) { .alerte-page { padding: 0 12px; font-size: 0; gap: 0; } .alerte-page svg { width: 18px; height: 18px; } }
+@media (prefers-reduced-motion: reduce) { .bouton-notifications { transition: none; } .bouton-notifications .cloche.tinte { animation: none; } }
+/* Les solutions longues (« Envoyer les 4 derniers paragraphes… ») passent à la ligne au lieu de sortir de la fenêtre */
+.panneau-verifier .liste-alertes li { min-width: 0; }
+.panneau-verifier .bouton { white-space: normal; text-align: left; max-width: 100%; height: auto; padding-top: 8px; padding-bottom: 8px; }

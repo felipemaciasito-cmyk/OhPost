@@ -1176,3 +1176,24 @@ canvas.slide.editable { cursor: text; }
 /* Les solutions longues (« Envoyer les 4 derniers paragraphes… ») passent à la ligne au lieu de sortir de la fenêtre */
 .panneau-verifier .liste-alertes li { min-width: 0; }
 .panneau-verifier .bouton { white-space: normal; text-align: left; max-width: 100%; height: auto; padding-top: 8px; padding-bottom: 8px; }
+
+/* Mes carrousels favoris : une rangée par favori, toutes ses pages en vignettes (proposition 1, choisie par Romain) */
+.mep-favoris:has(.rangee-favori) { max-width: min(860px, 100%); gap: 8px; }
+.rangee-favori { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 6px; align-items: start; padding: 8px 8px 4px 2px; border-radius: 14px; background: var(--fond); border: 1px solid var(--trait); }
+.rangee-favori.souleve { box-shadow: 0 10px 28px rgba(0, 20, 26, 0.18); border-color: var(--touche); position: relative; z-index: 2; }
+.rangee-favori > .bande-favori, .rangee-favori > p { grid-column: 2; }
+.poignee-favori { width: 44px; height: 44px; border: 0; border-radius: 12px; background: transparent; color: var(--doux); display: inline-flex; align-items: center; justify-content: center; cursor: grab; touch-action: none; }
+.poignee-favori:active { cursor: grabbing; }
+.poignee-favori:hover, .poignee-favori:focus-visible, .bouton-icone-favori:hover, .bouton-icone-favori:focus-visible { background: var(--surface-2); color: var(--texte); }
+.haut-favori { display: flex; align-items: center; gap: 6px; min-width: 0; flex-wrap: wrap; }
+.titre-favori { flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: 2px; }
+.titre-favori strong { overflow-wrap: anywhere; }
+.champ-nom-favori { font: inherit; font-weight: 700; border: 2px solid var(--touche); border-radius: 8px; padding: 6px 8px; width: 100%; min-width: 0; background: var(--surface); color: var(--texte); }
+.bouton-icone-favori { width: 44px; height: 44px; flex: none; border: 0; border-radius: 12px; background: transparent; color: var(--doux); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.bande-favori { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 8px; -webkit-overflow-scrolling: touch; }
+.vignette-favori { flex: none; padding: 0; border: 0; border-radius: 4px; background: none; cursor: zoom-in; line-height: 0; box-shadow: 0 0 0 1px var(--trait); }
+.vignette-favori:focus-visible { outline: 3px solid var(--touche); outline-offset: 2px; }
+.loupe-favori { position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 16px; background: rgba(0, 25, 32, 0.6); }
+.loupe-favori .fermer-loupe { position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(12px + env(safe-area-inset-right, 0px)); }
+.loupe-favori .nav-loupe { display: flex; align-items: center; gap: 12px; color: #FFFFFF; font-weight: 600; text-align: center; }
+@media (prefers-reduced-motion: reduce) { .rangee-favori { transition: none; } }

@@ -66,7 +66,7 @@ with sync_playwright() as p:
     verifie('ni texte, ni réseau, ni dimensions dans la fenêtre', fr.locator('#texte-modele').count() == 0 and 'Réseau' not in fr.inner_text() and 'Dimensions' not in fr.inner_text())
     # Favoris
     fr.get_by_role('button', name='Mes favoris', exact=True).click(); pg.wait_for_timeout(200)
-    fr.get_by_role('group', name='Mes carrousels favoris').get_by_role('button').first.click(); pg.wait_for_timeout(300)
+    fr.get_by_role('group', name='Mes carrousels favoris').get_by_role('button', name='Choisir «').first.click(); pg.wait_for_timeout(300)
     verifie('favori appliqué à ce texte', seg2.get_by_role('button', name='★ ' + plans[0]['nom']).get_attribute('aria-pressed') == 'true' and 'Favori' in fr.locator('.mep-infos').inner_text(), fr.locator('.mep-infos').inner_text()[:120])
     # Sans IA, au hasard
     seg2.get_by_role('button', name='Sans IA').click(); pg.wait_for_timeout(200)

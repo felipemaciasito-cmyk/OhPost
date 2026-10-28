@@ -1,0 +1,84 @@
+# Apparence générale › Mes favoris : une rangée par favori avec ses pages en vignettes, renommer, réorganiser, page en grand.
+from playwright.sync_api import sync_playwright
+import serveur; _srv = serveur.demarrer()
+res = []
+def verifie(nom, cond, detail=''):
+    res.append((nom, bool(cond))); print(('OK   ' if cond else 'ÉCHEC'), nom, detail if not cond else '')
+with sync_playwright() as p:
+    b = p.chromium.launch(); pg = b.new_page(viewport={'width': 1180, 'height': 900})
+    erreurs = []; pg.on('pageerror', lambda e: erreurs.append(str(e)))
+    pg.goto('http://localhost:8765/'); pg.wait_for_timeout(900)
+    pg.get_by_text('Le silence au travail').first.click(); pg.wait_for_timeout(300)
+    pg.locator('nav.etapes .etape').nth(1).click(); pg.wait_for_timeout(700)
+    def ouvrir():
+        pg.get_by_role('button', name='Apparence générale').first.click(); pg.wait_for_timeout(500)
+        return pg.get_by_role('dialog', name='Apparence générale', exact=True)
+    d = ouvrir()
+    if not d.count():  # premier passage : la fenêtre est déjà ouverte
+        d = pg.get_by_role('dialog', name='Apparence générale', exact=True)
+    seg = d.get_by_role('group', name='Mises en page proposées')
+    # Deux favoris : la mise en page actuelle, puis le découpage sans IA
+    d.get_by_role('button', name='Garder dans mes favoris', exact=True).click(); pg.wait_for_timeout(250)
+    seg.get_by_role('button', name='Sans IA').click(); pg.wait_for_timeout(250)
+    d.get_by_role('button', name='Garder dans mes favoris', exact=True).click(); pg.wait_for_timeout(250)
+    d.get_by_role('button', name='Mes favoris', exact=True).click(); pg.wait_for_timeout(400)
+    liste = d.get_by_role('group', name='Mes carrousels favoris')
+    rangees = liste.locator('.rangee-favori')
+    noms = lambda: [t.replace('★ ', '') for t in liste.locator('.titre-favori strong').all_inner_texts()]
+    verifie('une rangée par favori', rangees.count() == 2, rangees.count())
+    n0 = noms()
+    vign = rangees.first.locator('.vignette-favori')
+    pages = rangees.first.locator('.titre-favori .doux').inner_text()
+    verifie('toutes les pages du favori en vignettes, appliquées à ce texte', vign.count() >= 2 and vign.first.locator('canvas').count() == 1 and f'{vign.count()} pages' in pages, (vign.count(), pages))
+    for nom in ['Renommer « ' + n0[0] + ' »', 'Déplacer « ' + n0[0] + ' » (glisser, ou flèches haut et bas)', 'Choisir « ' + n0[0] + ' »']:
+        bt = liste.get_by_role('button', name=nom, exact=True)
+        verifie('bouton « ' + nom.split(' «')[0] + ' » (44 points)', bt.count() == 1 and bt.bounding_box()['height'] >= 44)
+    # Page en grand
+    vign.nth(1).click(); pg.wait_for_timeout(300)
+    loupe = pg.locator('.loupe-favori')
+    verifie('toucher une vignette ouvre la page en grand', loupe.count() == 1 and 'page 2 sur' in loupe.inner_text() and loupe.locator('canvas').bounding_box()['width'] > 300)
+    loupe.get_by_role('button', name='Page suivante').click(); pg.wait_for_timeout(150)
+    verifie('flèches pour feuilleter', 'page 3 sur' in loupe.inner_text() or loupe.get_by_role('button', name='Page suivante').is_disabled())
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(200)
+    verifie('Échap referme la page en grand, la fenêtre reste ouverte', loupe.count() == 0 and d.count() == 1)
+    vign.first.click(); pg.wait_for_timeout(250)
+    pg.mouse.click(30, 450); pg.wait_for_timeout(250)
+    verifie('toucher le fond referme la page en grand', loupe.count() == 0 and d.count() == 1)
+    # Renommer
+    liste.get_by_role('button', name='Renommer « ' + n0[0] + ' »', exact=True).click(); pg.wait_for_timeout(200)
+    champ = liste.get_by_role('textbox', name='Nouveau nom du favori')
+    verifie('le crayon ouvre le champ du nom, prérempli', champ.count() == 1 and champ.input_value() == n0[0])
+    champ.fill('Mon rythme préféré'); champ.press('Enter'); pg.wait_for_timeout(250)
+    verifie('Entrée renomme le favori', noms()[0] == 'Mon rythme préféré', noms())
+    liste.get_by_role('button', name='Renommer « Mon rythme préféré »', exact=True).click(); pg.wait_for_timeout(150)
+    champ.fill('Nom abandonné'); champ.press('Escape'); pg.wait_for_timeout(200)
+    verifie('Échap abandonne le nouveau nom', noms()[0] == 'Mon rythme préféré' and d.count() == 1, noms())
+    # Réorganiser au clavier puis en glissant
+    poignee = lambda n: liste.get_by_role('button', name='Déplacer « ' + n + ' » (glisser, ou flèches haut et bas)', exact=True)
+    poignee('Mon rythme préféré').focus(); pg.keyboard.press('ArrowDown'); pg.wait_for_timeout(250)
+    verifie('flèche bas sur la poignée : le favori descend', noms() == [n0[1], 'Mon rythme préféré'], noms())
+    h0 = poignee('Mon rythme préféré').bounding_box(); cible = rangees.first.bounding_box()
+    pg.mouse.move(h0['x'] + 20, h0['y'] + 20); pg.mouse.down()
+    pg.mouse.move(h0['x'] + 20, cible['y'] + 10, steps=12); pg.wait_for_timeout(100)
+    verifie('pendant le glisser, la rangée est soulevée', liste.locator('.rangee-favori.souleve').count() == 1)
+    pg.mouse.up(); pg.wait_for_timeout(300)
+    verifie('glisser la poignée vers le haut : le favori remonte', noms() == ['Mon rythme préféré', n0[1]], noms())
+    # Choisir
+    liste.get_by_role('button', name='Choisir « Mon rythme préféré »', exact=True).click(); pg.wait_for_timeout(400)
+    verifie('« Choisir » affiche le favori sur ce texte', seg.get_by_role('button', name='★ Mon rythme préféré').get_attribute('aria-pressed') == 'true')
+    # Gardé après rechargement
+    pg.reload(); pg.wait_for_timeout(1200)
+    pg.get_by_text('Le silence au travail').first.click(); pg.wait_for_timeout(300)
+    pg.locator('nav.etapes .etape').nth(1).click(); pg.wait_for_timeout(700)
+    d = pg.get_by_role('dialog', name='Apparence générale', exact=True)
+    if not d.count(): d = ouvrir()
+    d.get_by_role('button', name='Mes favoris', exact=True).click(); pg.wait_for_timeout(400)
+    liste = d.get_by_role('group', name='Mes carrousels favoris')
+    verifie('nom et ordre gardés après rechargement', noms() == ['Mon rythme préféré', n0[1]], noms())
+    # Petit écran : la rangée tient dans la largeur
+    pg.set_viewport_size({'width': 760, 'height': 1000}); pg.wait_for_timeout(300)
+    lg = pg.evaluate("() => document.documentElement.scrollWidth <= innerWidth + 1")
+    verifie('iPad à la verticale : pas de défilement de côté', lg)
+    verifie('aucune erreur JavaScript', not erreurs, erreurs)
+    b.close()
+print(sum(1 for _, o in res if o), '/', len(res), 'vérifications réussies')

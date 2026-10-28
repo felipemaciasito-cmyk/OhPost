@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-28.6'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-28.8'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -1086,6 +1086,83 @@
       h('p', { className: 'doux petit' }, `Logo sur ${compte('logo')} page${compte('logo') > 1 ? 's' : ''}, fleurs sur ${compte('fleurs')} page${compte('fleurs') > 1 ? 's' : ''}. Tu pourras encore tout déplacer page par page dans Composition.`));
   }
 
+  // Mes carrousels favoris (Apparence générale) : une rangée par favori avec toutes ses pages appliquées au texte,
+  // le crayon pour renommer, la poignée pour réorganiser (glisser, ou flèches haut et bas), une page touchée s'ouvre en grand.
+  function ListeFavoris({ favoris, apercu, format, fonds, choisir, renommer, reordonner }) {
+    const [edition, setEdition] = useState(null); // favori en train d'être renommé
+    const [nom, setNom] = useState('');
+    const [glisse, setGlisse] = useState(null);   // { id, ordre, bouge } pendant un déplacement à la poignée
+    const [loupe, setLoupe] = useState(null);     // { id, k } : une page en grand
+    const rangees = useRef({});
+    const ordre = glisse ? glisse.ordre.map((id) => favoris.find((f) => f.id === id)).filter(Boolean) : favoris;
+    const valider = (f) => { const n = nom.trim(); if (n && n !== f.nom) renommer(f.id, n); setEdition(null); };
+    const bouger = (id, d) => {
+      const ids = favoris.map((f) => f.id);
+      const i = ids.indexOf(id);
+      if (i < 0 || i + d < 0 || i + d >= ids.length) return;
+      ids.splice(i + d, 0, ids.splice(i, 1)[0]);
+      reordonner(ids);
+    };
+    const debut = (e, id) => {
+      if (e.button) return;
+      e.preventDefault();
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch (x) { /* rien */ }
+      setGlisse({ id, ordre: favoris.map((f) => f.id), bouge: false });
+    };
+    const deplacer = (e) => {
+      if (!glisse) return;
+      const ids = [...glisse.ordre];
+      const i = ids.indexOf(glisse.id);
+      const centre = (k) => { const el = rangees.current[ids[k]]; if (!el) return null; const r = el.getBoundingClientRect(); return r.top + r.height / 2; };
+      let j = i;
+      if (i > 0 && e.clientY < centre(i - 1)) j = i - 1;
+      else if (i < ids.length - 1 && e.clientY > centre(i + 1)) j = i + 1;
+      if (j !== i) { ids.splice(j, 0, ids.splice(i, 1)[0]); setGlisse({ ...glisse, ordre: ids, bouge: true }); }
+    };
+    const fin = () => { if (glisse && glisse.bouge) reordonner(glisse.ordre); setGlisse(null); };
+    const vue = loupe && favoris.find((f) => f.id === loupe.id);
+    const vueApercu = vue && apercu(vue);
+    const fondLoupe = useRef(false);
+    const largeurLoupe = Math.round(Math.max(220, Math.min(480, (racine.innerWidth || 480) - 120, ((racine.innerHeight || 820) - 200) * M.FORMATS[format].l / M.FORMATS[format].h)));
+    return h(Fragment, null,
+      ordre.map((f) => {
+        const a = apercu(f);
+        const infos = [a && `${a.slides.length} page${a.slides.length > 1 ? 's' : ''}`, a && fonds[a.fond] && 'fond ' + fonds[a.fond].nom.toLowerCase(), f.origine && `d’après « ${f.origine} »`].filter(Boolean).join(' · ');
+        return h('div', { key: f.id, ref: (el) => { rangees.current[f.id] = el; }, className: cls('rangee-favori', glisse && glisse.id === f.id && 'souleve') },
+          h('button', {
+            type: 'button', className: 'poignee-favori', 'aria-label': `Déplacer « ${f.nom} » (glisser, ou flèches haut et bas)`, title: 'Glisser pour déplacer',
+            onPointerDown: (e) => debut(e, f.id), onPointerMove: deplacer, onPointerUp: fin, onPointerCancel: () => setGlisse(null),
+            onKeyDown: (e) => { if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); bouger(f.id, e.key === 'ArrowUp' ? -1 : 1); } },
+          }, h('svg', { width: 20, height: 20, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('g', { fill: 'currentColor' }, [[9, 6], [15, 6], [9, 12], [15, 12], [9, 18], [15, 18]].map(([x, y]) => h('circle', { key: x + '-' + y, cx: x, cy: y, r: 1.6 }))))),
+          h('div', { className: 'haut-favori' },
+            h('div', { className: 'titre-favori' },
+              edition === f.id
+                ? h('input', { className: 'champ-nom-favori', value: nom, autoFocus: true, 'aria-label': 'Nouveau nom du favori', onChange: (e) => setNom(e.target.value), onBlur: () => valider(f),
+                  onKeyDown: (e) => { if (e.key === 'Enter') { e.preventDefault(); valider(f); } else if (e.key === 'Escape') { e.preventDefault(); setEdition(null); } } })
+                : h('strong', null, '★ ' + f.nom),
+              infos && h('span', { className: 'doux petit' }, infos)),
+            h('button', { type: 'button', className: 'bouton-icone-favori', 'aria-label': `Renommer « ${f.nom} »`, title: 'Renommer', onMouseDown: (e) => { if (edition === f.id) e.preventDefault(); }, onClick: () => { if (edition === f.id) valider(f); else { setEdition(f.id); setNom(f.nom); } } },
+              h('svg', { width: 20, height: 20, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d: 'M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinejoin: 'round' }))),
+            h(Bouton, { variante: 'principal', etiquette: `Choisir « ${f.nom} »`, onClick: () => choisir(f) }, 'Choisir')),
+          a ? h('div', { className: 'bande-favori' }, a.slides.map((sl, k) => h('button', { key: k, type: 'button', className: 'vignette-favori', 'aria-label': `« ${f.nom} », page ${k + 1} en grand`, onClick: () => setLoupe({ id: f.id, k }) },
+            h(SlideCanvas, { slide: sl, formatId: format, fondId: a.fond, largeur: 84, index: k, total: a.slides.length }))))
+            : h('p', { className: 'doux petit' }, 'Ce favori ne s’adapte pas à ce texte.'));
+      }),
+      // Une page en grand : se ferme par « Fermer », Échap, ou un appui ET un relâchement sur le fond.
+      vueApercu && vueApercu.slides[loupe.k] && h('div', {
+        className: 'loupe-favori', role: 'dialog', 'aria-label': `« ${vue.nom} », page ${loupe.k + 1} en grand`,
+        onPointerDown: (e) => { fondLoupe.current = e.target === e.currentTarget; },
+        onPointerUp: (e) => { if (fondLoupe.current && e.target === e.currentTarget) setLoupe(null); fondLoupe.current = false; },
+        onKeyDown: (e) => { if (e.key === 'Escape') { e.stopPropagation(); setLoupe(null); } else if (e.key === 'ArrowRight') setLoupe({ ...loupe, k: Math.min(vueApercu.slides.length - 1, loupe.k + 1) }); else if (e.key === 'ArrowLeft') setLoupe({ ...loupe, k: Math.max(0, loupe.k - 1) }); },
+      },
+        h('button', { type: 'button', className: 'bouton secondaire fermer-loupe', autoFocus: true, onClick: () => setLoupe(null) }, 'Fermer'),
+        h(SlideCanvas, { slide: vueApercu.slides[loupe.k], formatId: format, fondId: vueApercu.fond, largeur: largeurLoupe, index: loupe.k, total: vueApercu.slides.length, etiquette: `Page ${loupe.k + 1} de « ${vue.nom} »` }),
+        h('div', { className: 'nav-loupe' },
+          h('button', { type: 'button', className: 'bouton-rond', 'aria-label': 'Page précédente', disabled: loupe.k === 0, onClick: () => setLoupe({ ...loupe, k: loupe.k - 1 }) }, h(Icone, { nom: 'gauche', taille: 20 })),
+          h('span', null, `${vue.nom} · page ${loupe.k + 1} sur ${vueApercu.slides.length}`),
+          h('button', { type: 'button', className: 'bouton-rond', 'aria-label': 'Page suivante', disabled: loupe.k >= vueApercu.slides.length - 1, onClick: () => setLoupe({ ...loupe, k: loupe.k + 1 }) }, h(Icone, { nom: 'droite', taille: 20 })))));
+  }
+
   // Aperçu du post : la couverture telle qu'elle apparaît dans un fil, puis les pages qu'on fait défiler.
   function ApercuFil({ slides, format, fond, texte, onFermer, reseau }) {
     const [page, setPage] = useState(0);
@@ -1532,6 +1609,18 @@
       if (k === 'actuelle' && edite) setFond(edite.fond);
       if (k === 'simple' && auHasard) setFond(auHasard.fond);
     };
+    // L'aperçu d'un favori sur ce texte (pour la liste des favoris), mémorisé tant que le texte et le format ne changent pas.
+    const apercusFavoris = useRef({ cle: null, carte: new Map() });
+    const apercuFavori = (f) => {
+      const memo = apercusFavoris.current;
+      if (memo.cle !== cleTexte) { memo.cle = cleTexte; memo.carte = new Map(); }
+      const cle = f.id + JSON.stringify(f.recette);
+      if (!memo.carte.has(cle)) {
+        const pl = PROP ? PROP.adapterRecette(f.recette, paragraphes.length, f.nom, M.GABARITS, fonds, M.NATURES) : null;
+        memo.carte.set(cle, pl ? { fond: pl.fond, slides: PROP.construireSlides(pl, paragraphes) } : null);
+      }
+      return memo.carte.get(cle);
+    };
     // Un carrousel favori, appliqué à ce texte : même rythme, mêmes gabarits, même fond.
     const appliquerFavori = (f) => {
       setFavorisOuverts(false);
@@ -1718,9 +1807,13 @@
             h('button', { type: 'button', role: 'menuitem', className: 'item-bulle', disabled: etatGen === 'encours', onClick: () => { setBulleMep(false); generer(plans.length > 0); } }, h('strong', null, 'Générer 3 propositions'), h('span', { className: 'doux petit' }, 'Trois nouvelles mises en page, tout de suite')),
             h('button', { type: 'button', role: 'menuitem', className: 'item-bulle', onClick: () => { setBulleMep(false); setDiscOuverte(true); setDiscRepliee(false); } }, h('strong', null, 'Une envie ?'), h('span', { className: 'doux petit' }, 'Dis ce que tu veux : trois propositions la suivront'))))),
       favorisOuverts && h('div', { className: 'mep-favoris', role: 'group', 'aria-label': 'Mes carrousels favoris' },
-        h('p', { className: 'doux petit' }, 'Appliqués à ce texte : même rythme, mêmes gabarits, même fond.'),
+        h('p', { className: 'doux petit' }, 'Chacun appliqué à ce texte (même rythme, mêmes gabarits, même fond). Touche une page pour la voir en grand ; le crayon renomme, la poignée ⠿ déplace.'),
         favorisCarrousels.length
-          ? favorisCarrousels.map((f) => h('button', { key: f.id, type: 'button', className: 'mep-favori', onClick: () => appliquerFavori(f) }, h('strong', null, f.nom), f.origine && h('span', { className: 'doux petit' }, 'D’après « ' + f.origine + ' »')))
+          ? h(ListeFavoris, {
+            favoris: favorisCarrousels, apercu: apercuFavori, format, fonds, choisir: appliquerFavori,
+            renommer: (id, nom) => dispatch({ type: 'projet', maj: (pr) => ({ ...pr, favorisCarrousels: (pr.favorisCarrousels || []).map((x) => (x.id === id ? { ...x, nom } : x)) }) }),
+            reordonner: (ids) => dispatch({ type: 'projet', maj: (pr) => { const tous = pr.favorisCarrousels || []; return { ...pr, favorisCarrousels: ids.map((id) => tous.find((x) => x.id === id)).filter(Boolean).concat(tous.filter((x) => !ids.includes(x.id))) }; } }),
+          })
           : h('p', { className: 'doux petit' }, 'Aucun carrousel favori pour l’instant : touche l’étoile sur une proposition de CCB pour la garder.')),
       noteFavori && h('p', { className: 'erreur petit' }, noteFavori),
       etatGen === 'encours' && !discEnCours && h('div', { className: 'note mep-attente', role: 'status' }, h('span', { className: 'rond-attente', 'aria-hidden': 'true' }), `${IA.ASSISTANT.nom} compose trois carrousels pour ${reseauNom}, en ${maxPages} pages au plus… environ 20 à 40 secondes. Chaque proposition est vérifiée page par page avant de s’afficher.`),

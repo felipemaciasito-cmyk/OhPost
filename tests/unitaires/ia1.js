@@ -18,7 +18,9 @@ const repondre = (statut, corps) => async (url, init) => { dernier = { url, init
   eq('clé en en-tête', h['x-api-key'], 'sk-ant-x'); eq('accès navigateur', h['anthropic-dangerous-direct-browser-access'], 'true'); eq('version', h['anthropic-version'], '2023-06-01');
   eq('modèle envoyé', corps.model, 'claude-sonnet-5-5'); eq('max (16 + marge de réflexion)', corps.max_tokens, 16 + 6000);
   eq('demander', await IA.demander({ fournisseur: 'claude', cle: 'k', modele: 'm' }, { systeme: 'S', texte: 'T' }), 'OK');
-  eq('système claude', JSON.parse(dernier.init.body).system, 'S');
+  // Qui est CCB et à qui il parle (prénom « Anne » par défaut) : ajouté à la fin de chaque consigne.
+  eq('système claude (avec l’identité de CCB)', JSON.parse(dernier.init.body).system, 'S\n\n' + IA.identite());
+  eq('identité : nom, prénom, ton', /CCB \(Creative Collaborative Boost\)/.test(IA.identite()) && /Tu parles à Anne/.test(IA.identite()) && /professionnel, bienveillant et chaleureux/.test(IA.identite()), true);
   // Mistral
   globalThis.fetch = repondre(200, { choices: [{ message: { content: 'OK' } }] });
   eq('test mistral', await IA.tester('mistral', 'mk', 'mistral-large-latest'), 'Connexion réussie : Mistral a répondu.');

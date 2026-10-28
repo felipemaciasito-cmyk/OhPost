@@ -158,7 +158,9 @@
   // Le point d'entrée des futures fonctions d'IA : renvoie le texte de la réponse.
   async function demander(config, { systeme = '', texte, maxJetons, delai, json = null } = {}) {
     if (!config || !config.cle) throw new ErreurIA('Aucune clé d’IA n’est enregistrée sur cet appareil. Ajoute-la dans Configuration, onglet IA.', 'cle');
-    return (await appeler(config.fournisseur, config.cle, config.modele, systeme, texte, { maxJetons, delai, json })).texte;
+    // Qui est CCB et à qui il parle : ajouté à la fin de chaque consigne.
+    const consigne = (systeme ? systeme + '\n\n' : '') + identite();
+    return (await appeler(config.fournisseur, config.cle, config.modele, consigne, texte, { maxJetons, delai, json })).texte;
   }
 
   /* ---------- Tests ---------- */
@@ -183,7 +185,126 @@
   }
 
   const ASSISTANT = { nom: 'CCB', complet: 'Creative Collaborative Boost' }; // le nom de l'assistant dans toute l'app
-  const api = { MARGE_REFLEXION, ASSISTANT, FOURNISSEURS, lire, enregistrer, oublierCle, modeleDe, active, demander, tester, joignable, ErreurIA, expliquer, texteReponse, requete };
+
+  /* ---------- Qui est CCB, et à qui il parle ---------- */
+
+  // Le prénom de la personne (Configuration › IA), « Anne » par défaut. Gardé sur l'appareil.
+  const CLE_PRENOM = 'postsop-prenom';
+  const PRENOM_DEFAUT = 'Anne';
+  function prenom() {
+    try { const v = racine.localStorage.getItem(CLE_PRENOM); return v === null ? PRENOM_DEFAUT : String(v).trim(); } catch (e) { return PRENOM_DEFAUT; }
+  }
+  function ecrirePrenom(v) { try { racine.localStorage.setItem(CLE_PRENOM, String(v || '').trim()); } catch (e) { /* stockage indisponible */ } }
+
+  // Ajouté à toutes les consignes envoyées à l'IA : son nom, son ton, le prénom de la personne.
+  // Le prénom et les mots d'accueil restent dans la conversation, jamais dans les textes à publier.
+  function identite(p = prenom()) {
+    return [
+      'Qui tu es : tu es CCB (Creative Collaborative Boost), l’assistant d’Oh!Post.',
+      p ? `Tu parles à ${p} : quand tu t’adresses directement à ${p} (tes réponses, tes explications, tes commentaires), appelle ${p} par son prénom de temps en temps, tutoie et garde un ton professionnel, bienveillant et chaleureux.`
+        : 'Quand tu t’adresses directement à la personne (tes réponses, tes explications, tes commentaires), tutoie et garde un ton professionnel, bienveillant et chaleureux.',
+      'Le prénom et ces mots chaleureux ne vont jamais dans les textes que tu écris pour être publiés (article, pages, post, titres, formulations).',
+    ].join(' ');
+  }
+
+  // L'accueil de CCB en début de conversation : une phrase selon le moment de la journée, écrite à l'avance
+  // (aucun appel à l'IA). {p} est le prénom. Les dernières phrases utilisées sont évitées d'une session à l'autre.
+  const ACCUEILS = {
+    aube: [ // 5 h – 8 h
+      'Bonjour {p}, déjà au travail ! Comment puis-je t’aider de si bon matin ?',
+      'Bonjour {p} ! Le jour se lève à peine : par quoi commençons-nous ?',
+      'Bon début de journée, {p}. Je t’écoute.',
+      'Bonjour {p}, la journée commence tôt : que puis-je faire pour toi ?',
+      'Bonjour {p} ! Un moment de calme avant la journée : sur quoi veux-tu avancer ?',
+      'Bonjour {p}, belle énergie de bon matin ! Comment puis-je t’accompagner ?',
+      'Bonjour {p}. Le monde dort encore, nous avons tout le temps de bien faire : je t’écoute.',
+      'Bonjour {p} ! Commençons la journée par quelque chose de beau ?',
+      'Bonjour {p}, ravi de commencer la journée avec toi. Que puis-je faire ?',
+      'Bonjour {p} ! Une idée du réveil à mettre en forme ?',
+    ],
+    matin: [ // 8 h – 12 h
+      'Bonjour {p}, comment puis-je t’aider ce matin ?',
+      'Bonjour {p}, ravi de te retrouver ce matin. Sur quoi travaillons-nous ?',
+      'Belle matinée, {p} ! Par quoi veux-tu commencer ?',
+      'Bonjour {p} ! Qu’allons-nous mettre en valeur ce matin ?',
+      'Bonne matinée, {p}. Dis-moi ce dont tu as besoin.',
+      'Bonjour {p}, je suis là pour t’accompagner ce matin. Que puis-je faire pour toi ?',
+      'Bonjour {p} ! Une idée à travailler ce matin ?',
+      'Bonjour {p}, belle journée qui commence : comment puis-je t’aider ?',
+      'Bonjour {p} ! Un nouveau carrousel à faire briller ce matin ?',
+      'Bonjour {p}, je suis prêt à t’aider à trouver les mots justes ce matin. Je t’écoute.',
+      'Bonjour {p} ! Que dirais-tu d’avancer ensemble sur ton texte ce matin ?',
+    ],
+    midi: [ // 12 h – 14 h
+      'Bonjour {p}, comment puis-je t’aider ce midi ?',
+      'Bonjour {p} ! Une petite pause créative autour de midi ?',
+      'Bonjour {p}, on avance ensemble sur ton carrousel ce midi ?',
+      'Bonjour {p}, la mi-journée est un bon moment pour faire le point. Je t’écoute.',
+      'Bonjour {p} ! Je suis là si tu as besoin d’un coup de main ce midi.',
+      'Bonjour {p}, que puis-je faire pour toi avant de reprendre l’après-midi ?',
+      'Bon midi, {p} ! Sur quoi veux-tu avancer ?',
+      'Bonjour {p} ! Une idée attrapée à la pause de midi ?',
+      'Bonjour {p}, ravi de te retrouver à la mi-journée. Dis-moi tout.',
+    ],
+    apresmidi: [ // 14 h – 18 h
+      'Bon après-midi, {p} ! Comment puis-je t’aider ?',
+      'Bonjour {p}, que veux-tu travailler cet après-midi ?',
+      'Bon après-midi, {p}. Sur quel texte avançons-nous ensemble ?',
+      'Bonjour {p} ! Un nouveau carrousel à faire briller cet après-midi ?',
+      'Ravi de te retrouver cet après-midi, {p}. Dis-moi tout.',
+      'Bon après-midi, {p} ! Je suis là pour t’aider à trouver les bons mots.',
+      'Bonjour {p}, un coup de pouce pour cet après-midi ?',
+      'Bon après-midi, {p}. Qu’allons-nous mettre en lumière aujourd’hui ?',
+      'Bonjour {p} ! Prenons le temps de bien faire cet après-midi : je t’écoute.',
+      'Bon après-midi, {p} ! Par quoi veux-tu continuer ?',
+      'Bonjour {p}, l’après-midi est à toi : comment puis-je t’accompagner ?',
+    ],
+    soir: [ // 18 h – 22 h
+      'Bonsoir {p}, comment puis-je t’aider ce soir ?',
+      'Bonsoir {p} ! On termine la journée en beauté ?',
+      'Bonsoir {p}. Prenons le temps de bien faire : que veux-tu travailler ?',
+      'Bonsoir {p} ! Une dernière idée à mettre en forme aujourd’hui ?',
+      'Bonne soirée, {p}. Je suis là si tu as besoin de moi.',
+      'Bonsoir {p}, ravi de t’accompagner ce soir. Par quoi commençons-nous ?',
+      'Bonsoir {p} ! Que puis-je faire pour toi ce soir ?',
+      'Bonsoir {p}, une touche finale à apporter à ton carrousel ?',
+      'Bonsoir {p}. Le calme du soir est idéal pour écrire : je t’écoute.',
+      'Bonsoir {p} ! Sur quoi veux-tu avancer avant de clore la journée ?',
+    ],
+    nuit: [ // 22 h – 5 h
+      'Bonsoir {p}, tu travailles tard ! Comment puis-je t’aider ?',
+      'Bonsoir {p}. Il se fait tard : allons droit à l’essentiel, je t’écoute.',
+      'Bonsoir {p} ! Une idée qui ne pouvait pas attendre demain ?',
+      'Bonsoir {p}, je suis là, même à cette heure-ci. Que puis-je faire pour toi ?',
+      'Bonsoir {p}. Avançons ensemble, puis pense à te reposer !',
+      'Bonsoir {p} ! L’inspiration de la nuit, c’est précieux : dis-moi tout.',
+      'Bonsoir {p}, encore à l’ouvrage ? Je t’accompagne volontiers.',
+      'Bonsoir {p}. Que puis-je faire pour toi avant une bonne nuit ?',
+    ],
+  };
+  const momentDe = (heure) => (heure >= 5 && heure < 8 ? 'aube' : heure < 12 && heure >= 8 ? 'matin' : heure >= 12 && heure < 14 ? 'midi' : heure >= 14 && heure < 18 ? 'apresmidi' : heure >= 18 && heure < 22 ? 'soir' : 'nuit');
+  // Typographie française : espace insécable avant ? ! : ;
+  const insecables = (t) => t.replace(/ ([?!:;])/g, '\u00a0$1');
+  function phraseAccueil(modele, p) {
+    const t = p ? modele.replace(/\{p\}/g, p) : modele.replace(/,? \{p\}/g, '').replace(/^\{p\},? /, '');
+    return insecables(t.charAt(0).toUpperCase() + t.slice(1));
+  }
+  const CLE_ACCUEILS = 'postsop-accueils'; // les dernières phrases utilisées, pour varier d'une session à l'autre
+  const RETENUES = 12;
+  function accueil(date = new Date(), p = prenom(), hasard = Math.random) {
+    const moment = momentDe(date.getHours());
+    const liste = ACCUEILS[moment];
+    let vues = [];
+    try { vues = JSON.parse(racine.localStorage.getItem(CLE_ACCUEILS)) || []; } catch (e) { vues = []; }
+    if (!Array.isArray(vues)) vues = [];
+    let libres = liste.map((_, k) => k).filter((k) => !vues.includes(moment + k));
+    if (!libres.length) libres = liste.map((_, k) => k);
+    const k = libres[Math.floor(hasard() * libres.length) % libres.length];
+    try { racine.localStorage.setItem(CLE_ACCUEILS, JSON.stringify([moment + k].concat(vues.filter((v) => v !== moment + k)).slice(0, RETENUES))); } catch (e) { /* stockage indisponible */ }
+    return phraseAccueil(liste[k], p);
+  }
+
+  const api = { MARGE_REFLEXION, ASSISTANT, FOURNISSEURS, lire, enregistrer, oublierCle, modeleDe, active, demander, tester, joignable, ErreurIA, expliquer, texteReponse, requete, prenom, ecrirePrenom, PRENOM_DEFAUT, identite, ACCUEILS, momentDe, phraseAccueil, accueil };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else racine.PostsOPIA = api;
 })(typeof window !== 'undefined' ? window : globalThis);

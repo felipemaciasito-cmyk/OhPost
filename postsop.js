@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-28.8'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-28.9'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -1088,8 +1088,9 @@
 
   // Mes carrousels favoris (Apparence générale) : une rangée par favori avec toutes ses pages appliquées au texte,
   // le crayon pour renommer, la poignée pour réorganiser (glisser, ou flèches haut et bas), une page touchée s'ouvre en grand.
-  function ListeFavoris({ favoris, apercu, format, fonds, choisir, renommer, reordonner }) {
+  function ListeFavoris({ favoris, apercu, format, fonds, choisir, renommer, reordonner, retirer }) {
     const [edition, setEdition] = useState(null); // favori en train d'être renommé
+    const [aRetirer, setARetirer] = useState(null); // favori dont on confirme le retrait
     const [nom, setNom] = useState('');
     const [glisse, setGlisse] = useState(null);   // { id, ordre, bouge } pendant un déplacement à la poignée
     const [loupe, setLoupe] = useState(null);     // { id, k } : une page en grand
@@ -1143,7 +1144,14 @@
               infos && h('span', { className: 'doux petit' }, infos)),
             h('button', { type: 'button', className: 'bouton-icone-favori', 'aria-label': `Renommer « ${f.nom} »`, title: 'Renommer', onMouseDown: (e) => { if (edition === f.id) e.preventDefault(); }, onClick: () => { if (edition === f.id) valider(f); else { setEdition(f.id); setNom(f.nom); } } },
               h('svg', { width: 20, height: 20, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d: 'M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinejoin: 'round' }))),
+            h('button', { type: 'button', className: 'bouton-icone-favori', 'aria-label': `Retirer « ${f.nom} » des favoris`, title: 'Retirer des favoris', onClick: () => setARetirer(aRetirer === f.id ? null : f.id) },
+              h('svg', { width: 20, height: 20, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }))),
             h(Bouton, { variante: 'principal', etiquette: `Choisir « ${f.nom} »`, onClick: () => choisir(f) }, 'Choisir')),
+          aRetirer === f.id && h('div', { className: 'confirmer-retrait', role: 'alertdialog', 'aria-label': `Retirer « ${f.nom} » des favoris` },
+            h('span', null, `Retirer « ${f.nom} » de tes favoris ? Les articles déjà mis en page ne changent pas.`),
+            h('span', { className: 'actions-ligne' },
+              h(Bouton, { variante: 'danger', onClick: () => { setARetirer(null); retirer(f.id); } }, 'Retirer'),
+              h(Bouton, { onClick: () => setARetirer(null) }, 'Garder'))),
           a ? h('div', { className: 'bande-favori' }, a.slides.map((sl, k) => h('button', { key: k, type: 'button', className: 'vignette-favori', 'aria-label': `« ${f.nom} », page ${k + 1} en grand`, onClick: () => setLoupe({ id: f.id, k }) },
             h(SlideCanvas, { slide: sl, formatId: format, fondId: a.fond, largeur: 84, index: k, total: a.slides.length }))))
             : h('p', { className: 'doux petit' }, 'Ce favori ne s’adapte pas à ce texte.'));
@@ -1651,7 +1659,7 @@
           const nombres = ['', 'une proposition', 'deux propositions', 'trois propositions'];
           const reponse = !res ? 'Je n’ai pas pu composer de propositions : regarde le message au-dessus de l’aperçu.'
             : res.n >= PROP.MAX_PROPOSITIONS ? 'Voici trois propositions qui tiennent compte de tes indications.'
-            : `Voici ${nombres[res.n] || res.n + ' propositions'} qui tiennent compte de tes indications : ${res.ecartes ? 'les autres débordaient de leurs pages ou dépassaient ' + maxPages + ' pages, je les ai écartées' : 'je n’ai pas trouvé mieux'}. Demande « Proposer 3 autres » pour en voir d’autres.`;
+            : `Voici ${nombres[res.n] || res.n + ' propositions'} qui tiennent compte de tes indications : ${res.ecartes ? 'les autres débordaient de leurs pages ou dépassaient ' + maxPages + ' pages, je les ai écartées' : 'je n’ai pas trouvé mieux'}. Pour en voir d’autres : le robot, puis « Générer 3 propositions ».`;
           // L'envie est gardée avec ses propositions, même si l'on ferme la fenêtre.
           const rec = res && res.plans && res.plans.length ? { id: 'env-' + Date.now().toString(36), quand: Date.now(), envie: demande, reponse, cle: empreinteTexte(cleTexte), plans: res.plans } : null;
           dire(reponse, rec ? rec.id : undefined);
@@ -1812,6 +1820,14 @@
           ? h(ListeFavoris, {
             favoris: favorisCarrousels, apercu: apercuFavori, format, fonds, choisir: appliquerFavori,
             renommer: (id, nom) => dispatch({ type: 'projet', maj: (pr) => ({ ...pr, favorisCarrousels: (pr.favorisCarrousels || []).map((x) => (x.id === id ? { ...x, nom } : x)) }) }),
+            // Retirer un favori : annulable depuis le message (il reprend sa place dans la liste).
+            retirer: (id) => {
+              const k = favorisCarrousels.findIndex((x) => x.id === id);
+              const f = favorisCarrousels[k];
+              if (!f) return;
+              dispatch({ type: 'projet', maj: (pr) => ({ ...pr, favorisCarrousels: (pr.favorisCarrousels || []).filter((x) => x.id !== id) }) });
+              dispatch({ type: 'message', message: { texte: `« ${f.nom} » retiré de tes favoris.`, annulation: { type: 'projet', maj: (pr) => { const l = (pr.favorisCarrousels || []).filter((x) => x.id !== id); l.splice(Math.min(k, l.length), 0, f); return { ...pr, favorisCarrousels: l }; } } } });
+            },
             reordonner: (ids) => dispatch({ type: 'projet', maj: (pr) => { const tous = pr.favorisCarrousels || []; return { ...pr, favorisCarrousels: ids.map((id) => tous.find((x) => x.id === id)).filter(Boolean).concat(tous.filter((x) => !ids.includes(x.id))) }; } }),
           })
           : h('p', { className: 'doux petit' }, 'Aucun carrousel favori pour l’instant : touche l’étoile sur une proposition de CCB pour la garder.')),
@@ -1829,10 +1845,8 @@
               h('button', { type: 'button', className: 'bouton-rond', 'aria-label': 'Page suivante', disabled: vue >= slides.length - 1, onClick: () => setPageVue(vue + 1) }, h(Icone, { nom: 'droite', taille: 20 }))),
             h('div', { className: 'doux petit centre' }, `Page ${vue + 1} sur ${slides.length}`),
             h('div', { className: 'mep-bande' }, slides.map((sl, i) => h('button', { key: i, type: 'button', className: cls('mep-vignette', i === vue && 'actif'), 'aria-label': `Voir la page ${i + 1}`, 'aria-pressed': i === vue, onClick: () => setPageVue(i) },
-              h(SlideCanvas, { slide: sl, formatId: format, fondId: fond, largeur: 52, index: i, total: slides.length })))),
-            // Sous l'aperçu, l'un au-dessus de l'autre : voir le post, puis demander d'autres propositions.
-            h('div', { className: 'mep-actions-apercu' },
-              configIA && PROP && h(Bouton, { disabled: etatGen === 'encours', onClick: () => generer(plans.length > 0) }, plans.length ? 'Proposer 3 autres' : 'Proposer 3 mises en page'))) : null),
+              h(SlideCanvas, { slide: sl, formatId: format, fondId: fond, largeur: 52, index: i, total: slides.length }))))) : null),
+        // D'autres propositions : par le robot CCB de la fenêtre (« Générer 3 propositions »), plus de bouton sous l'aperçu.
         h('div', { className: 'mep-infos' },
           // L'explication du choix affiché (Actuelle, proposition de CCB, favori, Sans IA) : dans le « i », à côté du nom.
           h('h3', { className: 'gill' }, nomChoix, pourquoiChoix && h(Info, { texte: pourquoiChoix })),

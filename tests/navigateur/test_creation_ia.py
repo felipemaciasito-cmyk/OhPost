@@ -70,10 +70,11 @@ with sync_playwright() as p:
     verifie('Échap ferme l’aperçu, la fenêtre reste', filv.count() == 0 and fe.get_by_role('button', name='Appliquer').count() == 1)
     pg.keyboard.press('Escape'); pg.wait_for_timeout(200)
     verifie('second Échap : la grande fenêtre se ferme', pg.locator('.grande-fenetre').count() == 0)
-    # Proposer 3 autres
+    # Générer 3 autres propositions (robot CCB de la fenêtre)
+    verifie('plus de bouton « Proposer 3 autres » sous l’aperçu (le robot CCB le propose)', fe.get_by_role('button', name='Proposer 3').count() == 0)
     etat['reponses'] = [{'propositions': BONS[::-1]}]
-    fe.get_by_role('button', name='Proposer 3 autres').click(); pg.wait_for_timeout(1200)
-    verifie('« Proposer 3 autres » : CCB évite les précédentes', len(etat['envois']) == 2 and 'différentes de celles déjà vues' in etat['envois'][1]['messages'][0]['content'])
+    fe.locator('.bouton-robot').click(); pg.wait_for_timeout(200); fe.get_by_role('menuitem', name='Générer 3 propositions').click(); pg.wait_for_timeout(1200)
+    verifie('« Générer 3 propositions » : CCB évite les précédentes', len(etat['envois']) == 2 and 'différentes de celles déjà vues' in etat['envois'][1]['messages'][0]['content'])
     noms2 = fe.get_by_role('group', name='Mises en page proposées').get_by_role('button').all_inner_texts()
     verifie('nouvelles propositions affichées', noms2[0] == plans[2]['nom'], noms2)
     fe.get_by_role('group', name='Mises en page proposées').get_by_role('button', name=plans[1]['nom']).click(); pg.wait_for_timeout(200)

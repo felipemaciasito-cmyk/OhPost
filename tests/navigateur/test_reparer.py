@@ -26,7 +26,7 @@ with sync_playwright() as p:
     pg.locator('nav.etapes .etape').nth(1).click(); pg.wait_for_timeout(600)
     pg.get_by_role('button', name='Apparence générale').first.click(); pg.wait_for_timeout(400)
     fen = pg.get_by_role('dialog', name='Apparence générale', exact=True)
-    fen.get_by_role('button', name='Proposer 3 mises en page').click(); pg.wait_for_timeout(2000)
+    fen.locator('.bouton-robot').click(); pg.wait_for_timeout(200); fen.get_by_role('menuitem', name='Générer 3 propositions').click(); pg.wait_for_timeout(2000)
     noms = fen.get_by_role('group', name='Mises en page proposées').get_by_role('button').all_inner_texts()
     verifie('la proposition qui débordait est gardée, réparée', 'Entassée' in noms, noms)
     fen.get_by_role('group', name='Mises en page proposées').get_by_role('button', name='Entassée').click(); pg.wait_for_timeout(300)

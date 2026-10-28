@@ -1200,3 +1200,4 @@ canvas.slide.editable { cursor: text; }
 
 /* Bulle de synchronisation ouverte : la barre du haut passe devant la barre de menus de la Mise en page, sinon la bulle est coupée */
 .barre:has(.bulle-synchro) { z-index: 61; }
+.rangee-favori > .confirmer-retrait { grid-column: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; border-radius: 12px; background: var(--erreur-doux); color: var(--erreur); font-size: 14px; }

@@ -865,6 +865,25 @@
           majA(OP.slide(i, M.revenirAuGabarit(article.slides[i])), null, `Page ${i + 1} : mise en page du gabarit rétablie.`);
           setSelection({ i: null, n: [] });
         },
+        // Les blocs choisis reprennent leur place et leur apparence du gabarit (mise en forme effacée comme « Revenir à l'original ») ;
+        // les autres blocs de la page gardent leur place. Si tous les blocs sont choisis, toute la page revient au gabarit.
+        revenirBlocs(i, ns) {
+          majA((a) => {
+            let x = ns.reduce((acc, n) => {
+              const b = acc.slides[i] && acc.slides[i].blocs[n];
+              if (!b) return acc;
+              return OP.paragraphe(i, n, { alignement: null, filet: null, fondBloc: null })(OP.formater(i, n, 0, b.texte.length, { gras: null, italique: null, souligne: null, taille: null, couleur: null, filet: null })(acc));
+            }, a);
+            const sl = x.slides[i];
+            if (!sl || !sl.libre) return x;
+            const tous = sl.blocs.every((b, m) => ns.includes(m) || !String(b.texte || '').trim());
+            if (tous) return OP.slide(i, M.revenirAuGabarit(sl))(x);
+            const gab = M.revenirAuGabarit(sl);
+            const fig = M.figerSlide(gab, M.composer(gab, x.format, x.fond, choisirPolice, { index: i, total: x.slides.length, reglages, charte, logo }));
+            x = OP.slide(i, { ...sl, blocs: sl.blocs.map((b, m) => (ns.includes(m) && fig.blocs[m] ? { ...b, pos: fig.blocs[m].pos, fige: fig.blocs[m].fige } : b)) })(x);
+            return x;
+          }, null, ns.length > 1 ? 'Ces blocs reprennent la place et l’apparence du gabarit.' : 'Ce bloc reprend la place et l’apparence du gabarit.');
+        },
         pousser(dx, dy) {
           const { i, n } = selection;
           const base = figeeOuActuelle(i);
@@ -1028,6 +1047,11 @@
         const tous = cibles().every(actuel);
         paragraphe((c) => ({ filet: !tous === filetParDefaut(c) ? null : !tous }));
       };
+      const aUnFilet = () => cibles().some((c) => (c.b.filet !== undefined ? c.b.filet : filetParDefaut(c)) || (c.b.marques || []).some((m) => m.filet));
+      const retirerFilet = () => {
+        if (!exigerBloc()) return;
+        appliquer((c) => (a) => OP.paragraphe(c.i, c.n, { filet: filetParDefaut(c) ? false : null })(OP.formater(c.i, c.n, 0, c.b.texte.length, { filet: null })(a)), 'Filet retiré.');
+      };
       const effacer = () => { const enEcriture = !!blocCourant; const { debut, fin } = selRef.current; formater({ gras: null, italique: null, souligne: null, taille: null, couleur: null }); if (!enEcriture || fin <= debut) paragraphe({ alignement: null, filet: null }); };
       const natureDe = (n) => { if (exigerBloc()) appliquer((c) => OP.modifierBloc(c.i, c.n, { style: n })); };
 
@@ -1147,7 +1171,9 @@
           trait,
           lignes
             ? item('Retirer le filet de ces lignes', () => formater({ filet: null }))
-            : item('Filet sur tout le paragraphe', () => (blocCourant || cibles().length ? basculerFilet() : exigerBloc()), { coche: blocCourant ? st.filet : undefined }),
+            // Un filet déjà là (sur le paragraphe ou sur une partie de son texte) : le bouton devient « Retirer le filet ».
+            : aUnFilet() ? item('Retirer le filet', retirerFilet)
+              : item('Filet sur tout le paragraphe', () => (blocCourant || cibles().length ? basculerFilet() : exigerBloc())),
         ];
       };
       // Bouton filet de la barre : avec des lignes choisies, il ne touche qu'elles (et les retire si elles ont déjà un filet).
@@ -1522,7 +1548,7 @@
                           h('button', { type: 'button', onClick: () => { const n = imgs.concat([{ ...imgs[k2], x: imgs[k2].x + 0.03, y: imgs[k2].y + 0.03, verrou: false }]); majImages(i, n); setImageChoisie({ i, k: n.length - 1 }); } }, 'Dupliquer'),
                           h('button', { type: 'button', className: 'danger', onClick: () => { majImages(i, imgs.filter((_, j) => j !== k2), nomImage(imgs, k2) + ' retiré de la page.'); setImageChoisie(null); } }, 'Supprimer')));
                     })(),
-                    selection.i === i && selection.n.map((n) => { const b = boiteDe(i, n); return b && h('div', { key: 'sel' + n, className: 'selection-bloc', style: { left: b.x - 8 + 'px', top: b.y - 8 + 'px', width: b.l + 16 + 'px', height: b.h + 16 + 'px' } }); }),
+                    selection.i === i && selection.n.map((n) => { const b = boiteDe(i, n); return b && h('div', { key: 'sel' + n, className: 'selection-bloc', 'data-bloc': n, style: { left: b.x - 8 + 'px', top: b.y - 8 + 'px', width: b.l + 16 + 'px', height: b.h + 16 + 'px' } }); }),
                     selection.i === i && selection.n.length === 1 && (!apercu || apercu.cote) && (() => { const b = boiteDe(i, selection.n[0]); return b && h(Fragment, null,
                       h('div', { className: cls('poignee-redim', apercu && apercu.cote === 'g' && 'actif'), 'data-cote': 'g', title: 'Largeur', style: { left: b.x - 8 + 'px', top: b.y + b.h / 2 + 'px' } }),
                       h('div', { className: cls('poignee-redim', apercu && apercu.cote === 'd' && 'actif'), 'data-cote': 'd', title: 'Largeur', style: { left: b.x + b.l + 8 + 'px', top: b.y + b.h / 2 + 'px' } })); })(),
@@ -1583,8 +1609,6 @@
       const b = (contenu, action, titre, extra = {}) => h('button', { type: 'button', className: cls('outil', extra.classe), title: titre, 'aria-label': titre, disabled: extra.desactive, onMouseDown: garder, onClick: action, ref: extra.ref }, contenu);
       const ico = (d) => h('svg', { className: 'icone', width: 18, height: 18, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('path', { d, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }));
       return h('div', { ref, className: 'barre-blocs', role: 'toolbar', 'aria-label': 'Actions sur les blocs sélectionnés', style: pos },
-        h('span', { className: 'nb-blocs' }, n > 1 ? `${n} blocs` : '1 bloc'),
-        h('span', { className: 'separateur', 'aria-hidden': 'true' }),
         b(h(Fragment, null, ico('M8 4v6a4 4 0 004 4 4 4 0 014 4v2M16 4v6a4 4 0 01-4 4'), 'Fusionner'), actions.fusionner, 'Réunir les blocs sélectionnés en un seul paragraphe', { desactive: n < 2, classe: 'avec-texte' }),
         b(h(Fragment, null, ico('M8 8h12v12H8zM16 8V4H4v12h4'), 'Dupliquer'), actions.dupliquer, 'Dupliquer', { classe: 'avec-texte' }),
         b(h(Fragment, null, ico('M12 5v14M5 12h14'), 'Nouveau'), actions.nouveau, 'Nouveau bloc après', { classe: 'avec-texte' }),
@@ -1595,7 +1619,8 @@
           () => { setSousForme(null); setAligner(!aligner); }, 'Placer sur la page', { classe: 'avec-texte', ref: refAligner }),
         h('span', { className: 'separateur', 'aria-hidden': 'true' }),
         b(ico('M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3'), actions.supprimer, 'Supprimer (⌫)', { classe: 'danger' }),
-        libre && b(h(Fragment, null, ico('M4 4h16v16H4zM4 9h16'), 'Revenir au gabarit'), () => actions.revenir(selection.i), 'La page reprend sa mise en page automatique', { classe: 'avec-texte' }),
+        // « Revenir au gabarit » : seulement les blocs sélectionnés (place, taille et apparence du gabarit), le reste de la page ne bouge pas.
+        libre && b(h(Fragment, null, ico('M4 4h16v16H4zM4 9h16'), 'Revenir au gabarit'), () => actions.revenirBlocs(selection.i, selection.n), n > 1 ? 'Ces blocs reprennent la place et l’apparence du gabarit' : 'Ce bloc reprend la place et l’apparence du gabarit', { classe: 'avec-texte' }),
         forme && h(Fragment, null,
           h('span', { className: 'separateur', 'aria-hidden': 'true' }),
           b(h(Fragment, null, ico('M5 19L11 5h2l6 14M8 13h8'), h('span', { className: 'chevron-bas', 'aria-hidden': 'true' }, '▾')), () => { setAligner(false); setSousForme(sousForme === 'style' ? null : 'style'); }, 'Style de paragraphe', { ref: refStyle, classe: sousForme === 'style' && 'actif' }),

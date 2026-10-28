@@ -50,8 +50,8 @@ with sync_playwright() as p:
     verifie('l’envie part avec la demande de trois propositions', 'Mets un fond vert pâle' in c and 'Nombre de slides : 6 au plus' in c)
     verifie('trois nouvelles propositions, fond suivi', seg.get_by_role('button').first.inner_text() == 'Récit en vert' and 'fond vert pâle' in fe.locator('.mep-infos').inner_text())
     # Les indications servent aux nouvelles propositions
-    fe.get_by_role('button', name='Proposer 3 autres').click(); pg.wait_for_timeout(1200)
-    verifie('« Proposer 3 autres » reprend tes indications', 'Indications de la personne' in etat['envois'][-1]['messages'][0]['content'] and 'Mets un fond vert pâle' in etat['envois'][-1]['messages'][0]['content'])
+    fe.locator('.bouton-robot').click(); pg.wait_for_timeout(200); fe.get_by_role('menuitem', name='Générer 3 propositions').click(); pg.wait_for_timeout(1200)
+    verifie('« Générer 3 propositions » reprend tes indications', 'Indications de la personne' in etat['envois'][-1]['messages'][0]['content'] and 'Mets un fond vert pâle' in etat['envois'][-1]['messages'][0]['content'])
     # Retour à l'étape 1 puis 3 par les pastilles
     fe.get_by_role('button', name='Appliquer').click(); pg.wait_for_timeout(900)
     verifie('appliqué : étape Mise en page', 'Mise en page' in pg.locator('.etape.active').inner_text())
@@ -62,7 +62,7 @@ with sync_playwright() as p:
     verifie('réglages : ouverts à l’étape 2 sur la mise en page actuelle, sans appel', fr.locator('.etapes-assistant').count() == 0 and seg2.get_by_role('button', name='Actuelle').get_attribute('aria-pressed') == 'true')
     n_av = len(etat['envois'])
     etat['reponses'] = [{'propositions': BONS}]
-    fr.get_by_role('button', name='Proposer 3 mises en page').click(); pg.wait_for_timeout(1200)
+    fr.locator('.bouton-robot').click(); pg.wait_for_timeout(200); fr.get_by_role('menuitem', name='Générer 3 propositions').click(); pg.wait_for_timeout(1200)
     verifie('réglages : propositions à la demande', len(etat['envois']) == n_av + 1 and seg2.get_by_role('button').count() == 5)
     seg2.get_by_role('button', name=plans[1]['nom']).click(); pg.wait_for_timeout(200)
     fr.get_by_role('button', name='Appliquer').click(); pg.wait_for_timeout(600)

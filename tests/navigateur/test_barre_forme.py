@@ -24,7 +24,7 @@ with sync_playwright() as p:
         pg.mouse.click(cal['x'] + cal['width'] * 0.3, cal['y'] + cal['height'] * k / 20); pg.wait_for_timeout(250)
         if barre.count(): break
         pg.mouse.click(cal['x'] - 30, cal['y'] + 10); pg.wait_for_timeout(150)
-    verifie('un bloc sélectionné : la barre apparaît', barre.count() == 1 and '1 bloc' in barre.inner_text())
+    verifie('un bloc sélectionné : la barre apparaît (sans compteur de blocs)', barre.count() == 1 and '1 bloc' not in barre.inner_text())
     for nom in ['Style de paragraphe', 'Alignement du texte', 'Filet latéral', 'Fond du paragraphe', 'Revenir à l’original (effacer la mise en forme)']:
         bt = barre.get_by_role('button', name=nom, exact=True)
         verifie('bouton « ' + nom + ' » (44 points)', bt.count() == 1 and bt.bounding_box()['height'] >= 44)

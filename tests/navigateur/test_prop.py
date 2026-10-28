@@ -34,7 +34,7 @@ with sync_playwright() as p:
     fen = pg.get_by_role('dialog', name='Apparence générale', exact=True)
     seg = fen.get_by_role('group', name='Mises en page proposées')
     verifie('fenêtre ouverte sur la mise en page actuelle', fen.count() == 1 and seg.get_by_role('button', name='Actuelle').get_attribute('aria-pressed') == 'true')
-    fen.get_by_role('button', name='Proposer 3 mises en page').click(); pg.wait_for_timeout(1500)
+    fen.locator('.bouton-robot').click(); pg.wait_for_timeout(200); fen.get_by_role('menuitem', name='Générer 3 propositions').click(); pg.wait_for_timeout(1500)
     verifie('consigne : catalogue, paragraphes numérotés, règles', 'Gabarits (code : nom, famille, usage)' in etat['texte'] and '[0] ' in etat['texte'] and 'Esthétique avant tout' in etat['systeme'], etat['texte'][:200])
     noms = seg.get_by_role('button').all_inner_texts()
     verifie('deux propositions retenues, l’incomplète écartée et annoncée', noms == ['Actuelle', 'Récit', 'Contraste', 'Sans IA'] and 'écartée' in fen.inner_text(), noms)

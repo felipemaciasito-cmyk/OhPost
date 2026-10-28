@@ -1133,6 +1133,8 @@ canvas.slide.editable { cursor: text; }
 .gf-reseau::before { content: ''; position: absolute; inset: -8px; } /* zone à toucher plus large que le logo */
 .gf-reseau img { width: 100%; height: 100%; display: block; opacity: 0.5; transition: opacity 0.25s ease; }
 .gf-reseau:hover img, .gf-reseau:focus-visible img, .gf-reseau:active img { opacity: 1; }
+/* Logos blancs sur une page claire : affichés en noir (le fichier n'est pas modifié, seulement son affichage). */
+.gf-reseau.sur-clair img { filter: brightness(0); }
 @media (prefers-reduced-motion: reduce) { .grande-fenetre { animation: none; } .gf-reseau img { transition: none; } }
 
 /* ---------- Grande fenêtre : sélection de zones et agent ciblé ---------- */

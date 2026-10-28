@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-27.3'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-28.1'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -1182,6 +1182,8 @@
       c.elements.filter((e) => e.type === 'image' && (e.cle === 'fleurs' || e.cle === 'logo' || e.cle === 'logoClair')).forEach((e) => { b[e.cle === 'fleurs' ? 'fleurs' : 'logo'] = { x0: e.x, y0: e.y, x1: e.x + e.l, y1: e.y + e.h }; });
       return b;
     }, [slide, format, fond, page, n]);
+    // Les logos LinkedIn et Instagram sont blancs : sur une page au fond clair, ils s'affichent en noir pour rester visibles.
+    const pageClaire = useMemo(() => { const c = composerPage(slide, page); return !!(c.fond && c.fond.fond) && !M.fondFonce(c.fond.fond); }, [slide, format, fond, page, n]);
     const boites = useMemo(() => {
       const c = M.composer(slide, format, fond, choisirPolice, { charte, reglages, index: page, total: n, logo });
       const b = {};
@@ -1345,7 +1347,7 @@
           imagesChoisies.map((k) => rect({ x0: boitesImages[k].x0 / f.l, x1: boitesImages[k].x1 / f.l, y0: boitesImages[k].y0 / f.h, y1: boitesImages[k].y1 / f.h }, 'i' + k, 'gf-paragraphe')),
           zones.map((z, k) => rect(z, 'z' + k, 'gf-zone')),
           apercuTrace && rect(apercuTrace, 'trace', 'gf-zone trace')),
-        ICONES_RESEAUX.map((ic) => h('button', { key: ic.id, type: 'button', className: 'gf-reseau', 'aria-label': `Aperçu du post ${ic.nom}`,
+        ICONES_RESEAUX.map((ic) => h('button', { key: ic.id, type: 'button', className: cls('gf-reseau', pageClaire && 'sur-clair'), 'aria-label': `Aperçu du post ${ic.nom}`,
           style: { left: ic.x * largeur + 'px', top: HAUT_ICONE * largeur + 'px', width: TAILLE_ICONE * largeur + 'px', height: TAILLE_ICONE * largeur + 'px' }, onClick: () => setFil(ic.id) },
           h('img', { src: ic.fichier, alt: '' })))),
       n > 1 && page > 0 && h('button', { type: 'button', className: 'gf-fleche gauche', 'aria-label': 'Page précédente', onClick: () => aller(page - 1) }, h(Icone, { nom: 'gauche', taille: 22 })),

@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-28.9'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-28.10'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -39,7 +39,7 @@
     if (racine.PostsOPRelecture && !racine.PostsOPRelecture.JSON_DISCUSSION) manque.push('relecture.js');
     verifier(M, 'moteur.js', ['composer', 'figerSlide', 'retoucherDisposition']); // retoucherDisposition : gestes de l'agent ciblé
     verifier(racine.PostsOPTypographie || (typeof require === 'function' ? require('./typographie.js') : null), 'typographie.js', ['notesDeTravail', 'retirerLignes', 'corrections']);
-    verifier(racine.PostsOPIA || (typeof require === 'function' ? require('./ia.js') : null), 'ia.js', ['demander', 'active']);
+    verifier(racine.PostsOPIA || (typeof require === 'function' ? require('./ia.js') : null), 'ia.js', ['demander', 'active', 'accueil']); // accueil : la phrase d'accueil de CCB
     // Un module trop ancien a ses fonctions, mais pas les éléments ajoutés depuis : on les vérifie aussi.
     if (IA && !IA.absent && (!IA.ASSISTANT || !IA.MARGE_REFLEXION) && !manque.includes('ia.js')) manque.push('ia.js'); // MARGE_REFLEXION : version compatible avec Sonnet 5.5
     if (typeof window !== 'undefined') verifier(racine.PostsOPPropositions, 'propositions.js', ['lireReponse', 'construireSlides', 'adapterRecette', 'aere']);
@@ -1451,6 +1451,7 @@
           !configIA && h('p', { className: 'doux petit' }, `Pour retoucher avec ${nomIA}, ajoute ta clé dans Configuration, onglet IA.`),
           nbPar === 0 && !imagesChoisies.length && h('p', { className: 'doux petit' }, 'Aucun paragraphe dans cette zone : trace un rectangle qui touche du texte, le logo ou les fleurs.'),
           nbPar > 0 && h('p', { className: 'gf-extraits petit' }, choisis.map((k) => '« ' + String(slide.blocs[k].texte).replace(/\s+/g, ' ').slice(0, 46) + (String(slide.blocs[k].texte).length > 46 ? '…' : '') + ' »').join('   ')),
+          configIA && h(AccueilCCB, { cle: 'cible-' + (texte || '').slice(0, 40), classe: 'mep-message ccb' }),
           messages.length > 0 && h('div', { className: 'mep-fil-messages gf-messages' }, messages.map((m, k) => h('div', { key: k, className: cls('mep-message', m.de === 'moi' ? 'moi' : 'ccb') }, m.texte))),
           enCours && h('p', { className: 'doux petit', role: 'status' }, `${nomIA} retouche la zone…`),
           h(EtatVoix, { voix, nomIA }),
@@ -1777,6 +1778,7 @@
     const discussionCCB = discOuverte && h('div', { className: cls('mep-discussion', discRepliee && 'repliee'), role: 'region', 'aria-label': `Discussion avec ${IA.ASSISTANT.nom}` },
       enteteDiscussion,
       !discRepliee && h(Fragment, null,
+      h(AccueilCCB, { cle: 'envie-' + (edite ? edite.id : 'nouvel-article'), classe: 'mep-message ccb' }),
       discussion.length > 0 && h('div', { className: 'mep-fil-messages', ref: refFilEnvies }, discussion.map((m, k) => {
         const rec = m.envie && envies.find((e) => e.id === m.envie);
         const vue = rec && envieVue && envieVue.id === rec.id;
@@ -2319,6 +2321,19 @@
     return h('p', { className: 'etat-voix', role: 'status' }, h('span', { className: cls('pastille-voix', voix.phase), 'aria-hidden': 'true' }), textes[voix.phase] || '', voix.actif && voix.partiel && h('span', { className: 'partiel' }, ' « ' + voix.partiel + ' »'));
   }
 
+  // L'accueil de CCB en tête de conversation : une phrase chaleureuse selon le moment de la journée (ia.js, sans appel à l'IA).
+  // Avec une clé, la même phrase reste pour cette conversation pendant la session ; une nouvelle session en tire une autre.
+  const ACCUEILS_SESSION = new Map();
+  function AccueilCCB({ cle, classe }) {
+    const [texte] = useState(() => {
+      if (!IA.accueil) return '';
+      if (!cle) return IA.accueil();
+      if (!ACCUEILS_SESSION.has(cle)) ACCUEILS_SESSION.set(cle, IA.accueil());
+      return ACCUEILS_SESSION.get(cle);
+    });
+    return texte ? h('div', { className: cls(classe, 'accueil-ccb') }, texte) : null;
+  }
+
   function FenetreDiscussion({ disc, nomIA, passage, onRetirerPassage, onChoisirPassage, invitation }) {
     const [saisie, setSaisie] = useState('');
     const [passageEntier, setPassageEntier] = useState(false);
@@ -2367,6 +2382,7 @@
           autrePassage.length > 90 && h('button', { type: 'button', className: 'lien fort lien-passage', onClick: () => setPassageConvEntier(!passageConvEntier) }, passageConvEntier ? ' Réduire' : ' Voir en entier')),
         h(Bouton, { variante: 'petit', onClick: () => onChoisirPassage(autrePassage) }, 'Le choisir')),
       h('div', { className: 'discussion-fil', ref: fil },
+        h(AccueilCCB, { key: disc.courante, cle: 'disc-' + disc.courante, classe: 'bulle ia' }),
         !disc.messages.length && h('p', { className: 'bulle ia' }, `Dis-moi ce que tu veux en langage naturel : « trois versions plus courtes », « garde la citation telle quelle », « plus chaleureux »… Je te propose, tu choisis. Ton texte ne change que si tu appliques une proposition.`),
         disc.messages.map((m, mi) => h(Fragment, { key: mi },
           h('p', { className: cls('bulle', m.de === 'moi' ? 'moi' : 'ia') }, m.texte),
@@ -2559,6 +2575,7 @@
             h('div', null, h('strong', null, p.titre), p.pourquoi && h('div', { className: 'doux petit' }, p.pourquoi)),
             h(Bouton, { variante: 'petit', onClick: () => choisirTitre(p.titre) }, 'Choisir')))),
           disc.ouverte && h('div', { className: 'mep-discussion' },
+            h(AccueilCCB, { classe: 'mep-message ccb' }),
             disc.messages.length > 0 && h('div', { className: 'mep-fil-messages' }, disc.messages.map((m, k) => h('div', { key: k, className: cls('mep-message', m.de === 'moi' ? 'moi' : 'ccb') }, m.texte,
               m.de === 'ccb' && titresDans(m.texte).length > 0 && h('div', { className: 'actions-ligne' }, titresDans(m.texte).map((t) => h(Bouton, { key: t, variante: 'petit', onClick: () => choisirTitre(t) }, 'Utiliser « ' + t + ' »')))))),
             disc.enCours && h('p', { className: 'doux petit', role: 'status' }, `${nomIA} réfléchit…`),
@@ -3114,6 +3131,16 @@
     if (IA.absent) return h('p', { className: 'erreur' }, 'Le fichier ia.js manque sur GitHub : renvoie-le pour retrouver les réglages de l’IA.');
     return h(OngletIAComplet, props);
   }
+  // Configuration › IA : le prénom par lequel CCB s'adresse à la personne (« Anne » par défaut), avec un exemple d'accueil.
+  function CartePrenom() {
+    const [p, setP] = useState(() => IA.prenom());
+    const [exemple, setExemple] = useState(() => IA.phraseAccueil(IA.ACCUEILS[IA.momentDe(new Date().getHours())][0], IA.prenom()));
+    const changer = (v) => { setP(v); IA.ecrirePrenom(v); setExemple(IA.phraseAccueil(IA.ACCUEILS[IA.momentDe(new Date().getHours())][0], v.trim())); };
+    return h(Carte, { titre: 'Ton prénom', sousTitre: `${IA.ASSISTANT.nom} t’appelle par ton prénom et t’accueille en début de conversation, selon le moment de la journée.` },
+      h(Ligne, { etiquette: 'Prénom', aide: 'Gardé sur cet appareil. Laisse vide pour que CCB ne l’utilise pas.' },
+        h('input', { className: 'champ-texte', value: p, autoComplete: 'given-name', 'aria-label': 'Ton prénom', onChange: (e) => changer(e.target.value) })),
+      h('p', { className: 'doux petit' }, 'Par exemple : « ' + exemple + ' »'));
+  }
   // Configuration › IA : la voix de CCB (celles de l'appareil), sa vitesse, sa hauteur, son volume ; un exemple à écouter.
   function CarteVoix() {
     const nomIA = IA.ASSISTANT.nom;
@@ -3191,6 +3218,7 @@
     const douteuse = cle.trim() && f.prefixe && !cle.trim().startsWith(f.prefixe);
     return h(Fragment, null,
       h('p', { className: 'note' }, 'L’IA proposera, tu décideras : rien ne sera appliqué sans ta validation. Ces réglages restent sur cet appareil, comme ta clé GitHub.'),
+      IA.prenom && h(CartePrenom),
       etat && h(ProfilEditorial, { etat, dispatch }),
       h(CarteVoix),
       h(Carte, { titre: 'État' },

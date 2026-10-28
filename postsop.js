@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-28.4'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-10-28.5'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -1397,7 +1397,10 @@
     const [format, setFormat] = useState(base ? base.format : r.formatDefaut);
     const [fond, setFond] = useState(base ? base.fond : 'bleu');
     const { choisirPolice, charte, reglages } = useContext(Contexte);
-    const paragraphes = texte.split(/\n\s*\n|\n/).map((p) => p.trim()).filter(Boolean);
+    // Article existant : ses paragraphes tels quels, retours à la ligne compris (un paragraphe peut contenir un retour
+    // à la ligne). Les recouper à chaque retour faisait croire que le texte avait changé : « Actuelle » disparaissait,
+    // et « Appliquer » coupait ce paragraphe en deux. Texte collé (création, modèle) : un paragraphe par ligne.
+    const paragraphes = edite ? edite.texte.map((p) => String(p).trim()).filter(Boolean) : texte.split(/\n\s*\n|\n/).map((p) => p.trim()).filter(Boolean);
     const [schema, setSchema] = useState(null); // null : le gabarit place le logo et les fleurs
     // Assistant en trois étapes : texte, mise en page (propositions de CCB), logo et fleurs. D'après un modèle : une seule étape.
     const [etape, setEtape] = useState(edite ? 2 : 1);
@@ -1434,7 +1437,7 @@
     const cleTexte = JSON.stringify([paragraphes, reseau, format]);
     const maxPages = PROP ? PROP.maxPagesPour(paragraphes) : 7;
     const indications = discussion.filter((m) => m.de === 'moi' && !m.ancien).map((m) => m.texte);
-    const actuelleValable = !!edite && !premiere && JSON.stringify(paragraphes) === JSON.stringify(edite.texte) && format === edite.format;
+    const actuelleValable = !!edite && !premiere && JSON.stringify(paragraphes) === JSON.stringify(edite.texte.map((p) => String(p).trim()).filter(Boolean)) && format === edite.format;
     const decoupage = useMemo(() => {
       if (!paragraphes.length) return [];
       let sl = M.decouperMecaniquement(paragraphes, format, fond, choisirPolice, { charte, reglages });

@@ -25,7 +25,7 @@ with sync_playwright() as p:
     pg.keyboard.press('Escape'); pg.wait_for_timeout(200)
     verifie('Échap la referme', pg.locator('.panneau-verifier').count() == 0)
     # Une page trop chargée : réunir les pages 1 et 2
-    pg.locator('.menus-composition .titre-menu').filter(has_text='Page 1').first.click(); pg.wait_for_timeout(200)
+    pg.locator('.menus-composition .titre-menu').filter(has_text='Page').first.click(); pg.wait_for_timeout(200)
     pg.get_by_role('menuitem', name='Réunir avec la suivante').click(); pg.wait_for_timeout(600)
     lab = cloche.get_attribute('aria-label')
     n = int(cloche.locator('.pastille-notif').inner_text())

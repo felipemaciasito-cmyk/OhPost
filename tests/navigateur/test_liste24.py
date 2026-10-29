@@ -19,7 +19,7 @@ with sync_playwright() as p:
     pg.get_by_text('Le silence au travail').first.click(); pg.wait_for_timeout(300)
     pg.locator('nav.etapes .etape').nth(1).click(); pg.wait_for_timeout(700)
     # Fond de page : pas de vert soutenu
-    pg.locator('.menus-composition .titre-menu').filter(has_text='Carrousel').first.click(); pg.wait_for_timeout(200)
+    pg.locator('.menus-composition .titre-menu').filter(has_text='Réglages').first.click(); pg.wait_for_timeout(200)
     pg.get_by_role('menuitem', name='Fond', exact=True).click(); pg.wait_for_timeout(250)
     fonds = pg.locator('.nuance-menu').evaluate_all('l => l.map(e => e.getAttribute("aria-label"))')
     verifie('menu Fond : pas de « Vert » plein', 'Vert' not in fonds and 'Vert pâle' in fonds, fonds)

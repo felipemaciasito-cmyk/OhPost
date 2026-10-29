@@ -20,7 +20,7 @@ with sync_playwright() as p:
         pg.keyboard.press('Escape'); pg.wait_for_timeout(100); pg.keyboard.press('Escape'); pg.wait_for_timeout(100)
         return [x.replace('\n', ' ') for x in t if x.startswith('Page ')]
     def menu_slide(n):
-        pg.get_by_role('button', name=f'Page {n}', exact=True).click(); pg.wait_for_timeout(250)
+        pg.get_by_role('button', name='Page', exact=True).click(); pg.wait_for_timeout(250)  # le menu « Page » agit sur la page active
     menu_slide(1)
     verifie('menu Page : « Garder dans mes favoris »', pg.get_by_role('menuitem', name='☆ Garder dans mes favoris').count() == 1)
     pg.get_by_role('menuitem', name='☆ Garder dans mes favoris').click(); pg.wait_for_timeout(300)
@@ -29,7 +29,7 @@ with sync_playwright() as p:
     verifie('la page est marquée ★', pg.get_by_role('menuitem', name='★ Retirer de mes favoris').count() == 1)
     pg.keyboard.press('Escape'); pg.wait_for_timeout(150)
     # Aller à la page 3 et appliquer le favori
-    for nom_menu in ('Affichage', 'Carrousel', 'Édition'):
+    for nom_menu in ('Affichage', 'Réglages', 'Édition'):
         pg.get_by_role('button', name=nom_menu, exact=True).click(); pg.wait_for_timeout(200)
         if pg.get_by_role('menuitem', name='Aller à la page').count(): break
         pg.keyboard.press('Escape'); pg.wait_for_timeout(100)
@@ -37,7 +37,7 @@ with sync_playwright() as p:
     print('   sous-menu :', pg.get_by_role('menuitem').all_inner_texts()[:12])
     pg.locator('[role^=menuitem]').filter(has_text='Page 3').first.click(); pg.wait_for_timeout(400)
     actif = pg.locator('.compteur-slide, [class*=compteur]').first.inner_text() if pg.locator('.compteur-slide, [class*=compteur]').count() else ''
-    nom_slide = [t for t in pg.locator('button').all_inner_texts() if t.startswith('Page ') and t[5:].isdigit()]
+    nom_slide = ['Page ' + str(int(pg.locator('.page-slide.active').get_attribute('data-index')) + 1)]  # la page active (le menu s'appelle maintenant « Page »)
     img_avant = pg.locator('canvas[aria-label="Page 3"]').evaluate('(c) => c.toDataURL()')
     menu_slide(int(nom_slide[0][5:]))
     print('   slide active :', nom_slide[0], '| menu :', pg.get_by_role('menuitem').all_inner_texts()[:4])

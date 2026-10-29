@@ -30,7 +30,7 @@ with sync_playwright() as p:
     pg.keyboard.press('Escape'); pg.wait_for_timeout(200)
     pg.mouse.click(1100, 500); pg.wait_for_timeout(200)
     # 2. Paragraphe sans lien : slide dupliquée
-    pg.get_by_role('button', name='Page 1').click(); pg.wait_for_timeout(200)
+    pg.get_by_role('button', name='Page', exact=True).click(); pg.wait_for_timeout(200)
     pg.get_by_text('Dupliquer la page').click(); pg.wait_for_timeout(600)
     pg.screenshot(path='dup.png')
     # La copie est la page 2 : on la fait défiler, puis on ouvre son titre

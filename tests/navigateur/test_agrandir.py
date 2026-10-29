@@ -29,7 +29,7 @@ with sync_playwright() as p:
     pg.locator('nav.etapes .etape').nth(1).click(); pg.wait_for_timeout(700)
     boutons = pg.locator('.bouton-agrandir')
     verifie('un bouton « Agrandir » par page', boutons.count() == n, (boutons.count(), n))
-    verifie('son nom ne se confond pas avec le menu « Page 1 »', pg.get_by_role('button', name='Page 1').count() == 1)
+    verifie('son nom ne se confond pas avec le menu « Page »', pg.get_by_role('button', name='Page', exact=True).count() == 1)
     ag2 = pg.locator('section.page-slide').nth(1).get_by_role('button', name='Agrandir')
     bb = ag2.bounding_box()
     verifie('assez grand pour le doigt (44 points)', bb['height'] >= 44, bb)

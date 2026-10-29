@@ -22,7 +22,7 @@ with sync_playwright() as p:
     pg.get_by_role('button', name='Couleur', exact=True).click(); pg.wait_for_timeout(200)
     pg.locator('[role=menu]').last.locator('[role^=menuitem]', has_text='Charte · bleu pâle').first.click(); pg.wait_for_timeout(400)
     pg.keyboard.press('Escape'); pg.mouse.click(5, 300); pg.wait_for_timeout(300)
-    pg.locator('.menus-composition .titre-menu').filter(has_text='Carrousel').first.click(); pg.wait_for_timeout(150)
+    pg.locator('.menus-composition .titre-menu').filter(has_text='Réglages').first.click(); pg.wait_for_timeout(150)
     pg.get_by_role('menuitem', name='Fond', exact=True).click(); pg.wait_for_timeout(200)
     pg.locator('.nuance-menu[aria-label="Blanc"]').click(); pg.wait_for_timeout(700)
     msg = pg.locator('.message').inner_text() if pg.locator('.message').count() else ''

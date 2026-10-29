@@ -9,7 +9,7 @@ with sync_playwright() as p:
     pg.goto('http://localhost:8765/'); pg.wait_for_timeout(900)
     pg.get_by_text('Le silence au travail').first.click(); pg.wait_for_timeout(300)
     pg.locator('nav.etapes .etape').nth(1).click(); pg.wait_for_timeout(700)
-    pg.get_by_role('button', name='Carrousel', exact=True).click(); pg.wait_for_timeout(200)
+    pg.get_by_role('button', name='Réglages', exact=True).click(); pg.wait_for_timeout(200)
     ouverts = lambda: [x for x in pg.locator('.popover-menu.sous').evaluate_all('(l) => l.map((e) => e.dataset.sous)')]
     centre = lambda nom: pg.get_by_role('menuitem', name=nom, exact=True).bounding_box()
     def survoler(nom):
@@ -29,7 +29,7 @@ with sync_playwright() as p:
     pg2.goto('http://localhost:8765/'); pg2.wait_for_timeout(900)
     pg2.get_by_text('Le silence au travail').first.tap(); pg2.wait_for_timeout(300)
     pg2.locator('nav.etapes .etape').nth(1).tap(); pg2.wait_for_timeout(700)
-    pg2.get_by_role('button', name='Carrousel', exact=True).tap(); pg2.wait_for_timeout(200)
+    pg2.get_by_role('button', name='Réglages', exact=True).tap(); pg2.wait_for_timeout(200)
     o2 = lambda: pg2.locator('.popover-menu.sous').evaluate_all('(l) => l.map((e) => e.dataset.sous)')
     pg2.get_by_role('menuitem', name='Fond', exact=True).tap(); pg2.wait_for_timeout(200)
     pg2.get_by_role('menuitem', name='Dimensions', exact=True).tap(); pg2.wait_for_timeout(200)

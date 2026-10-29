@@ -54,7 +54,7 @@ with sync_playwright() as p:
     pg.locator('nav.etapes .etape').nth(1).click(); pg.wait_for_timeout(500)
     verifie('second passage : la fenêtre ne se rouvre pas', pg.get_by_role('dialog').count() == 0)
     menu_carrousel = None
-    pg.locator('.menus-composition .titre-menu').filter(has_text='Carrousel').first.click(); pg.wait_for_timeout(200)
+    pg.locator('.menus-composition .titre-menu').filter(has_text='Réglages').first.click(); pg.wait_for_timeout(200)
     items = pg.locator('.popover-menu').first.inner_text()
     verifie('menu Carrousel sans redécoupage ni présentation au hasard ni « Mise en page et réglages »', 'Redécouper' not in items and 'autre présentation' not in items and 'Mise en page et réglages' not in items and 'Dimensions' in items, items)
     pg.keyboard.press('Escape'); pg.wait_for_timeout(150)

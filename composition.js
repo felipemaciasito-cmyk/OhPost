@@ -1268,7 +1268,6 @@
           ...(sel ? [item('Discuter de ce passage avec ' + nomIA, () => ouvrirDiscussion(sel)), ...rapides.map(([nom, demande]) => item(nom, () => ouvrirDiscussion(sel, demande)))] : [item('Discuter avec ' + nomIA, () => ouvrirDiscussion(''))]),
         ];
       };
-      const menuAlignement = () => [['gauche', 'Aligner à gauche'], ['centre', 'Centrer'], ['droite', 'Aligner à droite']].map(([v, nom]) => item(nom, () => aligner(v), { coche: blocCourant ? st.alignement === v : undefined }));
       // Barre des blocs sélectionnés : le style de paragraphe (coché quand tous les blocs l'ont) et le retour à l'original.
       const menuStyle = () => {
         const ip = edition ? edition.i : selection.i !== null ? selection.i : active;
@@ -1340,9 +1339,7 @@
           item('Rétablir', () => dispatch({ type: 'retablir' }), { raccourci: '⇧⌘Z', desactive: !etat.historique.futur.length }),
           trait,
           item('Couper', presse('cut'), { raccourci: '⌘X', desactive: !blocCourant }), item('Copier', presse('copy'), { raccourci: '⌘C', desactive: !blocCourant }), item('Coller', presse('coller'), { raccourci: '⌘V', desactive: !blocCourant }),
-          trait,
-          item('Tout sélectionner dans le paragraphe', presse('tout'), { raccourci: '⌘A', desactive: !blocCourant }),
-          item('Sélectionner tous les blocs de la page', () => actionsBlocs.toutSelectionner(active), { raccourci: blocCourant ? '' : '⌘A' }),
+          // « Tout sélectionner » retirés du menu (décision de Romain) : ⌘A le fait toujours au clavier.
         ] },
         { nom: 'Affichage', contenu: () => [
           { type: 'sous', libelle: 'Taille des pages', contenu: () => [['petites', 'Petites'], ['moyennes', 'Moyennes'], ['grandes', 'Grandes']].map(([v, nom]) => item(nom, () => { setTailleEcran(v); ecrirePref('postsop-taille-slides', v); }, coche(tailleEcran === v))) },
@@ -1351,8 +1348,6 @@
           { type: 'sous', libelle: 'Aller à la page', contenu: () => article.slides.map((s, i) => item(`Page ${i + 1}`, () => allerA(i), { raccourci: nomGabarit(M.gabaritParDefaut(s, i)), coche: active === i })) },
         ] },
         { nom: 'Insertion', contenu: () => [
-          item('Bloc de texte', actionsBlocs.nouveau),
-          { type: 'note', texte: 'Ou double-clique sur le vide d’une page pour créer un bloc à cet endroit.' },
           item('Nouveau paragraphe', nouveauParagraphe, { raccourci: '↩' }),
           item('Saut de page', sautDeSlide, { raccourci: '⌘↩' }),
           { type: 'note', texte: 'Le texte qui suit le curseur part sur une nouvelle page.' },
@@ -1363,21 +1358,7 @@
           trait,
           item('Page après celle-ci', slideVide),
         ] },
-        { nom: 'Format', contenu: () => [
-          { type: 'sous', libelle: 'Style de paragraphe', contenu: () => natures().map(([cle, nom]) => item(h('span', { className: 'apercu-style ' + cle }, nom), () => natureDe(cle), { coche: blocCourant ? M.natureAffichee(M.gabaritParDefaut(article.slides[edition.i], edition.i), blocCourant.style, edition.n) === cle : undefined })) },
-          trait,
-          item(h('b', null, 'Gras'), () => basculer('gras'), { raccourci: '⌘B', coche: blocCourant ? st.gras : undefined }),
-          item(h('i', null, 'Italique'), () => basculer('italique'), { raccourci: '⌘I', coche: blocCourant ? st.italique : undefined }),
-          item(h('u', null, 'Souligné'), () => basculer('souligne'), { raccourci: '⌘U', coche: blocCourant ? st.souligne : undefined }),
-          { type: 'sous', libelle: 'Taille', contenu: menuTaille },
-          { type: 'sous', libelle: 'Couleur', contenu: menuCouleur },
-          trait,
-          { type: 'sous', libelle: 'Alignement', contenu: menuAlignement },
-          { type: 'sous', libelle: 'Filet latéral', contenu: menuFilet },
-          { type: 'sous', libelle: 'Fond du paragraphe', contenu: menuFond },
-          trait,
-          item('Effacer la mise en forme', () => (blocCourant ? effacer() : exigerBloc())),
-        ] },
+        // Plus de menu Format (décision de Romain) : la mise en forme est dans la barre des blocs sélectionnés et dans celle du texte choisi.
         { nom: 'Bloc', contenu: () => {
           const n = selection.n.length;
           const ici = selection.i !== null ? selection.i : active;
@@ -1392,13 +1373,15 @@
               { type: 'titre', libelle: 'Entre les blocs sélectionnés' },
               item('Aligner leurs bords gauches', () => actionsBlocs.aligner('entre'), { desactive: n < 2 }), item('Répartir verticalement', () => actionsBlocs.aligner('repartir'), { desactive: n < 3 }),
             ] },
+            // La couleur de fond du paragraphe entier (les mêmes choix que dans la barre des blocs).
+            { type: 'sous', libelle: 'Fond du paragraphe', contenu: menuFond },
             trait,
             item('Supprimer', actionsBlocs.supprimer, { raccourci: '⌫', danger: true, desactive: !n }),
             trait,
             item('Revenir au gabarit', () => actionsBlocs.revenir(ici), { desactive: !article.slides[ici].libre }),
           ];
         } },
-        { nom: 'Page', titre: `Page ${active + 1}`, contenu: () => [
+        { nom: 'Page', contenu: () => [
           ...(article.slides[active].libre ? [item('Revenir au gabarit', () => actionsBlocs.revenir(active)), { type: 'note', texte: 'La page reprend sa mise en page automatique : marges, espacements et alignements de la charte.' }, trait] : []),
           { type: 'sous', libelle: 'Gabarit', contenu: () => [{ type: 'libre', rendu: (fermer) => h(GalerieGabarits, { slide: article.slides[active], index: active, total, article, choisir: (g) => { fermer(); majA(OP.gabarit(active, g), null, `Gabarit « ${nomGabarit(g)} ».`); setEdition(null); } }) }] },
           trait,
@@ -1438,7 +1421,7 @@
           trait,
           item('Supprimer la page', () => { majA(OP.supprimerSlide(active), null, `Page ${active + 1} supprimée. Son texte reste dans l’article.`); dispatch({ type: 'slide', index: Math.max(0, active - 1) }); setEdition(null); }, { danger: true, desactive: total <= 1 }),
         ] },
-        { nom: 'Carrousel', contenu: () => [
+        { nom: 'Réglages', contenu: () => [
           { type: 'sous', libelle: 'Fond', contenu: () => [{ type: 'libre', rendu: (fermer) => h(Nuancier, { valeur: article.fond, choisir: (f) => { fermer(); majA(OP.champ('fond', f), null, `Fond ${M.fondsDe(charte.palette)[f].nom.toLowerCase()}.`); setEdition(null); } }) }] },
           { type: 'sous', libelle: 'Dimensions', contenu: () => [['carre', 'Carré · 1:1'], ['portrait', 'Portrait · 4:5']].map(([v, nom]) => item(nom, () => { majA(OP.champ('format', v)); setEdition(null); }, coche(article.format === v))) },
           { type: 'sous', libelle: 'Réseau', contenu: () => [['instagram', 'Instagram (images)'], ['linkedin', 'LinkedIn (PDF)'], ['deux', 'Les deux']].map(([v, nom]) => item(nom, () => majA(OP.champ('reseau', v)), coche(article.reseau === v))) },
@@ -1564,7 +1547,7 @@
                     })))));
           })),
         selection.n.length > 0 && !apercu && !menu && !edition && h(BarreBlocs, { selection, boites: selection.n.map((n) => boiteDe(selection.i, n)).filter(Boolean), k, pagesRef, libre: !!(article.slides[selection.i] && article.slides[selection.i].libre), actions: actionsBlocs,
-          forme: { menuStyle, menuFilet, menuFond, alignerTexte: aligner, alignementTexte: alignementDesBlocs, revenirOriginal, filetCouleur: filetDesBlocs } }),
+          forme: { menuStyle, menuFilet, menuFond, alignerTexte: aligner, alignementTexte: alignementDesBlocs, revenirOriginal, filetCouleur: filetDesBlocs, fondCouleur: () => { const f = fondActuel(); return f ? resoudre(f.couleur) : null; } } }),
         barre && blocCourant && !menu && h(BarreFlottante, {
           position: barre, st, deplie, setDeplie: (v) => { setDeplie(v); ecrirePref('postsop-barre-depliee', v ? 'oui' : 'non'); },
           presets, fond, natures: natures(), sous: sousBarre, setSous: setSousBarre,
@@ -1580,8 +1563,10 @@
     // Barre d'actions des blocs sélectionnés : au-dessus de la sélection, sans contour (comme la barre de texte).
     // Les trois alignements du texte dans un bloc, avec leur icône.
     const ALIGNEMENTS_TEXTE = [['gauche', 'Texte à gauche', 'M4 6h16M4 12h10M4 18h14'], ['centre', 'Texte centré', 'M4 6h16M7 12h10M5 18h14'], ['droite', 'Texte à droite', 'M4 6h16M10 12h10M6 18h14']];
+    // Une couleur de lettre lisible sur un fond donné (pour l'icône du fond du paragraphe).
+    const lisibleSur = (hex) => { const c = String(hex || '').replace('#', ''); if (c.length !== 6) return 'currentColor'; const v = [0, 2, 4].map((p) => parseInt(c.slice(p, p + 2), 16) / 255); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2] > 0.5 ? '#003846' : '#FFFFFF'; };
     function BarreBlocs({ selection, boites, k, pagesRef, libre, actions, forme }) {
-      // Mise en forme des blocs sélectionnés (les mêmes réglages que le menu Format) : style, filet, fond, retour à l'original.
+      // Mise en forme des blocs sélectionnés (les réglages de l'ancien menu Format) : style, filet, fond, retour à l'original.
       const refStyle = useRef(null); const refFilet = useRef(null); const refFond = useRef(null); const refAlignTexte = useRef(null);
       const [sousForme, setSousForme] = useState(null);
       const ref = useRef(null);
@@ -1632,7 +1617,12 @@
               : h('path', { d: 'M6 4v16', stroke: 'currentColor', strokeWidth: 2, strokeDasharray: '2 3', strokeLinecap: 'round', opacity: 0.6 }),
             h('path', { d: 'M12 7h8M12 12h8M12 17h6', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' })),
             () => { setAligner(false); setSousForme(sousForme === 'filet' ? null : 'filet'); }, 'Filet latéral', { ref: refFilet, classe: sousForme === 'filet' && 'actif' }),
-          b(ico('M4 6h16v12H4zM8 10h8M8 14h5'), () => { setAligner(false); setSousForme(sousForme === 'fond' ? null : 'fond'); }, 'Fond du paragraphe', { ref: refFond, classe: sousForme === 'fond' && 'actif' }),
+          // Le fond en couleur : un « A » sur un carré de la couleur du fond des blocs, en pointillé s'ils n'en ont pas.
+          b(h('svg', { className: 'icone', width: 18, height: 18, viewBox: '0 0 24 24', 'aria-hidden': 'true' },
+            forme.fondCouleur() ? h('rect', { x: 2.5, y: 3.5, width: 19, height: 17, rx: 3, fill: forme.fondCouleur(), stroke: 'currentColor', strokeOpacity: 0.3, strokeWidth: 0.8 })
+              : h('rect', { x: 2.5, y: 3.5, width: 19, height: 17, rx: 3, fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeDasharray: '2.5 2.5', opacity: 0.6 }),
+            h('path', { d: 'M8 17l4-10 4 10M9.6 13.5h4.8', fill: 'none', stroke: forme.fondCouleur() ? lisibleSur(forme.fondCouleur()) : 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' })),
+            () => { setAligner(false); setSousForme(sousForme === 'fond' ? null : 'fond'); }, 'Fond du paragraphe', { ref: refFond, classe: sousForme === 'fond' && 'actif' }),
           b(ico('M16 4l4 4-9 9H7v-4zM7 17l-3 3M14 20h6'), () => { setSousForme(null); forme.revenirOriginal(); }, 'Revenir à l’original (effacer la mise en forme)')),
         sousForme === 'style' && h(Popover, { ancre: refStyle, fermer: () => setSousForme(null), etiquette: 'Style de paragraphe', contenu: forme.menuStyle }),
         sousForme === 'filet' && h(Popover, { ancre: refFilet, fermer: () => setSousForme(null), etiquette: 'Filet latéral', contenu: forme.menuFilet }),

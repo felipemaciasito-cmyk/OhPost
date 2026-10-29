@@ -12,8 +12,8 @@ with sync_playwright() as p:
     pg.locator('nav.etapes .etape').nth(1).click(); pg.wait_for_timeout(700)
     toile = lambda: pg.locator('canvas[aria-label="Page 1"]').evaluate('(c) => c.toDataURL()')
     depart = toile()
-    pg.mouse.click(600, 590); pg.wait_for_timeout(300)  # choisir le bloc
-    pg.get_by_role('button', name='Format', exact=True).click(); pg.wait_for_timeout(150)
+    pg.mouse.click(600, 590); pg.wait_for_timeout(300)  # choisir le bloc (plus de menu Format : « Fond du paragraphe » est dans le menu Bloc)
+    pg.get_by_role('button', name='Bloc', exact=True).click(); pg.wait_for_timeout(150)
     pg.get_by_role('menuitem', name='Fond du paragraphe').click(); pg.wait_for_timeout(200)
     menu = pg.locator('[role=menu]').last.inner_text()
     verifie('menu : couleurs, forme, angles, aucun, gabarit', all(x in menu for x in ('Couleur libre', 'Rectangle autour du paragraphe', 'Suit les lignes du texte', 'Arrondis', 'Droits', 'Aucun fond', 'Revenir au fond du gabarit')), menu[:300])
@@ -21,7 +21,7 @@ with sync_playwright() as p:
     r1 = toile()
     verifie('fond rectangle appliqué', r1 != depart)
     def menu_fond():
-        pg.get_by_role('button', name='Format', exact=True).click(); pg.wait_for_timeout(300)
+        pg.get_by_role('button', name='Bloc', exact=True).click(); pg.wait_for_timeout(300)
         pg.get_by_role('menuitem', name='Fond du paragraphe').click(); pg.wait_for_timeout(300)
     menu_fond()
     pg.locator('[role^=menuitem]', has_text='Suit les lignes du texte').click(); pg.wait_for_timeout(500)

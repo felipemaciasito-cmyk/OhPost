@@ -19,7 +19,7 @@ with sync_playwright() as p:
     pg.get_by_text('Le silence au travail').first.click(); pg.wait_for_timeout(300)
     pg.locator('nav.etapes .etape').nth(1).click(); pg.wait_for_timeout(700)
     verifie('robot à droite de la barre de menus', pg.locator('.historique-menus').get_by_role('button', name='CCB · Creative Collaborative Boost').count() == 1)
-    pg.get_by_role('button', name='Carrousel', exact=True).click(); pg.wait_for_timeout(150)
+    pg.get_by_role('button', name='Réglages', exact=True).click(); pg.wait_for_timeout(150)
     verifie('plus de « Propositions de mise en page » dans les menus', pg.get_by_role('menuitem', name='Propositions de mise en page…').count() == 0)
     pg.keyboard.press('Escape'); pg.wait_for_timeout(150)
     pg.get_by_role('button', name='CCB · Creative Collaborative Boost').click(); pg.wait_for_timeout(200)

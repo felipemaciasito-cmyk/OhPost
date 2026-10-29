@@ -34,7 +34,7 @@ with sync_playwright() as p:
     m = menu('Couleur'); m.locator('[role^=menuitem]', has_text='Couleur d’origine').first.click(); pg.wait_for_timeout(400)
     # Fond de page vert pâle : le bleu lisible, les autres à part
     pg.keyboard.press('Escape'); pg.mouse.click(5, 300); pg.wait_for_timeout(200)
-    pg.locator('.menus-composition .titre-menu').filter(has_text='Carrousel').first.click(); pg.wait_for_timeout(150)
+    pg.locator('.menus-composition .titre-menu').filter(has_text='Réglages').first.click(); pg.wait_for_timeout(150)
     pg.get_by_role('menuitem', name='Fond', exact=True).click(); pg.wait_for_timeout(200)
     pg.locator('.nuance-menu[aria-label="Vert pâle"]').click(); pg.wait_for_timeout(500)
     editer()

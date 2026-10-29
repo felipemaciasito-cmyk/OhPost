@@ -29,7 +29,7 @@ with sync_playwright() as p:
     pg.mouse.click(600, 650); pg.wait_for_timeout(200)
     verifie('toucher ailleurs ferme la bulle', bulle.count() == 0)
     # Les menus de la Mise en page restent au-dessus des pages, comme avant
-    pg.locator('.menus-composition .titre-menu').filter(has_text='Carrousel').first.click(); pg.wait_for_timeout(250)
+    pg.locator('.menus-composition .titre-menu').filter(has_text='Réglages').first.click(); pg.wait_for_timeout(250)
     m = pg.locator('.popover-menu').first
     verifie('un menu ouvert reste visible au-dessus des pages', m.count() == 1 and m.evaluate(DESSUS) == 0)
     verifie('aucune erreur JavaScript', not erreurs, erreurs)

@@ -36,7 +36,7 @@ with sync_playwright() as p:
     verifie('slide par slide : logo retiré de la page 3', 'Logo sur %d pages' % (nb - 1) in sch.inner_text())
     fe.get_by_role('button', name='Appliquer').click(); pg.wait_for_timeout(900)
     def liste(n):
-        pg.get_by_role('button', name=f'Page {n}', exact=True).click() if pg.get_by_role('button', name=f'Page {n}', exact=True).count() else None
+        pg.get_by_role('button', name='Page', exact=True).click()  # le menu « Page » agit sur la page active (choisie avant par « Aller à la page »)
         pg.wait_for_timeout(150)
         pg.get_by_role('menuitem', name='Logo et fleurs').click(); pg.wait_for_timeout(200)
         t = pg.locator('.liste-images').inner_text(); pg.keyboard.press('Escape'); pg.wait_for_timeout(150); return t

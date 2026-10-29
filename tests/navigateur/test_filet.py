@@ -17,8 +17,9 @@ with sync_playwright() as p:
     # Sélectionner les 12 premiers caractères du bloc
     ed.evaluate('(el) => { const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); const n = w.nextNode(); const r = document.createRange(); r.setStart(n, 0); r.setEnd(n, Math.min(12, n.length)); const s = getSelection(); s.removeAllRanges(); s.addRange(r); document.dispatchEvent(new Event("selectionchange")); }')
     pg.wait_for_timeout(200)
-    pg.get_by_role('button', name='Format', exact=True).click(); pg.wait_for_timeout(200)
-    pg.get_by_role('menuitem', name='Filet latéral').click(); pg.wait_for_timeout(200)
+    # Plus de menu Format : le même menu du filet s'ouvre par la barre du texte choisi (« Couleur du filet »)
+    if pg.get_by_role('button', name='Plus d’outils').count(): pg.get_by_role('button', name='Plus d’outils').click(); pg.wait_for_timeout(200)
+    pg.get_by_role('button', name='Couleur du filet').click(); pg.wait_for_timeout(200)
     menu = pg.locator('[role=menu]').last.inner_text()
     verifie('sous-menu : lignes choisies, couleurs de charte et couleur libre', 'À côté des lignes choisies' in menu and 'Charte · vert pâle' in menu and 'Couleur libre' in menu, menu[:300])
     pg.get_by_role('menuitem', name='Charte · vert pâle', exact=True).click(); pg.wait_for_timeout(400)

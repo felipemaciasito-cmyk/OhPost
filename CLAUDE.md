@@ -1,16 +1,12 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Oh!Post — guide pour Claude Code
 
 Oh!Post est l'application de Romain (Oh ! Potentiel, cabinet d'Anne Litique) pour transformer des articles en carrousels LinkedIn et Instagram fidèles à la charte. C'est une PWA sans étape de construction, publiée par GitHub Pages depuis la branche `main`, utilisée surtout sur iPad (Safari et app installée sur l'écran d'accueil).
 
 Ce fichier résume l'architecture, les règles et les décisions prises avec Romain pendant le développement (fait jusqu'ici dans des conversations claude.ai). Respecte-les : elles ont toutes été validées par lui.
-
-## Première tâche (une seule fois)
-
-Si le fichier `ohpost-tests.zip` est à la racine du dépôt :
-1. décompresse-le à la racine (il crée le dossier `tests/`) ;
-2. supprime `ohpost-tests.zip` ;
-3. lance les tests (voir plus bas) : tout doit passer ;
-4. propose une pull request « Ajout des tests », en français.
 
 ## Travailler avec Romain
 
@@ -22,7 +18,9 @@ Si le fichier `ohpost-tests.zip` est à la racine du dépôt :
 
 ## Architecture (aucune étape de construction)
 
-React 18.3.1 en UMD depuis jsDelivr, sans JSX (`h = React.createElement`). Chaque module est un fichier JavaScript qui s'enregistre sur `window` (`PostsOPMoteur`, `PostsOPRelecture`…) et fonctionne aussi avec `require` dans Node (tests unitaires).
+React 18.3.1 et opentype.js 1.3.4 en UMD depuis jsDelivr ; `pdf-lib.min.js` est copié dans le dépôt. Pas de JSX (`h = React.createElement`). Chaque module est une fonction immédiate qui s'enregistre sur `window` (`PostsOPMoteur`, `PostsOPRelecture`…) et, en fin de fichier, sur `module.exports` pour `require` dans Node (tests unitaires). Les modules se trouvent les uns les autres par `window` : **l'ordre des `<script>` de `index.html` compte** (`moteur.js` d'abord, `composition.js` puis `postsop.js` en dernier). `composition.js` exporte une fabrique (`fabriquer`) que `postsop.js` appelle, pas un objet.
+
+Pour voir l'app : servir la racine du dépôt (`python3 -m http.server`) suffit, mais React vient d'internet ; `tests/navigateur/serveur.py` le remplace par la copie locale.
 
 | Fichier | Rôle |
 |---|---|
@@ -40,6 +38,7 @@ React 18.3.1 en UMD depuis jsDelivr, sans JSX (`h = React.createElement`). Chaqu
 | `postsop.css` | Styles (thèmes clair et sombre). |
 | `icon-180.png`, `icon-512.png` | Icône de l'écran d'accueil (le robot CCB). |
 | `logo-instagram.png`, `logo-linkedin.png` | Logos fournis par Romain, affichés tels quels (voir plus bas). |
+| `brag-output/` | Vidéo de lancement d'Oh!Post (hors de l'app). |
 
 Les données vivent sur l'appareil (`localStorage`, clés `postsop-…`) et se synchronisent avec `postsop-donnees`. **Ne renomme jamais les clés `postsop-…`, les noms de modules `PostsOP…` ni les classes CSS existantes** : l'app s'appelait PostsOP et les données des appareils en dépendent. Seul le nom affiché est « Oh!Post ».
 
@@ -47,7 +46,7 @@ Les données vivent sur l'appareil (`localStorage`, clés `postsop-…`) et se s
 
 Format `AAAA-MM-JJ.n` (par exemple `2026-10-26.2`). À chaque livraison, change-le partout en même temps :
 - `const VERSION = '…'` dans `postsop.js` (affiché dans l'aide « i ») ;
-- tous les `?v=…` de `index.html` (11 occurrences).
+- tous les `?v=…` de `index.html` (11 occurrences ; `icon-180.png?v=robot` n'en fait pas partie, il ne change pas).
 L'app affiche un bandeau « Mise à jour incomplète » si un module en cache est plus ancien.
 
 ## Tests
@@ -56,7 +55,13 @@ Prérequis : Node.js, Python 3, Playwright et Chromium (`pip install playwright`
 
 - `python3 tests/lancer.py` : tout (19 fichiers unitaires, 65 séries dans le navigateur).
 - `python3 tests/lancer.py unitaires` ou `python3 tests/lancer.py navigateur`.
-- `python3 tests/lancer.py test_cible.py` : une série.
+- `python3 tests/lancer.py test_cible.py` : une série. Le nom est cherché comme un morceau du nom de fichier : `test_cible` lance aussi `test_cible2` et `test_cible3`.
+- Lancer un fichier seul : `cd tests/unitaires && node typo1.js`, ou `cd tests/navigateur && python3 test_cible.py`.
+
+Forme des tests (à reproduire pour une nouvelle série) :
+- **Unitaires** (`tests/unitaires/*.js`) : `require('../../module.js')`, comptent eux-mêmes leurs vérifications et affichent `ÉCHEC …` pour chaque écart.
+- **Navigateur** (`tests/navigateur/test_*.py`) : `import serveur; serveur.demarrer()`, Playwright Chromium, une fonction `verifie(nom, condition)` qui affiche `OK`/`ÉCHEC`, une vérification « aucune erreur JS » (`pageerror`), et en dernière ligne `X / Y vérifications réussies`. La clé d'IA factice se pose avec `localStorage.setItem('postsop-ia', …)` puis `reload()`.
+- `lancer.py` juge une série réussie si le code de sortie est 0, si `X / Y` sont égaux et s'il n'y a ni `ÉCHEC` ni `Traceback`.
 
 Les tests navigateur servent la racine du dépôt sur `localhost:8765` (`tests/navigateur/serveur.py`), avec React chargé depuis `tests/navigateur/vendor/react-local.js` (pas besoin d'internet). Les appels à l'IA sont simulés (`page.route` sur `api.anthropic.com`) : aucun test n'appelle une vraie IA. Données d'exemple dans `tests/donnees/`.
 
@@ -87,9 +92,9 @@ Les tests navigateur servent la racine du dépôt sur `localhost:8765` (`tests/n
 4. **Apparence générale** : propositions de CCB, Actuelle, favoris (étoile + petite flèche), Sans IA, fond, logo et fleurs. La liste « Mes favoris » montre une rangée par favori (proposition 1, choisie par Romain) : toutes ses pages en vignettes, appliquées au texte de l'article ; toucher une vignette ouvre la page en grand ; le crayon renomme ; la poignée ⠿ réorganise (glisser, ou flèches haut et bas) ; « Choisir » affiche le favori, « Appliquer » en bas l'applique comme avant ; la corbeille retire un favori (confirmation, puis « Annuler » dans le message). Nom et ordre sont gardés dans le projet (`favorisCarrousels`, synchronisé). L'explication du choix affiché est dans un « i » à côté de son nom, pas sous le titre ; celle de « Une envie ? » aussi, dans un « i » à côté de l'étiquette (hors de l'étiquette, pour ne pas ouvrir le clavier). Pour un article existant, elle prend ses paragraphes tels quels (un paragraphe peut contenir un retour à la ligne) : ne jamais recouper le texte à chaque retour, sinon « Actuelle » disparaît et « Appliquer » coupe le paragraphe. L'agent général : « Générer 3 propositions » ou « Une envie ? » (plus de bouton « Proposer 3 autres » sous l'aperçu : le robot CCB de la fenêtre le propose, décision de Romain). Chaque envie garde ses propositions, enregistrées avec l'article (champ `envies`, les 20 dernières, synchronisé) : « Revoir ces propositions » les remet en haut ; si le texte a changé depuis, elles sont adaptées au nouveau texte comme un favori. Une nouvelle envie ne reprend que les envies de la même ouverture de la fenêtre. La conversation « Une envie ? » a un en-tête avec « Replier » (réduite à l'en-tête, nombre d'envies) et « Fermer » (×) ; elle est gardée et se rouvre par le robot › « Une envie ? ».
 5. **Grande fenêtre** : le bouton « Agrandir », à gauche de chaque page de l'étape Mise en page, l'ouvre directement sur cette page ; toucher la page affichée (Apparence générale) l'ouvre aussi. À l'étape Publication, l'aperçu (et chaque petite page) ouvre la grande fenêtre **en aperçu seulement** (`lecture`) : agrandir, feuilleter (flèches ou glisser du doigt), aperçus des posts ; ni zone, ni « + », ni agent ciblé : rien n'y modifie la mise en page ni le texte (décision de Romain). Logos LinkedIn puis Instagram en haut à droite (4,8 % de la largeur de la page, à 81,9 % et 89,0 %, 5,4 % du haut), à 50 % de visibilité, 100 % au survol, sans bulle d'aide ; les fichiers sont blancs : sur une page au fond clair (blanc, vert pâle, vert), ils s'affichent en noir (filtre d'affichage, fichiers inchangés, décision de Romain) ; chacun ouvre l'aperçu du post de son réseau. Tracer un rectangle sélectionne une zone (Tab, Maj ou le bouton « + » ajoutent une zone) et ouvre **l'agent ciblé**, qui ne retouche que ce qui est dans la zone (la zone peut aussi toucher le logo et les fleurs). Il change les mots et le style des paragraphes, ou fait des gestes de mise en page (`retoucherDisposition` dans `moteur.js`) : déplacer un paragraphe (haut, milieu, bas, gauche, centre, droite), changer la taille de son texte ou la largeur de son cadre, déplacer, agrandir ou retirer le logo et les fleurs, toujours dans les marges. Déplacer ou agrandir un paragraphe passe la page en mise en page libre. Pour libérer de la place, il peut envoyer le **dernier** paragraphe au début de la page suivante ou le **premier** à la fin de la précédente : jamais un paragraphe du milieu, l'ordre du texte ne change jamais (décision de Romain). Texte et gestes ne se mélangent pas dans une même réponse ; « Annuler la retouche » défait l'un ou l'autre.
 6. **Étape Publication** : réseau (LinkedIn, Instagram ou les deux), texte du post (CCB : trois propositions ou discussion), fichier, date (programmer ou non), publié.
+7. **Voix** : dans toutes les conversations avec CCB, le micro sert de dictée : ce que Romain dit s'écrit dans le champ, il le corrige et l'envoie lui-même (rien ne part tout seul). Un bouton haut-parleur, à côté du micro, choisit si CCB lit ses réponses à voix haute (coupé par défaut, choix gardé sur l'appareil dans `postsop-voix-lecture`). Voix de l'iPad réglable dans Configuration › IA.
 8. **Synchronisation** : l'indicateur en haut à droite reste discret (une ligne, pas de bandeau) mais dit combien d'articles ne sont pas encore copiés sur GitHub (« Erreur de synchronisation · 2 articles pas encore copiés »). Un toucher ouvre une bulle : lesquels, la raison d'un échec, la dernière copie réussie, « Copier maintenant », « Réglages de synchronisation » (décision de Romain). La bulle passe devant la barre de menus de la Mise en page (`.barre:has(.bulle-synchro)`), sinon elle est coupée.
 9. **Personnalité de CCB** (décision de l'utilisatrice) : CCB (Creative Collaborative Boost) appelle la personne par son prénom, « Anne » par défaut (réglable dans Configuration › IA, clé `postsop-prenom`), la tutoie, avec un ton professionnel, bienveillant et chaleureux. Ces consignes (`identite()` dans `ia.js`) sont ajoutées à la fin de toutes les consignes envoyées à l'IA ; le prénom ne va jamais dans les textes à publier. En tête de chaque conversation avec CCB (discussions des étapes, « Une envie ? », agent ciblé, titre), une phrase d'accueil selon le moment de la journée (aube, matin, midi, après-midi, soir, nuit), tirée de 59 phrases écrites à l'avance (`ACCUEILS`, sans appel à l'IA) ; les 12 dernières utilisées sont évitées (`postsop-accueils`) pour varier d'une session à l'autre.
-7. **Voix** : dans toutes les conversations avec CCB, le micro sert de dictée : ce que Romain dit s'écrit dans le champ, il le corrige et l'envoie lui-même (rien ne part tout seul). Un bouton haut-parleur, à côté du micro, choisit si CCB lit ses réponses à voix haute (coupé par défaut, choix gardé sur l'appareil dans `postsop-voix-lecture`). Voix de l'iPad réglable dans Configuration › IA.
 
 ## Les logos des réseaux
 

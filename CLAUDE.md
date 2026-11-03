@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Oh!Post est l'application de Romain (Oh ! Potentiel, cabinet d'Anne Litique) pour transformer des articles en carrousels LinkedIn et Instagram fidèles à la charte. C'est une PWA sans étape de construction, publiée par GitHub Pages depuis la branche `main`, utilisée surtout sur iPad (Safari et app installée sur l'écran d'accueil).
 
-Ce fichier résume l'architecture, les règles et les décisions prises avec Romain pendant le développement (fait jusqu'ici dans des conversations claude.ai). Respecte-les : elles ont toutes été validées par lui.
+Ce fichier résume les règles et les décisions prises avec Romain pendant le développement (fait jusqu'ici dans des conversations claude.ai). Respecte-les : elles ont toutes été validées par lui.
 
 ## Travailler avec Romain
 
@@ -16,60 +16,25 @@ Ce fichier résume l'architecture, les règles et les décisions prises avec Rom
 - **Pas de gros changement sans validation.** Pour une nouvelle fonctionnalité visible ou un changement d'interface important, propose d'abord une maquette ou un plan court et attends l'accord de Romain. Les maquettes : une page web simple à onglets, avec des écrans cliquables et une explication au-dessus de chaque écran (pas de canevas).
 - **Une version par livraison** (voir « Numéro de version »).
 
-## Architecture (aucune étape de construction)
+## Noms à ne jamais changer
 
-React 18.3.1 et opentype.js 1.3.4 en UMD depuis jsDelivr ; `pdf-lib.min.js` est copié dans le dépôt. Pas de JSX (`h = React.createElement`). Chaque module est une fonction immédiate qui s'enregistre sur `window` (`PostsOPMoteur`, `PostsOPRelecture`…) et, en fin de fichier, sur `module.exports` pour `require` dans Node (tests unitaires). Les modules se trouvent les uns les autres par `window` : **l'ordre des `<script>` de `index.html` compte** (`moteur.js` d'abord, `composition.js` puis `postsop.js` en dernier). `composition.js` exporte une fabrique (`fabriquer`) que `postsop.js` appelle, pas un objet.
-
-Pour voir l'app : servir la racine du dépôt (`python3 -m http.server`) suffit, mais React vient d'internet ; `tests/navigateur/serveur.py` le remplace par la copie locale.
-
-| Fichier | Rôle |
-|---|---|
-| `index.html` | Charge React, opentype.js, pdf-lib et les modules (avec `?v=VERSION`). |
-| `postsop.js` | L'application : bibliothèque d'articles, étapes Texte, Mise en page, Publication, Configuration, fenêtres de CCB, grande fenêtre de présentation, agent ciblé, voix. |
-| `composition.js` | L'étape Mise en page : pages éditables, menus, barre de sélection, repères de déplacement, couleurs, notifications (alertes). |
-| `moteur.js` | Composition et dessin des pages (gabarits, fonds, marges, alertes), sur canvas. Partagé par l'écran et l'export. |
-| `propositions.js` | Propositions de mise en page par CCB (consignes, lecture, vérification, recettes des favoris). |
-| `relecture.js` | Consignes de CCB : relecture, discussion, texte du post, titres, agent ciblé. |
-| `ia.js` | Fournisseurs d'IA (Claude, Mistral), appels, gestion des erreurs. L'assistant s'appelle **CCB** (Creative Collaborative Boost). |
-| `liens.js` | Lien entre le texte de l'article et les blocs des pages. |
-| `typographie.js` | Typographie française automatique. |
-| `export.js` | Export PNG et PDF (pdf-lib). |
-| `synchro.js` | Synchronisation avec le dépôt privé de données `postsop-donnees` (clé GitHub saisie dans l'app). |
-| `postsop.css` | Styles (thèmes clair et sombre). |
-| `icon-180.png`, `icon-512.png` | Icône de l'écran d'accueil (le robot CCB). |
-| `logo-instagram.png`, `logo-linkedin.png` | Logos fournis par Romain, affichés tels quels (voir plus bas). |
-| `brag-output/` | Vidéo de lancement d'Oh!Post (hors de l'app). |
-
-Les données vivent sur l'appareil (`localStorage`, clés `postsop-…`) et se synchronisent avec `postsop-donnees`. **Ne renomme jamais les clés `postsop-…`, les noms de modules `PostsOP…` ni les classes CSS existantes** : l'app s'appelait PostsOP et les données des appareils en dépendent. Seul le nom affiché est « Oh!Post ».
+**Ne renomme jamais les clés `postsop-…` du `localStorage`, les noms de modules `PostsOP…` ni les classes CSS existantes** : l'app s'appelait PostsOP et les données des appareils (et du dépôt de synchronisation `postsop-donnees`) en dépendent. Seul le nom affiché est « Oh!Post ».
 
 ## Numéro de version
 
-Format `AAAA-MM-JJ.n` (par exemple `2026-10-26.2`). À chaque livraison, change-le partout en même temps :
-- `const VERSION = '…'` dans `postsop.js` (affiché dans l'aide « i ») ;
-- tous les `?v=…` de `index.html` (11 occurrences ; `icon-180.png?v=robot` n'en fait pas partie, il ne change pas).
-L'app affiche un bandeau « Mise à jour incomplète » si un module en cache est plus ancien.
+Format `AAAA-MM-JJ.n` (par exemple `2026-10-26.2`). À chaque livraison, change-le partout en même temps, sinon l'app affiche « Mise à jour incomplète » :
+- `const VERSION = '…'` dans `postsop.js` ;
+- tous les `?v=…` de `index.html`, sauf `icon-180.png?v=robot`.
 
 ## Tests
 
-Prérequis : Node.js, Python 3, Playwright et Chromium (`pip install playwright`, puis `python3 -m playwright install chromium`).
+Prérequis : Node.js, Python 3, Playwright et Chromium (`pip install playwright`, puis `python3 -m playwright install chromium`). Lancement : `python3 tests/lancer.py` (options en tête du fichier).
 
-- `python3 tests/lancer.py` : tout (19 fichiers unitaires, 65 séries dans le navigateur).
-- `python3 tests/lancer.py unitaires` ou `python3 tests/lancer.py navigateur`.
-- `python3 tests/lancer.py test_cible.py` : une série. Le nom est cherché comme un morceau du nom de fichier : `test_cible` lance aussi `test_cible2` et `test_cible3`.
-- Lancer un fichier seul : `cd tests/unitaires && node typo1.js`, ou `cd tests/navigateur && python3 test_cible.py`.
-
-Forme des tests (à reproduire pour une nouvelle série) :
-- **Unitaires** (`tests/unitaires/*.js`) : `require('../../module.js')`, comptent eux-mêmes leurs vérifications et affichent `ÉCHEC …` pour chaque écart.
-- **Navigateur** (`tests/navigateur/test_*.py`) : `import serveur; serveur.demarrer()`, Playwright Chromium, une fonction `verifie(nom, condition)` qui affiche `OK`/`ÉCHEC`, une vérification « aucune erreur JS » (`pageerror`), et en dernière ligne `X / Y vérifications réussies`. La clé d'IA factice se pose avec `localStorage.setItem('postsop-ia', …)` puis `reload()`.
-- `lancer.py` juge une série réussie si le code de sortie est 0, si `X / Y` sont égaux et s'il n'y a ni `ÉCHEC` ni `Traceback`.
-
-Les tests navigateur servent la racine du dépôt sur `localhost:8765` (`tests/navigateur/serveur.py`), avec React chargé depuis `tests/navigateur/vendor/react-local.js` (pas besoin d'internet). Les appels à l'IA sont simulés (`page.route` sur `api.anthropic.com`) : aucun test n'appelle une vraie IA. Données d'exemple dans `tests/donnees/`.
-
-**Règle : tout doit passer avant une pull request.** Quand tu changes un comportement, mets à jour les tests concernés et ajoute une série pour la nouveauté. Ne modifie jamais un test pour qu'il passe sans comprendre pourquoi il échouait.
+**Règle : tout doit passer avant une pull request.** Quand tu changes un comportement, mets à jour les tests concernés et ajoute une série pour la nouveauté. Ne modifie jamais un test pour qu'il passe sans comprendre pourquoi il échouait. Aucun test ne doit appeler une vraie IA.
 
 ## Règles de l'interface
 
-- Vocabulaire : « page » (jamais « slide » à l'écran), « post » (sans e), « Oh!Post », « CCB ».
+- Vocabulaire : « page » (jamais « slide » à l'écran), « post » (sans e), « Oh!Post », « CCB » (Creative Collaborative Boost).
 - Typographie française partout : apostrophe ’, guillemets « » avec espaces insécables, espaces insécables avant ; : ? !
 - iPad d'abord : zones à toucher d'au moins 44 points, pas de survol indispensable, menus et fenêtres qui tiennent dans l'écran (le clavier virtuel réduit la hauteur).
 - Une fenêtre au premier plan ne se ferme en touchant le fond que si l'appui ET le relâchement ont lieu sur le fond, et jamais pendant une saisie (sinon le clavier de l'iPad la fait se fermer).
@@ -79,22 +44,22 @@ Les tests navigateur servent la racine du dépôt sur `localhost:8765` (`tests/n
 
 - Couleurs : bleu `#003846`, vert anis `#C9D420`, blanc, bleu pâle `#E6EBEC`, vert pâle `#F3F6CE`.
 - Le vert anis ne sert jamais de fond de page plein (bandeaux, surligneurs et fonds de texte seulement).
-- Fonds de texte et bandeaux toujours à 85 % d'opacité (`OPACITE_FONDS` dans `moteur.js`), y compris dans le PDF.
+- Fonds de texte et bandeaux toujours à 85 % d'opacité, y compris dans le PDF.
 - Lisibilité : contraste d'au moins 3:1. Quand un fond change, un texte devenu illisible reprend sa couleur d'origine si elle est lisible, sinon la couleur de la charte la plus lisible.
 - Marges de page : 81 points à gauche et à droite, 110 en haut et en bas.
 - Propositions de CCB : 6 pages au plus (7 si texte long), une idée par page, 20 à 40 mots ; une page qui déborde est réparée (texte réduit jusqu'à 80 %, sinon page coupée) plutôt que rejetée.
 
-## Parcours actuel (décisions de Romain)
+## Décisions de Romain
 
-1. **Nouvel article** : pas de fenêtre. L'article s'ouvre sur un champ vide, puis un questionnaire demande le format (1:1 ou 4:5) et le titre (nom dans la bibliothèque, avec CCB pour proposer). Un article laissé vide est supprimé en le quittant. « Utiliser comme modèle » suit le même chemin (seulement la question du titre).
-2. **Étape Texte** : texte, relecture, typographie, discussion avec CCB.
-3. **Étape Mise en page** : édition directe des pages. Barre de menus retravaillée avec Romain : Édition (sans « Tout sélectionner » ni « Sélectionner tous les blocs », ⌘A reste au clavier), Affichage, Insertion (sans « Bloc de texte »), Bloc (avec « Fond du paragraphe »), Page (son titre ne montre plus le numéro de la page ; il agit sur la page active), Réglages (ex-« Carrousel » : fond, dimensions, réseau, logo). Plus de menu Format : la mise en forme passe par la barre des blocs sélectionnés et la barre du texte choisi (la « taille libre » en pixels, qui n'était que dans Format, n'est plus proposée). Au premier passage, la fenêtre « Apparence générale » s'ouvre. Le robot de la barre de menus est l’agent de l’apparence : sa bulle propose « Générer 3 propositions » ou « Une envie ? », qui ouvrent toutes deux « Apparence générale ». Pour retravailler des mots, le robot de la barre de sélection (passage choisi) ouvre la discussion avec CCB. Un bouton fleur (logo ou fleurs) est dans la barre de menus. Le menu « Vérifier » est remplacé par une **cloche de notifications** dans la barre de menus, avant « Page 1 sur 6 » (dessin A et emplacement A, choisis par Romain) : sa pastille compte les alertes (rouge si une est grave, orangée sinon, coche vert anis quand tout est en ordre), elle tinte une fois quand une alerte apparaît, et ouvre la liste des alertes (mêmes actions qu'avant). Une page qui a un souci a aussi, sous « Agrandir », un bouton « 1 alerte » qui n'ouvre que les alertes de cette page ; les pages sans souci n'ont rien de plus. La barre des blocs sélectionnés (Fusionner, Dupliquer, Nouveau, Placer, Supprimer) a aussi, en icônes à la suite (proposition A, choisie par Romain), les outils de mise en forme qui n'y étaient pas : style de paragraphe, alignement du texte, filet latéral, fond du paragraphe et « Revenir à l'original » (efface en une étape gras, italique, souligné, taille, couleur, filets, alignement et fond ; ni le texte, ni le style, ni la place ne changent). L'alignement du texte a son propre bouton (son icône montre l'alignement en cours) : « Placer » ne fait que placer les blocs sur la page, Romain ne veut pas les deux dans le même bouton. « Aligner » s'appelle « Placer » (barre et menu Bloc), avec un dessin de bloc dans le cadre de la page ; l'icône du filet montre la couleur du filet des blocs (pointillé gris s'il n'y en a pas) : les deux icônes ne se confondent plus (proposition 3, choisie par Romain). Ce sont les réglages de l'ancien menu Format. L'icône du fond du paragraphe montre la couleur du fond des blocs (« A » sur cette couleur, pointillé s'il n'y en a pas). La barre ne montre plus le nombre de blocs sélectionnés (décision de Romain). Dans une page en mise en page libre, son « Revenir au gabarit » ne touche que les blocs sélectionnés : ils reprennent la place et l'apparence que le gabarit leur donne (mise en forme effacée comme « Revenir à l'original »), les autres blocs ne bougent pas ; si tous les blocs sont sélectionnés, toute la page revient au gabarit. (« Revenir au gabarit » des repères de la page et du menu Page agit toujours sur toute la page.) Dans le menu du filet, « Filet sur tout le paragraphe » devient « Retirer le filet » quand un filet est déjà là, sur le paragraphe ou sur une partie de son texte.
-4. **Apparence générale** : propositions de CCB, Actuelle, favoris (étoile + petite flèche), Sans IA, fond, logo et fleurs. La liste « Mes favoris » montre une rangée par favori (proposition 1, choisie par Romain) : toutes ses pages en vignettes, appliquées au texte de l'article ; toucher une vignette ouvre la page en grand ; le crayon renomme ; la poignée ⠿ réorganise (glisser, ou flèches haut et bas) ; « Choisir » affiche le favori, « Appliquer » en bas l'applique comme avant ; la corbeille retire un favori (confirmation, puis « Annuler » dans le message). Nom et ordre sont gardés dans le projet (`favorisCarrousels`, synchronisé). L'explication du choix affiché est dans un « i » à côté de son nom, pas sous le titre ; celle de « Une envie ? » aussi, dans un « i » à côté de l'étiquette (hors de l'étiquette, pour ne pas ouvrir le clavier). Pour un article existant, elle prend ses paragraphes tels quels (un paragraphe peut contenir un retour à la ligne) : ne jamais recouper le texte à chaque retour, sinon « Actuelle » disparaît et « Appliquer » coupe le paragraphe. L'agent général : « Générer 3 propositions » ou « Une envie ? » (plus de bouton « Proposer 3 autres » sous l'aperçu : le robot CCB de la fenêtre le propose, décision de Romain). Chaque envie garde ses propositions, enregistrées avec l'article (champ `envies`, les 20 dernières, synchronisé) : « Revoir ces propositions » les remet en haut ; si le texte a changé depuis, elles sont adaptées au nouveau texte comme un favori. Une nouvelle envie ne reprend que les envies de la même ouverture de la fenêtre. La conversation « Une envie ? » a un en-tête avec « Replier » (réduite à l'en-tête, nombre d'envies) et « Fermer » (×) ; elle est gardée et se rouvre par le robot › « Une envie ? ».
-5. **Grande fenêtre** : le bouton « Agrandir », à gauche de chaque page de l'étape Mise en page, l'ouvre directement sur cette page ; toucher la page affichée (Apparence générale) l'ouvre aussi. À l'étape Publication, l'aperçu (et chaque petite page) ouvre la grande fenêtre **en aperçu seulement** (`lecture`) : agrandir, feuilleter (flèches ou glisser du doigt), aperçus des posts ; ni zone, ni « + », ni agent ciblé : rien n'y modifie la mise en page ni le texte (décision de Romain). Logos LinkedIn puis Instagram en haut à droite (4,8 % de la largeur de la page, à 81,9 % et 89,0 %, 5,4 % du haut), à 50 % de visibilité, 100 % au survol, sans bulle d'aide ; les fichiers sont blancs : sur une page au fond clair (blanc, vert pâle, vert), ils s'affichent en noir (filtre d'affichage, fichiers inchangés, décision de Romain) ; chacun ouvre l'aperçu du post de son réseau. Tracer un rectangle sélectionne une zone (Tab, Maj ou le bouton « + » ajoutent une zone) et ouvre **l'agent ciblé**, qui ne retouche que ce qui est dans la zone (la zone peut aussi toucher le logo et les fleurs). Il change les mots et le style des paragraphes, ou fait des gestes de mise en page (`retoucherDisposition` dans `moteur.js`) : déplacer un paragraphe (haut, milieu, bas, gauche, centre, droite), changer la taille de son texte ou la largeur de son cadre, déplacer, agrandir ou retirer le logo et les fleurs, toujours dans les marges. Déplacer ou agrandir un paragraphe passe la page en mise en page libre. Pour libérer de la place, il peut envoyer le **dernier** paragraphe au début de la page suivante ou le **premier** à la fin de la précédente : jamais un paragraphe du milieu, l'ordre du texte ne change jamais (décision de Romain). Texte et gestes ne se mélangent pas dans une même réponse ; « Annuler la retouche » défait l'un ou l'autre.
-6. **Étape Publication** : réseau (LinkedIn, Instagram ou les deux), texte du post (CCB : trois propositions ou discussion), fichier, date (programmer ou non), publié.
-7. **Voix** : dans toutes les conversations avec CCB, le micro sert de dictée : ce que Romain dit s'écrit dans le champ, il le corrige et l'envoie lui-même (rien ne part tout seul). Un bouton haut-parleur, à côté du micro, choisit si CCB lit ses réponses à voix haute (coupé par défaut, choix gardé sur l'appareil dans `postsop-voix-lecture`). Voix de l'iPad réglable dans Configuration › IA.
-8. **Synchronisation** : l'indicateur en haut à droite reste discret (une ligne, pas de bandeau) mais dit combien d'articles ne sont pas encore copiés sur GitHub (« Erreur de synchronisation · 2 articles pas encore copiés »). Un toucher ouvre une bulle : lesquels, la raison d'un échec, la dernière copie réussie, « Copier maintenant », « Réglages de synchronisation » (décision de Romain). La bulle passe devant la barre de menus de la Mise en page (`.barre:has(.bulle-synchro)`), sinon elle est coupée.
-9. **Personnalité de CCB** (décision de l'utilisatrice) : CCB (Creative Collaborative Boost) appelle la personne par son prénom, « Anne » par défaut (réglable dans Configuration › IA, clé `postsop-prenom`), la tutoie, avec un ton professionnel, bienveillant et chaleureux. Ces consignes (`identite()` dans `ia.js`) sont ajoutées à la fin de toutes les consignes envoyées à l'IA ; le prénom ne va jamais dans les textes à publier. En tête de chaque conversation avec CCB (discussions des étapes, « Une envie ? », agent ciblé, titre), une phrase d'accueil selon le moment de la journée (aube, matin, midi, après-midi, soir, nuit), tirée de 59 phrases écrites à l'avance (`ACCUEILS`, sans appel à l'IA) ; les 12 dernières utilisées sont évitées (`postsop-accueils`) pour varier d'une session à l'autre.
+- **Nouvel article** : pas de fenêtre ; un questionnaire demande le format puis le titre. Un article laissé vide est supprimé en le quittant.
+- **Mise en page, barre de menus** : plus de menu Format ni de « taille libre » en pixels ; pas de « Tout sélectionner » ni « Sélectionner tous les blocs » dans Édition (⌘A reste au clavier) ; pas de « Bloc de texte » dans Insertion ; le titre du menu Page ne montre plus le numéro de la page ; « Carrousel » s'appelle « Réglages ». Le menu « Vérifier » est remplacé par une cloche de notifications avant « Page 1 sur 6 » (dessin A, emplacement A).
+- **Barre des blocs sélectionnés** : les outils de mise en forme sont en icônes à la suite (proposition A). L'alignement du texte a son propre bouton : Romain ne veut pas « Placer » et l'alignement dans le même bouton. « Aligner » s'appelle « Placer » ; les icônes de « Placer » et du filet ne doivent pas se confondre (proposition 3). La barre n'affiche plus le nombre de blocs sélectionnés.
+- **Apparence générale** : « Mes favoris » montre une rangée de vignettes par favori (proposition 1). L'explication du choix affiché est dans un « i » à côté de son nom, pas sous le titre ; celle de « Une envie ? » est hors de l'étiquette, pour ne pas ouvrir le clavier. Plus de bouton « Proposer 3 autres » sous l'aperçu : le robot CCB de la fenêtre le propose. Pour un article existant, prendre ses paragraphes tels quels (un paragraphe peut contenir un retour à la ligne) : ne jamais recouper le texte à chaque retour, sinon « Actuelle » disparaît et « Appliquer » coupe le paragraphe.
+- **Grande fenêtre** : à l'étape Publication, elle n'est qu'un aperçu ; rien n'y modifie la mise en page ni le texte. Les logos des réseaux, blancs, s'affichent en noir sur une page au fond clair par un filtre d'affichage, sans toucher aux fichiers.
+- **Agent ciblé** : il ne retouche que ce qui est dans la zone. Pour libérer de la place, il peut envoyer le **dernier** paragraphe au début de la page suivante ou le **premier** à la fin de la précédente, jamais un paragraphe du milieu : l'ordre du texte ne change jamais. Texte et gestes de mise en page ne se mélangent pas dans une même réponse.
+- **Voix** : le micro sert de dictée ; Romain corrige et envoie lui-même, rien ne part tout seul. La lecture à voix haute est coupée par défaut.
+- **Synchronisation** : l'indicateur reste discret (une ligne, pas de bandeau) mais dit combien d'articles ne sont pas encore copiés ; un toucher ouvre une bulle de détails. La bulle doit passer devant la barre de menus de la Mise en page, sinon elle est coupée.
+- **Personnalité de CCB** (décision de l'utilisatrice) : CCB appelle la personne par son prénom (« Anne » par défaut), la tutoie, avec un ton professionnel, bienveillant et chaleureux. Le prénom ne va jamais dans les textes à publier.
 
 ## Les logos des réseaux
 

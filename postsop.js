@@ -29,7 +29,7 @@
   })();
   const R = facultatif('PostsOPRelecture', './relecture.js');
   const PROP = facultatif('PostsOPPropositions', './propositions.js');
-  const VERSION = '2026-10-29.1'; // à changer à chaque livraison (affichée dans l'aide « i »)
+  const VERSION = '2026-11-03.1'; // à changer à chaque livraison (affichée dans l'aide « i »)
   // Mise en ligne incomplète : un fichier ancien resté sur GitHub ferait planter une fonction. On le repère au démarrage
   // et on dit lequel renvoyer, au lieu d'une erreur incompréhensible.
   const FICHIERS_A_RENVOYER = (() => {
@@ -147,6 +147,36 @@
     return { ...etat, articles: nouveauxArticles, historique: { passe, futur: [], groupe: groupe || null, quand: t } };
   }
 
+  // Les envies (« Une envie ? ») ne passent pas par l'historique : annuler ou rétablir une autre modification
+  // les garde telles qu'elles sont maintenant (sinon ⌘Z effaçait les propositions gardées).
+  const garderEnvies = (restaures, actuels) => restaures.map((a) => {
+    const x = actuels.find((y) => y.id === a.id);
+    return x && x.envies !== undefined && x.envies !== a.envies ? { ...a, envies: x.envies } : a;
+  });
+
+  // Le message affiché après une synchronisation qui a trouvé des conflits : il dit ce qui a vraiment été gardé.
+  // Un article garde ses deux versions ; les réglages, polices et images gardent la version de GitHub.
+  function messageConflits(conflits) {
+    const liste = conflits || [];
+    if (!liste.length) return '';
+    const phrases = [];
+    if (liste.some((c) => c.copie)) phrases.push('Un article avait été modifié sur deux appareils : les deux versions sont gardées.');
+    if (liste.some((c) => !c.copie && c.raison)) phrases.push('Un article supprimé ici avait été modifié sur un autre appareil : il a été gardé.');
+    if (liste.some((c) => !c.copie && !c.raison && c.chemin === 'projet.json')) phrases.push('Tes réglages (charte, favoris, ordre des articles) avaient changé sur deux appareils : la version copiée sur GitHub a été gardée.');
+    if (liste.some((c) => !c.copie && !c.raison && String(c.chemin || '').startsWith('ressources/'))) phrases.push('Une police ou une image avait changé sur deux appareils : la version copiée sur GitHub a été gardée.');
+    if (liste.some((c) => !c.copie && !c.raison && c.chemin !== 'projet.json' && !String(c.chemin || '').startsWith('ressources/'))) phrases.push('Un fichier avait changé sur deux appareils : la version copiée sur GitHub a été gardée.');
+    return phrases.join(' ') + ' Détails dans Configuration › Synchronisation.';
+  }
+  // La même chose, conflit par conflit, pour la liste de Configuration › Synchronisation.
+  function detailConflit(c) {
+    if (c.copie) return `« ${c.titre} » avait été modifié sur deux appareils : la version de cet appareil est gardée à part, sous le titre « … (conflit) ».`;
+    if (c.raison) return `${c.titre} : ${c.raison}.`;
+    const suite = 'changé sur deux appareils : la version copiée sur GitHub a été gardée, les changements faits ici ne l’ont pas été.';
+    if (c.chemin === 'projet.json') return 'Tes réglages (charte, favoris, ordre des articles) avaient ' + suite;
+    if (String(c.chemin || '').startsWith('ressources/')) return `Le fichier ${String(c.chemin).slice(11)} (police ou image) avait ` + suite;
+    return `Le fichier ${c.chemin} avait ` + suite;
+  }
+
   function normaliserProjet(p) {
     const projet = p || {};
     return {
@@ -178,7 +208,10 @@
         const projet = normaliserProjet(action.projet);
         const articles = trierSelonOrdre(action.articles.map(L.lierArticle), projet.ordre || []);
         const ouvert = articles.some((a) => a.id === etat.articleId);
-        return { ...etat, pret: true, articles, projet, ...(ouvert ? {} : { ecran: etat.ecran === 'atelier' ? 'bibliotheque' : etat.ecran, articleId: null }) };
+        // Les articles viennent d'être relus (ouverture, ou synchronisation qui a reçu des changements) : l'historique
+        // d'annulation repart de zéro. Sinon ⌘Z remettait l'état d'avant la synchronisation et défaisait, sans le dire,
+        // les changements reçus de GitHub.
+        return { ...etat, pret: true, articles, projet, historique: ETAT_INITIAL.historique, ...(ouvert ? {} : { ecran: etat.ecran === 'atelier' ? 'bibliotheque' : etat.ecran, articleId: null }) };
       }
       case 'ecran': etat = action.ecran !== 'atelier' ? sansArticleVide(etat) : etat; return { ...etat, ecran: action.ecran, feuille: null, message: null, aide: false, edition: false, ...(action.onglet ? { onglet: action.onglet } : {}) };
       case 'ouvrir': etat = sansArticleVide(etat, action.id); return { ...etat, ecran: 'atelier', articleId: action.id, etape: 'texte', slide: 0, message: null, aide: false };
@@ -275,13 +308,13 @@
       case 'annuler': {
         const { passe, futur } = etat.historique;
         if (!passe.length) return etat;
-        const articles = passe[passe.length - 1];
+        const articles = garderEnvies(passe[passe.length - 1], etat.articles);
         return { ...etat, articles, projet: { ...etat.projet, ordre: articles.map((a) => a.id) }, historique: { passe: passe.slice(0, -1), futur: [etat.articles, ...futur], groupe: null, quand: 0 } };
       }
       case 'retablir': {
         const { passe, futur } = etat.historique;
         if (!futur.length) return etat;
-        const articles = futur[0];
+        const articles = garderEnvies(futur[0], etat.articles);
         return { ...etat, articles, projet: { ...etat.projet, ordre: articles.map((a) => a.id) }, historique: { passe: [...passe, etat.articles], futur: futur.slice(1), groupe: null, quand: 0 } };
       }
       default: return etat;
@@ -3093,7 +3126,7 @@
         h('p', null, h(Pastille, { ton }, libelle), ' ', s.derniere ? `Dernière synchronisation : ${new Date(s.derniere).toLocaleString('fr-FR')}.` : ''),
         s.attente > 0 && h('p', { className: 'petit' }, `${s.attente} changement(s) enregistré(s) sur cet appareil, en attente d’envoi.`),
         s.detail && h('p', { className: s.statut === 'erreur' ? 'erreur petit' : 'doux petit' }, s.detail),
-        s.conflits && s.conflits.length > 0 && h('ul', { className: 'liste-alertes' }, s.conflits.map((c, i) => h('li', { key: i, className: 'avertissement' }, h('span', null, c.copie ? `« ${c.titre} » avait été modifié sur deux appareils : la version de cet appareil est gardée à part, sous le titre « … (conflit) ».` : `${c.titre} : ${c.raison || 'modifié sur deux appareils, la version la plus récente de GitHub a été gardée.'}`))))),
+        s.conflits && s.conflits.length > 0 && h('ul', { className: 'liste-alertes' }, s.conflits.map((c, i) => h('li', { key: i, className: 'avertissement' }, h('span', null, detailConflit(c)))))),
       h(Carte, { titre: 'Connexion à ton dépôt privé', info: 'Ces informations restent sur cet appareil. À saisir une fois sur chacun de tes appareils.' },
         h(Ligne, { etiquette: 'Pseudo GitHub' }, h('input', { className: 'champ-texte', value: proprietaire, autoCapitalize: 'off', autoCorrect: 'off', spellCheck: false, onChange: (e) => setProprietaire(e.target.value), 'aria-label': 'Pseudo GitHub' })),
         h(Ligne, { etiquette: 'Nom du dépôt de données' }, h('input', { className: 'champ-texte', value: depot, autoCapitalize: 'off', autoCorrect: 'off', spellCheck: false, onChange: (e) => setDepot(e.target.value), 'aria-label': 'Nom du dépôt' })),
@@ -3415,7 +3448,7 @@
         const rapport = await depot.synchroniser();
         if (rapport.recus || rapport.supprimes || rapport.conflits.length) await recharger();
         dispatch({ type: 'synchro', synchro: { statut: rapport.conflits.length ? 'conflit' : 'a-jour', derniere: maintenant(), ...(await attenteDe(depot)), conflits: rapport.conflits, detail: '' } });
-        if (rapport.conflits.length) dispatch({ type: 'message', message: 'Un article avait été modifié sur deux appareils : les deux versions sont gardées. Détails dans Configuration › Synchronisation.' });
+        if (rapport.conflits.length) dispatch({ type: 'message', message: messageConflits(rapport.conflits) });
       } catch (erreur) {
         dispatch({ type: 'synchro', synchro: { statut: erreur.code === 'reseau' ? 'hors-ligne' : 'erreur', detail: erreur.message, ...(await attenteDe(depot)) } });
       } finally {
@@ -3549,7 +3582,7 @@
     }
   }
 
-  const api = { App, Filet, reducteur, OP, normaliserProjet, trierArticles, appliquerModele, ETAT_INITIAL, PROJET_DEFAUT, EXEMPLE, REGLAGES_DEFAUT, verifierLisibilite, contraste, extraitAvecMarque, fabriquerChoix };
+  const api = { App, Filet, reducteur, OP, messageConflits, detailConflit, normaliserProjet, trierArticles, appliquerModele, ETAT_INITIAL, PROJET_DEFAUT, EXEMPLE, REGLAGES_DEFAUT, verifierLisibilite, contraste, extraitAvecMarque, fabriquerChoix };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else {
     racine.addEventListener('DOMContentLoaded', () => {

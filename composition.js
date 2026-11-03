@@ -829,7 +829,14 @@
           const { i, n } = selection;
           if (!n.length) return;
           const vide = article.slides[i].blocs.length === n.length && total > 1;
-          majA((a) => { const x = OP.supprimerBlocs(i, n)(a); return vide ? { ...x, slides: x.slides.filter((_, kk) => kk !== i) } : x; }, null,
+          majA((a) => {
+            const x = OP.supprimerBlocs(i, n)(a);
+            if (!vide) return x;
+            // La page vide est retirée ; si elle portait la signature (logo de fin), la nouvelle dernière page la reprend.
+            const slides = x.slides.filter((_, kk) => kk !== i);
+            if (x.slides[i] && x.slides[i].signature && slides.length) slides[slides.length - 1] = { ...slides[slides.length - 1], signature: true };
+            return { ...x, slides };
+          }, null,
             `${n.length > 1 ? n.length + ' blocs supprimés' : 'Bloc supprimé'}, avec leur texte dans l’article.${vide ? ' La page, vide, a été retirée.' : ''}`);
           setSelection({ i: null, n: [] });
         },

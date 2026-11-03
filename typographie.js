@@ -77,9 +77,12 @@
           ajouter(j, k + 1, NB + c, 'espace', c, [j - 1, k + 1]);
         } else {
           if (prec === undefined || prec === '\n' || !COLLABLE.test(prec)) continue;
-          if (c === ':' && /\d/.test(prec)) continue; // heures et rapports : 14:30
+          // Heures et rapports (14:30, 1:2) : après un chiffre, on attend de voir la suite. Les deux-points suivis
+          // d'une espace (« En 2026: une année ») sont corrigés, y compris quand on tape cette espace.
+          const apresChiffre = c === ':' && /\d/.test(prec);
+          if (apresChiffre && !estEspace(t[k + 1])) continue;
           if (c === ':' && PROTOCOLES.test(motAvant(t, k))) continue; // http:
-          ajouter(k, k + 1, NB + c, 'espace', c, [k - 1, k + 1]);
+          ajouter(k, k + 1, NB + c, 'espace', c, [k - 1, apresChiffre ? k + 2 : k + 1]);
         }
         continue;
       }

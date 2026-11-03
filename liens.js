@@ -507,11 +507,23 @@
         r = fusionnerBlocs(a, i, place + 1);
       }
       if (!r) {
-        // Bloc sans lien avec le texte (copie de slide) : les textes sont simplement réunis.
         const x = a.slides[i].blocs[place];
         const y = a.slides[i].blocs[place + 1];
-        const fusion = avecMarques({ ...x, texte: x.texte + ' ' + y.texte }, [...(x.marques || []), ...decalerMarques(y.marques, x.texte.length + 1)]);
-        if (y.lien) Object.assign(fusion, {}); // le texte de y reste dans l'article ; Vérifier le signalera
+        const texte = x.texte + ' ' + y.texte;
+        const marques = [...(x.marques || []), ...decalerMarques(y.marques, x.texte.length + 1)];
+        const lie = x.lien ? place : y.lien ? place + 1 : -1;
+        if ((x.lien && !y.lien) || (!x.lien && y.lien)) {
+          // Un paragraphe de l'article et un texte ajouté (copie de page, par exemple) : le texte ajouté entre dans
+          // l'article, collé au paragraphe. Sinon il disparaissait à la modification suivante du texte (bloc lié en premier),
+          // ou le paragraphe perdait son lien avec l'article (texte ajouté en premier).
+          a = modifierBlocLie(a, i, lie, texte);
+          const relie = a.slides[i].blocs[lie];
+          const fusion = avecMarques({ ...x, lien: relie.lien, texte: relie.texte }, marques); // l'apparence du premier bloc, comme les autres fusions
+          a = { ...a, slides: a.slides.map((s, kk) => (kk !== i ? s : { ...s, blocs: [...s.blocs.slice(0, place), fusion, ...s.blocs.slice(place + 2)] })) };
+          continue;
+        }
+        // Cas restant (deux paragraphes liés qu'on n'a pas pu rapprocher) : les textes sont simplement réunis.
+        const fusion = avecMarques({ ...x, texte }, marques);
         a = { ...a, slides: a.slides.map((s, kk) => (kk !== i ? s : { ...s, blocs: [...s.blocs.slice(0, place), fusion, ...s.blocs.slice(place + 2)] })) };
         continue;
       }
